@@ -128,14 +128,19 @@ body {
   font-size: 1.55rem;
 }
 
-.landing-form-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.45rem;
+.landing-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
-.landing-form-row input {
+.landing-form-col input {
   min-width: 0;
+  width: 100%;
+}
+
+.landing-form-col button {
+  align-self: stretch;
 }
 
 .topbar-controls {
@@ -1373,8 +1378,8 @@ body[data-mode="chill"] .spectrogram-dock {
     top: 54px;
   }
 
-  .landing-form-row {
-    grid-template-columns: 1fr;
+  .landing-form-col {
+    width: 100%;
   }
 
   .mobile-filters-btn {

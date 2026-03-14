@@ -31,13 +31,14 @@ const state = {
 const STORAGE_MODE_KEY = "soundscapeAtlas.uiMode";
 const STORAGE_THEME_KEY = "soundscapeAtlas.theme";
 const STORAGE_USER_KEY = "soundscapeAtlas.userName";
-const STORAGE_LIKES_KEY = "soundscapeAtlas.segmentLikes";
-const STORAGE_COMMENTS_KEY = "soundscapeAtlas.timelineComments";
+// Likes are stored in Cloudflare D1 via /api/likes
+// Comments are now stored in Cloudflare D1 via /api/comments
 
 const dom = {
   datasetSummary: document.getElementById("datasetSummary"),
   landingOverlay: document.getElementById("landingOverlay"),
   landingSignInName: document.getElementById("landingSignInName"),
+  landingSignInPassword: document.getElementById("landingSignInPassword"),
   landingSignInBtn: document.getElementById("landingSignInBtn"),
   landingSignInHint: document.getElementById("landingSignInHint"),
   signedInBadge: document.getElementById("signedInBadge"),
@@ -190,8 +191,7 @@ async function init() {
     buildFilterOptions(state.segments);
     wireEvents();
     restoreSignedInUser();
-    restoreSegmentLikes();
-    restoreTimelineComments();
+    state.commentsBySegmentId = {};
     renderUserLibrary();
     applyTheme(loadStoredTheme());
     applyUIMode(loadStoredUIMode());
@@ -225,6 +225,14 @@ function wireEvents() {
 
   if (dom.landingSignInName) {
     dom.landingSignInName.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        signInFromInput();
+      }
+    });
+  }
+
+  if (dom.landingSignInPassword) {
+    dom.landingSignInPassword.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         signInFromInput();
       }
@@ -801,32 +809,93 @@ function applyUIMode(mode) {
   handleViewportChange();
 }
 
-function signInFromInput() {
+async function signInFromInput() {
   if (!dom.landingSignInName) {
     return;
   }
 
   const name = dom.landingSignInName.value.trim();
+  const password = dom.landingSignInPassword ? dom.landingSignInPassword.value : "";
+
   if (!name) {
     if (dom.landingSignInHint) {
-      dom.landingSignInHint.textContent = "Enter a name to continue.";
+      dom.landingSignInHint.textContent = "Enter a username to continue.";
     }
     return;
   }
 
-  state.signedInUser = name;
-  try {
-    localStorage.setItem(STORAGE_USER_KEY, name);
-  } catch {
-    // Ignore storage failures.
+  if (!password || password.length < 6) {
+    if (dom.landingSignInHint) {
+      dom.landingSignInHint.textContent = "Password must be at least 6 characters.";
+    }
+    return;
   }
 
   if (dom.landingSignInHint) {
-    dom.landingSignInHint.textContent = "Name stays in this browser only.";
+    dom.landingSignInHint.textContent = "Signing in\u2026";
+  }
+  if (dom.landingSignInBtn) {
+    dom.landingSignInBtn.disabled = true;
   }
 
-  updateAuthUI();
-  renderUserLibrary();
+  try {
+    const response = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password }),
+    });
+
+    if (response.status === 401) {
+      if (dom.landingSignInHint) {
+        dom.landingSignInHint.textContent = "Incorrect password. Try again.";
+      }
+      if (dom.landingSignInPassword) {
+        dom.landingSignInPassword.value = "";
+        dom.landingSignInPassword.focus();
+      }
+      return;
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (dom.landingSignInHint) {
+        if (response.status === 404 || response.status === 405 || response.status === 501) {
+          dom.landingSignInHint.textContent = "Auth API unavailable on this server. Use Cloudflare Pages Functions (wrangler pages dev).";
+        } else {
+          dom.landingSignInHint.textContent = err.error || "Sign-in failed. Try again.";
+        }
+      }
+      return;
+    }
+
+    const data = await response.json();
+    state.signedInUser = data.name;
+    try {
+      localStorage.setItem(STORAGE_USER_KEY, data.name);
+    } catch {
+      // Ignore storage failures.
+    }
+
+    if (dom.landingSignInHint) {
+      dom.landingSignInHint.textContent = data.is_new ? "Account created. Welcome!" : "Signed in.";
+    }
+    if (dom.landingSignInPassword) {
+      dom.landingSignInPassword.value = "";
+    }
+
+    updateAuthUI();
+    await fetchLikesForUser(data.name);
+    renderUserLibrary();
+    fetchAllCommentsForUser(data.name);
+  } catch {
+    if (dom.landingSignInHint) {
+      dom.landingSignInHint.textContent = "Network error. Check your connection.";
+    }
+  } finally {
+    if (dom.landingSignInBtn) {
+      dom.landingSignInBtn.disabled = false;
+    }
+  }
 }
 
 function signOutUser() {
@@ -840,6 +909,9 @@ function signOutUser() {
   closeSettingsMenu();
   if (dom.landingSignInName) {
     dom.landingSignInName.value = "";
+  }
+  if (dom.landingSignInPassword) {
+    dom.landingSignInPassword.value = "";
   }
 
   updateAuthUI();
@@ -855,24 +927,33 @@ function restoreSignedInUser() {
   }
 
   updateAuthUI();
-  renderUserLibrary();
-}
-
-function restoreSegmentLikes() {
-  try {
-    const raw = localStorage.getItem(STORAGE_LIKES_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    state.likedSegmentsByUser = parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    state.likedSegmentsByUser = {};
+  if (state.signedInUser) {
+    fetchLikesForUser(state.signedInUser).then(() => renderUserLibrary());
+    fetchAllCommentsForUser(state.signedInUser);
+  } else {
+    renderUserLibrary();
   }
 }
 
-function saveSegmentLikes() {
+async function fetchLikesForUser(userName) {
   try {
-    localStorage.setItem(STORAGE_LIKES_KEY, JSON.stringify(state.likedSegmentsByUser));
+    const response = await fetch(`/api/likes?user=${encodeURIComponent(userName)}`);
+    if (!response.ok) {
+      return;
+    }
+    const rows = await response.json();
+    if (!Array.isArray(rows)) {
+      return;
+    }
+    const map = {};
+    for (const row of rows) {
+      map[row.segment_id] = row.created_at;
+    }
+    state.likedSegmentsByUser[userName] = map;
+    updateActiveSegmentLikeButton();
+    renderSegmentList(state.filteredSegments);
   } catch {
-    // Ignore storage failures.
+    // Silently ignored — likes just won't show until next load.
   }
 }
 
@@ -895,7 +976,7 @@ function isSegmentLikedForSignedInUser(segmentId) {
   return Boolean(likes[segmentId]);
 }
 
-function toggleLikeForSegment(segmentId) {
+async function toggleLikeForSegment(segmentId) {
   if (!segmentId) {
     return;
   }
@@ -908,20 +989,41 @@ function toggleLikeForSegment(segmentId) {
   }
 
   const current = getSignedInUserLikesMap();
-  const next = { ...current };
-  const isLiked = Boolean(next[segmentId]);
+  const isLiked = Boolean(current[segmentId]);
 
+  // Optimistic update so the UI responds instantly.
+  const next = { ...current };
   if (isLiked) {
     delete next[segmentId];
   } else {
     next[segmentId] = new Date().toISOString();
   }
-
   state.likedSegmentsByUser[state.signedInUser] = next;
-  saveSegmentLikes();
   updateActiveSegmentLikeButton();
   renderSegmentList(state.filteredSegments);
   renderUserLibrary();
+
+  try {
+    if (isLiked) {
+      await fetch("/api/likes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_name: state.signedInUser, segment_id: segmentId }),
+      });
+    } else {
+      await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_name: state.signedInUser, segment_id: segmentId }),
+      });
+    }
+  } catch {
+    // Revert optimistic update on network failure.
+    state.likedSegmentsByUser[state.signedInUser] = current;
+    updateActiveSegmentLikeButton();
+    renderSegmentList(state.filteredSegments);
+    renderUserLibrary();
+  }
 
   if (dom.timelineHint) {
     dom.timelineHint.textContent = isLiked
@@ -953,53 +1055,52 @@ function updateActiveSegmentLikeButton() {
   dom.toggleSegmentLikeBtn.title = liked ? "Saved" : "Save segment";
 }
 
-function restoreTimelineComments() {
+async function fetchCommentsForSegment(segmentId) {
   try {
-    const raw = localStorage.getItem(STORAGE_COMMENTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    const source = parsed && typeof parsed === "object" ? parsed : {};
-    const cleaned = {};
+    const response = await fetch(`/api/comments?segment_id=${encodeURIComponent(segmentId)}`);
+    if (!response.ok) {
+      return;
+    }
+    const comments = await response.json();
+    if (Array.isArray(comments)) {
+      state.commentsBySegmentId[segmentId] = comments
+        .map((c) => ({ ...c, type: "comment" }))
+        .sort((a, b) => Number(a.sec) - Number(b.sec));
+    }
+  } catch {
+    // Network errors silently ignored; fall back to in-memory state.
+  }
+}
 
-    for (const [segmentId, entries] of Object.entries(source)) {
-      if (!Array.isArray(entries)) {
-        continue;
+async function fetchAllCommentsForUser(user) {
+  try {
+    const response = await fetch(`/api/comments?user=${encodeURIComponent(user)}`);
+    if (!response.ok) {
+      return;
+    }
+    const comments = await response.json();
+    if (!Array.isArray(comments)) {
+      return;
+    }
+    for (const comment of comments) {
+      const sid = comment.segment_id;
+      if (!Array.isArray(state.commentsBySegmentId[sid])) {
+        state.commentsBySegmentId[sid] = [];
       }
-
-      const comments = entries
-        .filter((entry) => entry && entry.type !== "mark")
-        .map((entry) => ({
-          id: String(entry.id || `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`),
-          user: String(entry.user || "Unknown"),
-          text: String(entry.text || "").trim(),
-          type: "comment",
-          sec: Number.isFinite(Number(entry.sec)) ? Math.max(0, Number(entry.sec)) : 0,
-          created_at: String(entry.created_at || new Date().toISOString()),
-        }))
-        .filter((entry) => entry.text !== "");
-
-      if (comments.length > 0) {
-        comments.sort((a, b) => Number(a.sec) - Number(b.sec));
-        cleaned[segmentId] = comments;
+      if (!state.commentsBySegmentId[sid].some((c) => c.id === comment.id)) {
+        state.commentsBySegmentId[sid].push({ ...comment, type: "comment" });
       }
     }
-
-    state.commentsBySegmentId = cleaned;
+    for (const sid of Object.keys(state.commentsBySegmentId)) {
+      state.commentsBySegmentId[sid].sort((a, b) => Number(a.sec) - Number(b.sec));
+    }
+    renderUserLibrary();
   } catch {
-    state.commentsBySegmentId = {};
-  }
-
-  saveTimelineComments();
-}
-
-function saveTimelineComments() {
-  try {
-    localStorage.setItem(STORAGE_COMMENTS_KEY, JSON.stringify(state.commentsBySegmentId));
-  } catch {
-    // Ignore storage failures.
+    // Silently ignored.
   }
 }
 
-function addTimelineComment(annotation) {
+async function addTimelineComment(annotation) {
   const segmentId = state.activeSegment?.segment_id;
   if (!segmentId) {
     if (dom.timelineHint) {
@@ -1028,35 +1129,56 @@ function addTimelineComment(annotation) {
     ? Math.max(0, atSecRaw)
     : Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
 
-  const list = Array.isArray(state.commentsBySegmentId[segmentId])
-    ? state.commentsBySegmentId[segmentId]
-    : [];
-
-  list.push({
-    id: `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
-    user: state.signedInUser,
-    text,
-    type: "comment",
-    sec: atSec,
-    created_at: new Date().toISOString(),
-  });
-
-  list.sort((a, b) => Number(a.sec) - Number(b.sec));
-  state.commentsBySegmentId[segmentId] = list;
-  saveTimelineComments();
-  renderUserLibrary();
-
-  state.showTimelineComments = true;
-  if (dom.showCommentsToggle) {
-    dom.showCommentsToggle.checked = true;
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = "Saving comment\u2026";
   }
 
-  state.selectedTimelineComment = null;
-  updateDeleteTimelineCommentButton();
+  try {
+    const response = await fetch("/api/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        segment_id: segmentId,
+        user: state.signedInUser,
+        text,
+        sec: atSec,
+      }),
+    });
 
-  renderDetectionTimeline(state.activeSegment);
-  if (dom.timelineHint) {
-    dom.timelineHint.textContent = `Comment added at ${formatTime(atSec)}.`;
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (dom.timelineHint) {
+        dom.timelineHint.textContent = `Could not save comment: ${err.error || response.status}`;
+      }
+      return;
+    }
+
+    const comment = await response.json();
+    const list = Array.isArray(state.commentsBySegmentId[segmentId])
+      ? state.commentsBySegmentId[segmentId]
+      : [];
+
+    list.push({ ...comment, type: "comment" });
+    list.sort((a, b) => Number(a.sec) - Number(b.sec));
+    state.commentsBySegmentId[segmentId] = list;
+    renderUserLibrary();
+
+    state.showTimelineComments = true;
+    if (dom.showCommentsToggle) {
+      dom.showCommentsToggle.checked = true;
+    }
+
+    state.selectedTimelineComment = null;
+    updateDeleteTimelineCommentButton();
+    renderDetectionTimeline(state.activeSegment);
+
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = `Comment added at ${formatTime(atSec)}.`;
+    }
+  } catch {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Network error. Could not save comment.";
+    }
   }
 }
 
@@ -1534,6 +1656,11 @@ function selectSegment(segmentId, options = {}) {
   renderSegmentImage(segment);
   updateActiveSegmentLikeButton();
   refreshMarkerIcons();
+  state.selectedTimelineComment = null;
+  updateDeleteTimelineCommentButton();
+  fetchCommentsForSegment(segment.segment_id).then(() => {
+    renderDetectionTimeline(state.activeSegment);
+  });
   renderDetectionTimeline(segment);
 
   const audioSrc = segment.public_url && segment.public_url.trim() !== ""
@@ -1782,7 +1909,7 @@ function updateDeleteTimelineCommentButton() {
   dom.deleteTimelineCommentBtn.textContent = "Delete comment";
 }
 
-function deleteSelectedTimelineComment() {
+async function deleteSelectedTimelineComment() {
   const selected = state.selectedTimelineComment;
   if (!selected) {
     return;
@@ -1801,16 +1928,35 @@ function deleteSelectedTimelineComment() {
     return;
   }
 
-  list.splice(index, 1);
-  state.commentsBySegmentId[selected.segmentId] = list;
-  saveTimelineComments();
-  renderUserLibrary();
+  try {
+    const response = await fetch(`/api/comments/${encodeURIComponent(selected.commentId)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: state.signedInUser }),
+    });
 
-  state.selectedTimelineComment = null;
-  updateDeleteTimelineCommentButton();
-  renderDetectionTimeline(state.activeSegment);
-  if (dom.timelineHint) {
-    dom.timelineHint.textContent = "Comment deleted.";
+    if (!response.ok) {
+      if (dom.timelineHint) {
+        dom.timelineHint.textContent = "Could not delete comment.";
+      }
+      return;
+    }
+
+    list.splice(index, 1);
+    state.commentsBySegmentId[selected.segmentId] = list;
+    renderUserLibrary();
+
+    state.selectedTimelineComment = null;
+    updateDeleteTimelineCommentButton();
+    renderDetectionTimeline(state.activeSegment);
+
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Comment deleted.";
+    }
+  } catch {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Network error. Could not delete comment.";
+    }
   }
 }
 
