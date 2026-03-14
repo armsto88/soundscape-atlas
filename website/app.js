@@ -19,6 +19,7 @@ const state = {
     offsetY: 0,
   },
   uiMode: "full",
+  theme: "dark",
   signedInUser: null,
   commentsBySegmentId: {},
   showTimelineComments: false,
@@ -27,17 +28,23 @@ const state = {
 };
 
 const STORAGE_MODE_KEY = "soundscapeAtlas.uiMode";
+const STORAGE_THEME_KEY = "soundscapeAtlas.theme";
 const STORAGE_USER_KEY = "soundscapeAtlas.userName";
 const STORAGE_COMMENTS_KEY = "soundscapeAtlas.timelineComments";
 
 const dom = {
   datasetSummary: document.getElementById("datasetSummary"),
-  signInName: document.getElementById("signInName"),
-  signInBtn: document.getElementById("signInBtn"),
-  signOutBtn: document.getElementById("signOutBtn"),
+  landingOverlay: document.getElementById("landingOverlay"),
+  landingSignInName: document.getElementById("landingSignInName"),
+  landingSignInBtn: document.getElementById("landingSignInBtn"),
+  landingSignInHint: document.getElementById("landingSignInHint"),
+  signedInBadge: document.getElementById("signedInBadge"),
+  settingsToggleBtn: document.getElementById("settingsToggleBtn"),
+  settingsMenu: document.getElementById("settingsMenu"),
+  modeSelect: document.getElementById("modeSelect"),
+  themeSelect: document.getElementById("themeSelect"),
+  settingsSignOutBtn: document.getElementById("settingsSignOutBtn"),
   authStatus: document.getElementById("authStatus"),
-  modeChillBtn: document.getElementById("modeChillBtn"),
-  modeFullBtn: document.getElementById("modeFullBtn"),
   clusterToggle: document.getElementById("clusterToggle"),
   dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
   seasonFilter: document.getElementById("seasonFilter"),
@@ -132,9 +139,34 @@ L.control
     {
       "Place labels": labelsLayer,
     },
-    { collapsed: true }
+    { collapsed: true, position: "topleft" }
   )
   .addTo(map);
+
+const LocateControl = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+
+  onAdd() {
+    const container = L.DomUtil.create("div", "leaflet-bar leaflet-control leaflet-control-locate");
+    const button = L.DomUtil.create("button", "leaflet-control-locate-btn", container);
+    button.type = "button";
+    button.setAttribute("aria-label", "Find my location");
+    button.title = "Find my location";
+    button.innerHTML = "<span aria-hidden=\"true\">⌖</span>";
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.on(button, "click", (event) => {
+      L.DomEvent.stop(event);
+      findUserLocation();
+    });
+
+    return container;
+  },
+});
+
+new LocateControl().addTo(map);
 
 async function init() {
   try {
@@ -157,6 +189,7 @@ async function init() {
     restoreSignedInUser();
     restoreTimelineComments();
     renderUserLibrary();
+    applyTheme(loadStoredTheme());
     applyUIMode(loadStoredUIMode());
     applyFilters();
 
@@ -180,23 +213,46 @@ async function init() {
 }
 
 function wireEvents() {
-  if (dom.signInBtn) {
-    dom.signInBtn.addEventListener("click", () => {
+  if (dom.landingSignInBtn) {
+    dom.landingSignInBtn.addEventListener("click", () => {
       signInFromInput();
     });
   }
 
-  if (dom.signOutBtn) {
-    dom.signOutBtn.addEventListener("click", () => {
-      signOutUser();
-    });
-  }
-
-  if (dom.signInName) {
-    dom.signInName.addEventListener("keydown", (event) => {
+  if (dom.landingSignInName) {
+    dom.landingSignInName.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         signInFromInput();
       }
+    });
+  }
+
+  if (dom.settingsSignOutBtn) {
+    dom.settingsSignOutBtn.addEventListener("click", () => {
+      signOutUser();
+      closeSettingsMenu();
+    });
+  }
+
+  if (dom.settingsToggleBtn) {
+    dom.settingsToggleBtn.addEventListener("click", () => {
+      toggleSettingsMenu();
+    });
+  }
+
+  if (dom.modeSelect) {
+    dom.modeSelect.addEventListener("change", () => {
+      const mode = dom.modeSelect.value === "chill" ? "chill" : "full";
+      applyUIMode(mode);
+      storeUIMode(mode);
+    });
+  }
+
+  if (dom.themeSelect) {
+    dom.themeSelect.addEventListener("change", () => {
+      const theme = dom.themeSelect.value === "light" ? "light" : "dark";
+      applyTheme(theme);
+      storeTheme(theme);
     });
   }
 
@@ -263,20 +319,6 @@ function wireEvents() {
       const commentId = button.getAttribute("data-comment-id") || "";
       const sec = Number(button.getAttribute("data-sec"));
       recallLibraryItem(segmentId, commentId, sec);
-    });
-  }
-
-  if (dom.modeChillBtn) {
-    dom.modeChillBtn.addEventListener("click", () => {
-      applyUIMode("chill");
-      storeUIMode("chill");
-    });
-  }
-
-  if (dom.modeFullBtn) {
-    dom.modeFullBtn.addEventListener("click", () => {
-      applyUIMode("full");
-      storeUIMode("full");
     });
   }
 
@@ -368,6 +410,7 @@ function wireEvents() {
     if (event.key === "Escape") {
       closeMapImageLightbox();
       closeTimelineActionMenu();
+      closeSettingsMenu();
     }
   });
 
@@ -375,6 +418,14 @@ function wireEvents() {
     if (!(event.target instanceof Element)) {
       return;
     }
+
+    if (dom.settingsMenu && !dom.settingsMenu.hidden) {
+      const clickedInsideSettings = event.target.closest("#settingsMenu") || event.target.closest("#settingsToggleBtn");
+      if (!clickedInsideSettings) {
+        closeSettingsMenu();
+      }
+    }
+
     if (!dom.timelineActionMenu || dom.timelineActionMenu.hidden) {
       return;
     }
@@ -604,6 +655,43 @@ function handleViewportChange() {
   }, 120);
 }
 
+function findUserLocation() {
+  if (!navigator.geolocation) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Location is not available in this browser.";
+    }
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = Number(position.coords.latitude);
+      const longitude = Number(position.coords.longitude);
+      const accuracy = Number(position.coords.accuracy);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return;
+      }
+
+      map.flyTo([latitude, longitude], Math.max(map.getZoom(), 13), { duration: 0.9 });
+
+      if (dom.timelineHint) {
+        const accuracyText = Number.isFinite(accuracy) ? ` Accuracy about ${Math.round(accuracy)} m.` : "";
+        dom.timelineHint.textContent = `Centered on your location.${accuracyText}`;
+      }
+    },
+    () => {
+      if (dom.timelineHint) {
+        dom.timelineHint.textContent = "Could not access your location.";
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000,
+    }
+  );
+}
+
 function loadStoredUIMode() {
   try {
     const mode = localStorage.getItem(STORAGE_MODE_KEY);
@@ -621,19 +709,59 @@ function storeUIMode(mode) {
   }
 }
 
+function loadStoredTheme() {
+  try {
+    const theme = localStorage.getItem(STORAGE_THEME_KEY);
+    if (theme === "light" || theme === "sandstone") {
+      return "light";
+    }
+    return "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+function storeTheme(theme) {
+  try {
+    localStorage.setItem(STORAGE_THEME_KEY, theme);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === "light" ? "light" : "dark";
+  state.theme = nextTheme;
+  document.body.setAttribute("data-theme", nextTheme);
+
+  if (dom.themeSelect) {
+    dom.themeSelect.value = nextTheme;
+  }
+}
+
+function toggleSettingsMenu() {
+  if (!dom.settingsMenu || !dom.settingsToggleBtn) {
+    return;
+  }
+  dom.settingsMenu.hidden = !dom.settingsMenu.hidden;
+  dom.settingsToggleBtn.setAttribute("aria-expanded", dom.settingsMenu.hidden ? "false" : "true");
+}
+
+function closeSettingsMenu() {
+  if (!dom.settingsMenu || !dom.settingsToggleBtn) {
+    return;
+  }
+  dom.settingsMenu.hidden = true;
+  dom.settingsToggleBtn.setAttribute("aria-expanded", "false");
+}
+
 function applyUIMode(mode) {
   const nextMode = mode === "chill" ? "chill" : "full";
   state.uiMode = nextMode;
   document.body.setAttribute("data-mode", nextMode);
 
-  if (dom.modeChillBtn) {
-    dom.modeChillBtn.classList.toggle("active", nextMode === "chill");
-    dom.modeChillBtn.setAttribute("aria-pressed", nextMode === "chill" ? "true" : "false");
-  }
-
-  if (dom.modeFullBtn) {
-    dom.modeFullBtn.classList.toggle("active", nextMode === "full");
-    dom.modeFullBtn.setAttribute("aria-pressed", nextMode === "full" ? "true" : "false");
+  if (dom.modeSelect) {
+    dom.modeSelect.value = nextMode;
   }
 
   if (nextMode === "chill") {
@@ -661,14 +789,14 @@ function applyUIMode(mode) {
 }
 
 function signInFromInput() {
-  if (!dom.signInName) {
+  if (!dom.landingSignInName) {
     return;
   }
 
-  const name = dom.signInName.value.trim();
+  const name = dom.landingSignInName.value.trim();
   if (!name) {
-    if (dom.authStatus) {
-      dom.authStatus.textContent = "Enter a name to sign in.";
+    if (dom.landingSignInHint) {
+      dom.landingSignInHint.textContent = "Enter a name to continue.";
     }
     return;
   }
@@ -678,6 +806,10 @@ function signInFromInput() {
     localStorage.setItem(STORAGE_USER_KEY, name);
   } catch {
     // Ignore storage failures.
+  }
+
+  if (dom.landingSignInHint) {
+    dom.landingSignInHint.textContent = "Name stays in this browser only.";
   }
 
   updateAuthUI();
@@ -690,6 +822,11 @@ function signOutUser() {
     localStorage.removeItem(STORAGE_USER_KEY);
   } catch {
     // Ignore storage failures.
+  }
+
+  closeSettingsMenu();
+  if (dom.landingSignInName) {
+    dom.landingSignInName.value = "";
   }
 
   updateAuthUI();
@@ -862,25 +999,33 @@ function addTimelineAnnotationFromMenu() {
 function updateAuthUI() {
   const signedIn = Boolean(state.signedInUser);
 
-  if (dom.signInName) {
-    dom.signInName.disabled = signedIn;
-    if (!signedIn) {
-      dom.signInName.value = "";
-    }
-  }
-
-  if (dom.signInBtn) {
-    dom.signInBtn.hidden = signedIn;
-  }
-
-  if (dom.signOutBtn) {
-    dom.signOutBtn.hidden = !signedIn;
+  if (dom.landingOverlay) {
+    dom.landingOverlay.hidden = signedIn;
   }
 
   if (dom.authStatus) {
     dom.authStatus.textContent = signedIn
       ? `Signed in as ${state.signedInUser}.`
       : "Not signed in.";
+  }
+
+  if (dom.signedInBadge) {
+    dom.signedInBadge.textContent = signedIn ? state.signedInUser : "Guest";
+  }
+
+  if (dom.settingsSignOutBtn) {
+    dom.settingsSignOutBtn.disabled = !signedIn;
+  }
+
+  if (dom.settingsToggleBtn) {
+    dom.settingsToggleBtn.disabled = !signedIn;
+  }
+
+  if (!signedIn) {
+    closeSettingsMenu();
+    if (dom.landingSignInName) {
+      dom.landingSignInName.focus();
+    }
   }
 
   updateDeleteTimelineCommentButton();

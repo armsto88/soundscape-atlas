@@ -27,65 +27,69 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div id="landingOverlay" class="landing-overlay" hidden>
+      <section class="landing-card" aria-label="Sign in">
+        <p class="kicker">Soundscape Atlas</p>
+        <h1>Sign In To Enter</h1>
+        <p class="subtle">Use your name to start listening, annotate timelines, and keep your comment library.</p>
+        <div class="landing-form-row">
+          <input id="landingSignInName" type="text" placeholder="Your name" maxlength="40" autocomplete="name" />
+          <button id="landingSignInBtn" type="button">Enter Atlas</button>
+        </div>
+        <p id="landingSignInHint" class="subtle">Name stays in this browser only.</p>
+      </section>
+    </div>
+
     <div class="app-shell">
       <aside class="sidebar">
         <header class="sidebar-header">
           <p class="kicker">Soundscape Atlas</p>
           <h1>Field Listening Map</h1>
           <p id="datasetSummary" class="subtle"></p>
-          <div class="auth-row" aria-label="Sign in">
-            <input id="signInName" type="text" placeholder="Your name" maxlength="40" autocomplete="name" />
-            <button id="signInBtn" type="button">Sign in</button>
-            <button id="signOutBtn" type="button" hidden>Sign out</button>
-          </div>
-          <p id="authStatus" class="subtle">Not signed in.</p>
-          <div class="mode-switch" role="group" aria-label="App mode">
-            <button id="modeChillBtn" type="button" class="mode-btn">Chill</button>
-            <button id="modeFullBtn" type="button" class="mode-btn">Full</button>
-          </div>
+          <p id="authStatus" class="subtle" hidden></p>
         </header>
 
         <details class="panel controls-panel" id="controlsPanel" open>
           <summary class="panel-summary"><h2>Explore</h2></summary>
           <div class="controls-body">
-          <label for="seasonFilter">Season</label>
-          <select id="seasonFilter">
-            <option value="all">All seasons</option>
-          </select>
+            <label for="seasonFilter">Season</label>
+            <select id="seasonFilter">
+              <option value="all">All seasons</option>
+            </select>
 
-          <label for="hourRangeMin">Hour range</label>
-          <div class="range-row">
-            <input id="hourRangeMin" type="range" min="0" max="23" value="0" step="1" />
-            <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" />
-          </div>
-          <p id="hourRangeLabel" class="subtle">00:00 to 23:00</p>
-          <div class="time-blocks" aria-label="Ecological time shortcuts">
-            <button type="button" class="time-chip" data-time-block="night">Night</button>
-            <button type="button" class="time-chip" data-time-block="dawn">Dawn</button>
-            <button type="button" class="time-chip" data-time-block="morning">Morning</button>
-            <button type="button" class="time-chip" data-time-block="afternoon">Afternoon</button>
-            <button type="button" class="time-chip" data-time-block="dusk">Dusk</button>
-          </div>
-
-          <details class="advanced-filters" id="advancedFilters">
-            <summary>Advanced filters</summary>
-            <div class="advanced-body">
-              <label for="speciesFilter">Species (match any)</label>
-              <select id="speciesFilter" multiple size="6"></select>
-
-              <label class="inline-check" for="clusterToggle">
-                <input id="clusterToggle" type="checkbox" checked />
-                Cluster nearby points
-              </label>
-
-              <label class="inline-check" for="dawnDuskOnlyToggle">
-                <input id="dawnDuskOnlyToggle" type="checkbox" />
-                Dawn/dusk only
-              </label>
+            <label for="hourRangeMin">Hour range</label>
+            <div class="range-row">
+              <input id="hourRangeMin" type="range" min="0" max="23" value="0" step="1" />
+              <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" />
             </div>
-          </details>
+            <p id="hourRangeLabel" class="subtle">00:00 to 23:00</p>
+            <div class="time-blocks" aria-label="Ecological time shortcuts">
+              <button type="button" class="time-chip" data-time-block="night">Night</button>
+              <button type="button" class="time-chip" data-time-block="dawn">Dawn</button>
+              <button type="button" class="time-chip" data-time-block="morning">Morning</button>
+              <button type="button" class="time-chip" data-time-block="afternoon">Afternoon</button>
+              <button type="button" class="time-chip" data-time-block="dusk">Dusk</button>
+            </div>
 
-          <button id="clearFiltersBtn" type="button">Clear filters</button>
+            <details class="advanced-filters" id="advancedFilters">
+              <summary>Advanced filters</summary>
+              <div class="advanced-body">
+                <label for="speciesFilter">Species (match any)</label>
+                <select id="speciesFilter" multiple size="6"></select>
+
+                <label class="inline-check" for="clusterToggle">
+                  <input id="clusterToggle" type="checkbox" checked />
+                  Cluster nearby points
+                </label>
+
+                <label class="inline-check" for="dawnDuskOnlyToggle">
+                  <input id="dawnDuskOnlyToggle" type="checkbox" />
+                  Dawn/dusk only
+                </label>
+              </div>
+            </details>
+
+            <button id="clearFiltersBtn" type="button">Clear filters</button>
           </div>
         </details>
 
@@ -105,7 +109,7 @@
           <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
 
           <div class="transport">
-            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">−10s</button>
+            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">-10s</button>
             <button id="playPauseBtn" class="transport-btn t-play" type="button" aria-label="Play" disabled>
               <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
               <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -157,6 +161,39 @@
       </aside>
 
       <main class="map-wrap">
+        <div class="topbar-controls topbar-cluster">
+          <span id="signedInBadge" class="signed-in-badge">Guest</span>
+          <div class="settings-wrap">
+            <button
+              id="settingsToggleBtn"
+              class="settings-toggle-btn"
+              type="button"
+              aria-label="Open settings"
+              aria-expanded="false"
+              aria-controls="settingsMenu"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.49-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.13.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.41 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.84a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.13-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" fill="currentColor"/>
+              </svg>
+            </button>
+            <div id="settingsMenu" class="settings-menu" hidden>
+              <label for="modeSelect">Mode</label>
+              <select id="modeSelect" aria-label="Mode selector">
+                <option value="chill">Chill</option>
+                <option value="full">Full</option>
+              </select>
+
+              <label for="themeSelect">Theme</label>
+              <select id="themeSelect" aria-label="Theme selector">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+
+              <button id="settingsSignOutBtn" type="button">Sign out</button>
+            </div>
+          </div>
+        </div>
+
         <div class="map-overlay">
           <p>Click a sound point to load a segment in the player.</p>
         </div>
