@@ -1,0 +1,2 @@
+site_id,site_name,country_code,region_code,locality,latitude,longitude,elevation_m,habitat,biome,public_location_precision,description,is_sensitive
+AU_NSW_IMBOTA,Imbota Creek,AU,NSW,Armidale,-30.4580,151.6350,980,riparian_forest,temperate,rounded,Creek-side forest site with strong dawn bird activity and flowing water,false
