@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Soundscape Atlas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <header class="sidebar-header">
+          <p class="kicker">Soundscape Atlas</p>
+          <h1>Field Listening Map</h1>
+          <p id="datasetSummary" class="subtle"></p>
+        </header>
+
+        <details class="panel controls-panel" id="controlsPanel" open>
+          <summary class="panel-summary"><h2>Explore</h2></summary>
+          <div class="controls-body">
+          <label for="seasonFilter">Season</label>
+          <select id="seasonFilter">
+            <option value="all">All seasons</option>
+          </select>
+
+          <label for="hourRangeMin">Hour range</label>
+          <div class="range-row">
+            <input id="hourRangeMin" type="range" min="0" max="23" value="0" step="1" />
+            <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" />
+          </div>
+          <p id="hourRangeLabel" class="subtle">00:00 to 23:00</p>
+
+          <details class="advanced-filters" id="advancedFilters">
+            <summary>Advanced filters</summary>
+            <div class="advanced-body">
+              <label for="speciesFilter">Species (match any)</label>
+              <select id="speciesFilter" multiple size="6"></select>
+
+              <label class="inline-check" for="clusterToggle">
+                <input id="clusterToggle" type="checkbox" checked />
+                Cluster nearby points
+              </label>
+
+              <label class="inline-check" for="dawnDuskOnlyToggle">
+                <input id="dawnDuskOnlyToggle" type="checkbox" />
+                Dawn/dusk only
+              </label>
+            </div>
+          </details>
+
+          <button id="clearFiltersBtn" type="button">Clear filters</button>
+          </div>
+        </details>
+
+        <details class="panel segment-panel" id="segmentPanel" open>
+          <summary class="panel-summary"><h2>Segments</h2></summary>
+          <ul id="segmentList" class="segment-list"></ul>
+        </details>
+
+        <section class="panel player-panel" id="playerPanel">
+          <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
+          <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
+
+          <div class="transport">
+            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">−10s</button>
+            <button id="playPauseBtn" class="transport-btn t-play" type="button" aria-label="Play" disabled>
+              <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button id="skipFwdBtn" class="transport-btn t-skip" type="button" aria-label="Skip forward 10 seconds">+10s</button>
+          </div>
+
+          <div class="seek-wrap">
+            <span id="seekCurrentTime" class="time-stamp">0:00</span>
+            <input id="seekBar" type="range" min="0" max="1" step="0.001" value="0" class="seek-bar" aria-label="Seek" />
+            <span id="seekDuration" class="time-stamp">0:00</span>
+          </div>
+
+          <div class="extra-controls">
+            <label class="vol-label">
+              <span class="subtle">Vol</span>
+              <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" class="vol-slider" aria-label="Volume" />
+            </label>
+            <div class="spectrogram-ctrl">
+              <select id="spectrogramMode">
+                <option value="live" selected>Live</option>
+                <option value="image">Image</option>
+              </select>
+              <button id="toggleSpectrogramBtn" type="button">Spectrogram</button>
+            </div>
+          </div>
+
+          <canvas id="spectrogramCanvas" width="760" height="180" hidden></canvas>
+          <img id="spectrogramImage" alt="Spectrogram" hidden />
+          <p id="spectrogramHint" class="subtle" hidden>Live spectrogram view derived from audio playback.</p>
+        </section>
+
+        <details class="panel metadata-panel" id="metadataPanel" open>
+          <summary class="panel-summary"><h2>Segment metadata</h2></summary>
+          <dl id="metadataGrid" class="metadata-grid"></dl>
+          <h3>Top detected species</h3>
+          <ul id="speciesList" class="species-list"></ul>
+        </details>
+      </aside>
+
+      <main class="map-wrap">
+        <div class="map-overlay">
+          <p>Click a sound point to load a segment in the player.</p>
+        </div>
+        <button id="mobileFiltersBtn" class="mobile-filters-btn" type="button">Filters</button>
+        <div id="map" aria-label="Soundscape map"></div>
+        <section class="panel audio-timeline-panel">
+          <div class="timeline-header">
+            <h2>Detection Timeline</h2>
+            <p id="audioTimeLabel" class="subtle">00:00 / 00:00</p>
+          </div>
+          <div id="audioTimeline" class="audio-timeline" aria-label="Audio detection timeline">
+            <div id="audioProgress" class="audio-progress"></div>
+            <div id="detectionMarkers" class="detection-markers"></div>
+          </div>
+          <p id="timelineHint" class="subtle">Hover detection points for species. Click to jump 5 seconds before detection.</p>
+        </section>
+      </main>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

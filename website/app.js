@@ -1,0 +1,842 @@
+const state = {
+  segments: [],
+  filteredSegments: [],
+  activeSegmentId: null,
+  activeSegment: null,
+  markersBySegmentId: new Map(),
+  markerLayer: null,
+  useClustering: true,
+  audioContext: null,
+  analyser: null,
+  spectrogram: {
+    enabled: false,
+    rafId: null,
+  },
+};
+
+const dom = {
+  datasetSummary: document.getElementById("datasetSummary"),
+  clusterToggle: document.getElementById("clusterToggle"),
+  dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
+  seasonFilter: document.getElementById("seasonFilter"),
+  speciesFilter: document.getElementById("speciesFilter"),
+  hourRangeMin: document.getElementById("hourRangeMin"),
+  hourRangeMax: document.getElementById("hourRangeMax"),
+  hourRangeLabel: document.getElementById("hourRangeLabel"),
+  clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+  segmentList: document.getElementById("segmentList"),
+  nowPlaying: document.getElementById("nowPlaying"),
+  audioPlayer: document.getElementById("audioPlayer"),
+  metadataGrid: document.getElementById("metadataGrid"),
+  speciesList: document.getElementById("speciesList"),
+  spectrogramMode: document.getElementById("spectrogramMode"),
+  toggleSpectrogramBtn: document.getElementById("toggleSpectrogramBtn"),
+  spectrogramCanvas: document.getElementById("spectrogramCanvas"),
+  spectrogramImage: document.getElementById("spectrogramImage"),
+  spectrogramHint: document.getElementById("spectrogramHint"),
+  audioTimeline: document.getElementById("audioTimeline"),
+  audioProgress: document.getElementById("audioProgress"),
+  detectionMarkers: document.getElementById("detectionMarkers"),
+  audioTimeLabel: document.getElementById("audioTimeLabel"),
+  timelineHint: document.getElementById("timelineHint"),
+  mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
+  controlsPanel: document.getElementById("controlsPanel"),
+  segmentPanel: document.getElementById("segmentPanel"),
+  metadataPanel: document.getElementById("metadataPanel"),
+  advancedFilters: document.getElementById("advancedFilters"),
+  playPauseBtn: document.getElementById("playPauseBtn"),
+  iconPlay: document.getElementById("iconPlay"),
+  iconPause: document.getElementById("iconPause"),
+  skipBackBtn: document.getElementById("skipBackBtn"),
+  skipFwdBtn: document.getElementById("skipFwdBtn"),
+  seekBar: document.getElementById("seekBar"),
+  seekCurrentTime: document.getElementById("seekCurrentTime"),
+  seekDuration: document.getElementById("seekDuration"),
+  volumeSlider: document.getElementById("volumeSlider"),
+};
+
+const map = L.map("map", {
+  zoomControl: true,
+  worldCopyJump: true,
+}).setView([-30.458, 151.635], 10);
+
+const imageryLayer = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  {
+    maxZoom: 20,
+    maxNativeZoom: 19,
+    attribution:
+      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+  }
+).addTo(map);
+
+const labelsLayer = L.tileLayer(
+  "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+  {
+    maxZoom: 20,
+    maxNativeZoom: 19,
+    pane: "overlayPane",
+    attribution: "Labels &copy; Esri",
+  }
+).addTo(map);
+
+L.control
+  .layers(
+    {
+      "High-res satellite": imageryLayer,
+    },
+    {
+      "Place labels": labelsLayer,
+    },
+    { collapsed: true }
+  )
+  .addTo(map);
+
+async function init() {
+  try {
+    const response = await fetch("api/data.json", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Failed to load metadata: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    state.segments = (payload.segments || []).filter((segment) => {
+      const lat = Number(segment.latitude);
+      const lng = Number(segment.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    });
+
+    dom.datasetSummary.textContent = `${payload.sites_count || 0} site(s)  |  ${payload.segments_count || 0} segment(s)  |  ${payload.detections_count || 0} detections`;
+
+    buildFilterOptions(state.segments);
+    wireEvents();
+    applyFilters();
+
+    // Collapse secondary panels on narrow screens for a cleaner initial view
+    if (window.innerWidth <= 760) {
+      if (dom.controlsPanel) dom.controlsPanel.open = false;
+      if (dom.segmentPanel) dom.segmentPanel.open = false;
+      if (dom.metadataPanel) dom.metadataPanel.open = false;
+    }
+
+    if (state.filteredSegments.length > 0) {
+      selectSegment(state.filteredSegments[0].segment_id, {
+        flyTo: true,
+        autoplay: false,
+      });
+    }
+  } catch (error) {
+    dom.datasetSummary.textContent = "Could not load metadata. Run build script first.";
+    dom.segmentList.innerHTML = `<li class="subtle">${escapeHtml(String(error.message || error))}</li>`;
+  }
+}
+
+function wireEvents() {
+  if (dom.mobileFiltersBtn) {
+    dom.mobileFiltersBtn.addEventListener("click", () => {
+      if (dom.controlsPanel) {
+        dom.controlsPanel.open = true;
+      }
+      if (dom.advancedFilters) {
+        dom.advancedFilters.open = true;
+      }
+      if (dom.controlsPanel) {
+        dom.controlsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  window.addEventListener("resize", handleViewportChange);
+  window.addEventListener("orientationchange", handleViewportChange);
+
+  // Custom transport
+  if (dom.playPauseBtn) {
+    dom.playPauseBtn.addEventListener("click", () => {
+      if (dom.audioPlayer.paused) {
+        dom.audioPlayer.play().catch(() => {});
+      } else {
+        dom.audioPlayer.pause();
+      }
+    });
+  }
+
+  if (dom.skipBackBtn) {
+    dom.skipBackBtn.addEventListener("click", () => {
+      dom.audioPlayer.currentTime = Math.max(0, dom.audioPlayer.currentTime - 10);
+      if (!dom.audioPlayer.paused) return;
+      if (dom.audioPlayer.src) dom.audioPlayer.play().catch(() => {});
+    });
+  }
+
+  if (dom.skipFwdBtn) {
+    dom.skipFwdBtn.addEventListener("click", () => {
+      const dur = dom.audioPlayer.duration;
+      dom.audioPlayer.currentTime = Number.isFinite(dur)
+        ? Math.min(dur, dom.audioPlayer.currentTime + 10)
+        : dom.audioPlayer.currentTime + 10;
+    });
+  }
+
+  if (dom.seekBar) {
+    dom.seekBar.addEventListener("input", () => {
+      const duration = dom.audioPlayer.duration;
+      if (Number.isFinite(duration) && duration > 0) {
+        dom.audioPlayer.currentTime = Number(dom.seekBar.value) * duration;
+      }
+    });
+  }
+
+  if (dom.volumeSlider) {
+    dom.volumeSlider.addEventListener("input", () => {
+      dom.audioPlayer.volume = Number(dom.volumeSlider.value);
+    });
+  }
+
+  dom.clusterToggle.addEventListener("change", () => {
+    state.useClustering = dom.clusterToggle.checked;
+    renderMarkers(state.filteredSegments);
+  });
+
+  dom.dawnDuskOnlyToggle.addEventListener("change", applyFilters);
+  dom.seasonFilter.addEventListener("change", applyFilters);
+  dom.speciesFilter.addEventListener("change", applyFilters);
+
+  dom.hourRangeMin.addEventListener("input", () => {
+    if (Number(dom.hourRangeMin.value) > Number(dom.hourRangeMax.value)) {
+      dom.hourRangeMax.value = dom.hourRangeMin.value;
+    }
+    updateHourRangeLabel();
+    applyFilters();
+  });
+
+  dom.hourRangeMax.addEventListener("input", () => {
+    if (Number(dom.hourRangeMax.value) < Number(dom.hourRangeMin.value)) {
+      dom.hourRangeMin.value = dom.hourRangeMax.value;
+    }
+    updateHourRangeLabel();
+    applyFilters();
+  });
+
+  dom.clearFiltersBtn.addEventListener("click", () => {
+    dom.seasonFilter.value = "all";
+    dom.clusterToggle.checked = true;
+    dom.dawnDuskOnlyToggle.checked = false;
+    dom.hourRangeMin.value = "0";
+    dom.hourRangeMax.value = "23";
+    for (const option of dom.speciesFilter.options) {
+      option.selected = false;
+    }
+    state.useClustering = true;
+    updateHourRangeLabel();
+    applyFilters();
+  });
+
+  dom.spectrogramMode.addEventListener("change", () => {
+    if (!state.spectrogram.enabled) {
+      return;
+    }
+    stopSpectrogram();
+    renderSpectrogramForCurrentSegment();
+  });
+
+  dom.toggleSpectrogramBtn.addEventListener("click", () => {
+    state.spectrogram.enabled = !state.spectrogram.enabled;
+    dom.toggleSpectrogramBtn.textContent = state.spectrogram.enabled
+      ? "Hide spectrogram"
+      : "Show spectrogram";
+
+    if (state.spectrogram.enabled) {
+      renderSpectrogramForCurrentSegment();
+    } else {
+      stopSpectrogram();
+      dom.spectrogramCanvas.hidden = true;
+      dom.spectrogramImage.hidden = true;
+      dom.spectrogramHint.hidden = true;
+    }
+  });
+
+  dom.audioPlayer.addEventListener("loadedmetadata", () => {
+    if (dom.playPauseBtn) dom.playPauseBtn.disabled = false;
+    const dur = dom.audioPlayer.duration;
+    if (dom.seekDuration && Number.isFinite(dur)) {
+      dom.seekDuration.textContent = formatTime(dur);
+    }
+    updateAudioTimelineProgress();
+    renderDetectionTimeline(state.activeSegment);
+  });
+
+  dom.audioPlayer.addEventListener("timeupdate", () => {
+    updateAudioTimelineProgress();
+  });
+
+  dom.audioPlayer.addEventListener("play", () => {
+    if (dom.iconPlay) dom.iconPlay.hidden = true;
+    if (dom.iconPause) dom.iconPause.hidden = false;
+    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Pause");
+    if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
+      ensureAudioGraph();
+      startSpectrogram();
+    }
+  });
+
+  dom.audioPlayer.addEventListener("pause", () => {
+    if (dom.iconPlay) dom.iconPlay.hidden = false;
+    if (dom.iconPause) dom.iconPause.hidden = true;
+    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
+      stopSpectrogram();
+    }
+  });
+
+  dom.audioPlayer.addEventListener("ended", () => {
+    if (dom.iconPlay) dom.iconPlay.hidden = false;
+    if (dom.iconPause) dom.iconPause.hidden = true;
+    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
+      stopSpectrogram();
+    }
+  });
+
+  dom.spectrogramImage.addEventListener("error", () => {
+    dom.spectrogramImage.hidden = true;
+    dom.spectrogramHint.hidden = false;
+    dom.spectrogramHint.textContent = "No precomputed spectrogram image found for this segment.";
+  });
+}
+
+function handleViewportChange() {
+  window.setTimeout(() => {
+    map.invalidateSize();
+  }, 120);
+}
+
+function buildFilterOptions(segments) {
+  const seasons = [...new Set(segments.map((segment) => segment.season).filter(Boolean))].sort();
+  const speciesNames = new Set();
+
+  for (const segment of segments) {
+    for (const detection of segment.detections || []) {
+      const species = (detection.common_name || "").trim();
+      if (species) {
+        speciesNames.add(species);
+      }
+    }
+  }
+
+  for (const season of seasons) {
+    const option = document.createElement("option");
+    option.value = season;
+    option.textContent = season;
+    dom.seasonFilter.append(option);
+  }
+
+  for (const species of [...speciesNames].sort((a, b) => a.localeCompare(b))) {
+    const option = document.createElement("option");
+    option.value = species;
+    option.textContent = species;
+    dom.speciesFilter.append(option);
+  }
+
+  updateHourRangeLabel();
+}
+
+function updateHourRangeLabel() {
+  const startHour = Number(dom.hourRangeMin.value);
+  const endHour = Number(dom.hourRangeMax.value);
+  dom.hourRangeLabel.textContent = `${formatHour(startHour)} to ${formatHour(endHour)}`;
+}
+
+function getSelectedSpecies() {
+  const selected = [];
+  for (const option of dom.speciesFilter.options) {
+    if (option.selected) {
+      selected.push(option.value);
+    }
+  }
+  return selected;
+}
+
+function applyFilters() {
+  const season = dom.seasonFilter.value;
+  const hourMin = Number(dom.hourRangeMin.value);
+  const hourMax = Number(dom.hourRangeMax.value);
+  const selectedSpecies = getSelectedSpecies();
+  const selectedSpeciesSet = new Set(selectedSpecies);
+  const dawnDuskOnly = dom.dawnDuskOnlyToggle.checked;
+
+  state.filteredSegments = state.segments.filter((segment) => {
+    const segmentHour = Number(segment.local_hour);
+    const seasonMatch = season === "all" || segment.season === season;
+    const hourMatch = Number.isFinite(segmentHour) && segmentHour >= hourMin && segmentHour <= hourMax;
+    const dawnDuskMatch = !dawnDuskOnly || isDawnDusk(segmentHour);
+
+    let speciesMatch = true;
+    if (selectedSpeciesSet.size > 0) {
+      const names = new Set((segment.detections || []).map((detection) => detection.common_name));
+      speciesMatch = [...selectedSpeciesSet].some((species) => names.has(species));
+    }
+
+    return seasonMatch && hourMatch && dawnDuskMatch && speciesMatch;
+  });
+
+  renderMarkers(state.filteredSegments);
+  renderSegmentList(state.filteredSegments);
+
+  if (!state.filteredSegments.find((segment) => segment.segment_id === state.activeSegmentId)) {
+    if (state.filteredSegments.length > 0) {
+      selectSegment(state.filteredSegments[0].segment_id, { flyTo: true, autoplay: false });
+    } else {
+      clearActiveSegmentState();
+    }
+  }
+}
+
+function renderMarkers(segments) {
+  if (state.markerLayer) {
+    state.markerLayer.remove();
+  }
+
+  state.markerLayer = state.useClustering
+    ? L.markerClusterGroup({
+        chunkedLoading: true,
+        showCoverageOnHover: false,
+      })
+    : L.layerGroup();
+
+  state.markersBySegmentId.clear();
+  const bounds = [];
+
+  for (const segment of segments) {
+    const lat = Number(segment.latitude);
+    const lng = Number(segment.longitude);
+
+    const marker = L.marker([lat, lng], {
+      icon: markerIcon(segment, segment.segment_id === state.activeSegmentId),
+      title: `${segment.site_name || segment.site_id} - ${segment.segment_id}`,
+    });
+
+    marker.bindPopup(
+      `<strong>${escapeHtml(segment.site_name || segment.site_id || "Site")}</strong><br>${escapeHtml(segment.segment_id)}<br>${escapeHtml(segment.local_date || "")}`
+    );
+
+    marker.on("click", () => {
+      selectSegment(segment.segment_id, { flyTo: false, autoplay: false });
+    });
+
+    state.markersBySegmentId.set(segment.segment_id, marker);
+    state.markerLayer.addLayer(marker);
+    bounds.push([lat, lng]);
+  }
+
+  state.markerLayer.addTo(map);
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  }
+}
+
+function markerIcon(segment, isActive) {
+  const classes = ["marker-dot"];
+  if (segment.featured) {
+    classes.push("marker-featured");
+  }
+  if (isDawnDusk(Number(segment.local_hour))) {
+    classes.push("marker-dawn-dusk");
+  }
+  if (isActive) {
+    classes.push("marker-active");
+  }
+
+  return L.divIcon({
+    className: "",
+    html: `<span class="${classes.join(" ")}"></span>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -8],
+  });
+}
+
+function refreshMarkerIcons() {
+  for (const segment of state.filteredSegments) {
+    const marker = state.markersBySegmentId.get(segment.segment_id);
+    if (!marker) {
+      continue;
+    }
+    marker.setIcon(markerIcon(segment, segment.segment_id === state.activeSegmentId));
+  }
+}
+
+function renderSegmentList(segments) {
+  dom.segmentList.innerHTML = "";
+
+  if (segments.length === 0) {
+    dom.segmentList.innerHTML = '<li class="subtle">No segments match the current filters.</li>';
+    return;
+  }
+
+  for (const segment of segments) {
+    const item = document.createElement("li");
+    item.className = "segment-item";
+    if (segment.segment_id === state.activeSegmentId) {
+      item.classList.add("active");
+    }
+    if (isDawnDusk(Number(segment.local_hour))) {
+      item.classList.add("dawn-dusk");
+    }
+
+    item.innerHTML = `
+      <strong>${escapeHtml(segment.site_name || segment.site_id)}</strong>
+      <p>${escapeHtml(segment.local_date || "")} ${formatHour(Number(segment.local_hour))}</p>
+      <p>${escapeHtml(segment.segment_id)}</p>
+    `;
+
+    item.addEventListener("click", () => {
+      selectSegment(segment.segment_id, { flyTo: true, autoplay: false });
+    });
+
+    dom.segmentList.append(item);
+  }
+}
+
+function selectSegment(segmentId, options = {}) {
+  const segment =
+    state.filteredSegments.find((entry) => entry.segment_id === segmentId) ||
+    state.segments.find((entry) => entry.segment_id === segmentId);
+  if (!segment) {
+    return;
+  }
+
+  state.activeSegmentId = segment.segment_id;
+  state.activeSegment = segment;
+
+  renderSegmentList(state.filteredSegments);
+  renderMetadata(segment);
+  refreshMarkerIcons();
+  renderDetectionTimeline(segment);
+
+  const audioSrc = segment.public_url && segment.public_url.trim() !== ""
+    ? segment.public_url
+    : segment.listening_opus_path;
+
+  if (audioSrc) {
+    dom.audioPlayer.src = audioSrc;
+    dom.nowPlaying.textContent = `${segment.site_name || segment.site_id} - ${segment.segment_id}`;
+    if (dom.playPauseBtn) dom.playPauseBtn.disabled = false;
+    if (dom.seekBar) dom.seekBar.value = "0";
+    if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
+    if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
+    if (options.autoplay) {
+      dom.audioPlayer.play().catch(() => {
+        // Browser autoplay restrictions are expected until a user gesture.
+      });
+    }
+  } else {
+    dom.audioPlayer.removeAttribute("src");
+    dom.audioPlayer.load();
+    dom.nowPlaying.textContent = "No audio URL available for this segment.";
+    if (dom.playPauseBtn) dom.playPauseBtn.disabled = true;
+  }
+
+  updateAudioTimelineProgress();
+
+  if (state.spectrogram.enabled) {
+    stopSpectrogram();
+    renderSpectrogramForCurrentSegment();
+  }
+
+  const marker = state.markersBySegmentId.get(segment.segment_id);
+  if (marker) {
+    marker.openPopup();
+    if (options.flyTo) {
+      map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 12), { duration: 0.9 });
+    }
+  }
+}
+
+function renderMetadata(segment) {
+  const metadataRows = [
+    ["Segment", segment.segment_id],
+    ["Site", segment.site_name || segment.site_id],
+    ["Date", segment.local_date],
+    ["Hour", formatHour(Number(segment.local_hour))],
+    ["Season", segment.season],
+    ["Dawn/Dusk", isDawnDusk(Number(segment.local_hour)) ? "yes" : "no"],
+    ["Timezone", segment.session?.timezone],
+    ["Habitat", segment.site?.habitat],
+    ["Biome", segment.site?.biome],
+    ["Latitude", segment.latitude],
+    ["Longitude", segment.longitude],
+    ["Sound quality", segment.sound_quality],
+    ["Wind level", segment.wind_level],
+    ["Rain present", segment.rain_present ? "yes" : "no"],
+    ["Water present", segment.water_present ? "yes" : "no"],
+    ["Noise score", segment.anthropogenic_noise],
+    ["Detections", String(segment.detection_count ?? 0)],
+    ["Recorder", segment.session?.recorder],
+    ["Microphones", segment.session?.microphones],
+    ["Notes", segment.notes],
+  ];
+
+  dom.metadataGrid.innerHTML = "";
+  for (const [key, value] of metadataRows) {
+    const dt = document.createElement("dt");
+    dt.textContent = key;
+    const dd = document.createElement("dd");
+    dd.textContent = value === undefined || value === null || String(value).trim() === "" ? "-" : String(value);
+    dom.metadataGrid.append(dt, dd);
+  }
+
+  dom.speciesList.innerHTML = "";
+  const topSpecies = Array.isArray(segment.top_species) ? segment.top_species : [];
+  if (topSpecies.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "subtle";
+    empty.textContent = "No detections for this segment.";
+    dom.speciesList.append(empty);
+    return;
+  }
+
+  for (const species of topSpecies) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="species-pill"><span>${escapeHtml(species.name)}</span><span>${escapeHtml(String(species.count))}</span></span>`;
+    dom.speciesList.append(li);
+  }
+}
+
+function renderDetectionTimeline(segment) {
+  dom.detectionMarkers.innerHTML = "";
+
+  if (!segment) {
+    dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
+    return;
+  }
+
+  const detections = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
+  if (detections.length === 0) {
+    dom.timelineHint.textContent = "No detections available for this segment.";
+    return;
+  }
+
+  const duration = getDurationForTimeline(segment);
+  for (const detection of detections) {
+    const startSec = Number(detection.start_sec);
+    const ratio = Math.max(0, Math.min(1, startSec / duration));
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "detection-dot";
+    dot.style.left = `${ratio * 100}%`;
+    dot.title = `${detection.common_name || "Unknown"} at ${formatTime(startSec)}`;
+
+    dot.addEventListener("mouseenter", () => {
+      dom.timelineHint.textContent = `${detection.common_name || "Unknown"} (${formatTime(startSec)})`;
+    });
+
+    dot.addEventListener("mouseleave", () => {
+      dom.timelineHint.textContent = "Hover detection points for species. Click to jump 5 seconds before detection.";
+    });
+
+    dot.addEventListener("click", () => {
+      const seekTarget = Math.max(0, startSec - 5);
+      dom.audioPlayer.currentTime = seekTarget;
+      dom.audioPlayer.play().catch(() => {});
+      updateAudioTimelineProgress();
+    });
+
+    dom.detectionMarkers.append(dot);
+  }
+}
+
+function updateAudioTimelineProgress() {
+  const duration = Number(dom.audioPlayer.duration);
+  const current = Number(dom.audioPlayer.currentTime);
+
+  if (Number.isFinite(duration) && duration > 0) {
+    const percent = Math.max(0, Math.min(100, (current / duration) * 100));
+    dom.audioProgress.style.width = `${percent}%`;
+    dom.audioTimeLabel.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
+    if (dom.seekBar && !dom.seekBar.matches(":active")) {
+      dom.seekBar.value = String(current / duration);
+    }
+    if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = formatTime(current);
+    if (dom.seekDuration) dom.seekDuration.textContent = formatTime(duration);
+    return;
+  }
+
+  dom.audioProgress.style.width = "0%";
+  dom.audioTimeLabel.textContent = "00:00 / 00:00";
+  if (dom.seekBar) dom.seekBar.value = "0";
+  if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
+}
+
+function getDurationForTimeline(segment) {
+  const audioDuration = Number(dom.audioPlayer.duration);
+  if (Number.isFinite(audioDuration) && audioDuration > 0) {
+    return audioDuration;
+  }
+
+  const start = Date.parse(segment.segment_start_local || "");
+  const end = Date.parse(segment.segment_end_local || "");
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+    return (end - start) / 1000;
+  }
+
+  return 3600;
+}
+
+function clearActiveSegmentState() {
+  state.activeSegmentId = null;
+  state.activeSegment = null;
+  dom.nowPlaying.textContent = "No segment selected.";
+  dom.metadataGrid.innerHTML = "";
+  dom.speciesList.innerHTML = "";
+  dom.audioPlayer.removeAttribute("src");
+  dom.audioPlayer.load();
+  dom.detectionMarkers.innerHTML = "";
+  dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
+  if (dom.playPauseBtn) {
+    dom.playPauseBtn.disabled = true;
+    if (dom.iconPlay) dom.iconPlay.hidden = false;
+    if (dom.iconPause) dom.iconPause.hidden = true;
+    dom.playPauseBtn.setAttribute("aria-label", "Play");
+  }
+  if (dom.seekBar) dom.seekBar.value = "0";
+  if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
+  if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
+  updateAudioTimelineProgress();
+  refreshMarkerIcons();
+}
+
+function ensureAudioGraph() {
+  if (state.audioContext && state.analyser) {
+    return;
+  }
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
+    dom.spectrogramHint.textContent = "Spectrogram not supported in this browser.";
+    return;
+  }
+
+  state.audioContext = new AudioCtx();
+  const source = state.audioContext.createMediaElementSource(dom.audioPlayer);
+  state.analyser = state.audioContext.createAnalyser();
+  state.analyser.fftSize = 1024;
+  state.analyser.smoothingTimeConstant = 0.1;
+
+  source.connect(state.analyser);
+  state.analyser.connect(state.audioContext.destination);
+}
+
+function renderSpectrogramForCurrentSegment() {
+  if (!state.spectrogram.enabled) {
+    return;
+  }
+
+  const mode = dom.spectrogramMode.value;
+  dom.spectrogramHint.hidden = false;
+
+  if (mode === "image") {
+    dom.spectrogramCanvas.hidden = true;
+    dom.spectrogramImage.hidden = false;
+    const imageUrl = state.activeSegment?.spectrogram_image_url || "";
+    if (imageUrl) {
+      dom.spectrogramImage.src = imageUrl;
+      dom.spectrogramHint.textContent = "Image fallback mode. Provide precomputed PNG files beside Opus segments.";
+    } else {
+      dom.spectrogramImage.hidden = true;
+      dom.spectrogramHint.textContent = "No spectrogram image URL for this segment. Add PNGs to enable fallback mode.";
+    }
+    return;
+  }
+
+  dom.spectrogramCanvas.hidden = false;
+  dom.spectrogramImage.hidden = true;
+  dom.spectrogramHint.textContent = "Live spectrogram view derived from audio playback.";
+
+  ensureAudioGraph();
+  const ctx = dom.spectrogramCanvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#03050a";
+    ctx.fillRect(0, 0, dom.spectrogramCanvas.width, dom.spectrogramCanvas.height);
+  }
+
+  if (!dom.audioPlayer.paused) {
+    startSpectrogram();
+  }
+}
+
+function startSpectrogram() {
+  if (!state.spectrogram.enabled || dom.spectrogramMode.value !== "live" || !state.analyser) {
+    return;
+  }
+
+  if (state.audioContext && state.audioContext.state === "suspended") {
+    state.audioContext.resume().catch(() => {});
+  }
+
+  const canvas = dom.spectrogramCanvas;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+
+  const bins = state.analyser.frequencyBinCount;
+  const data = new Uint8Array(bins);
+
+  const draw = () => {
+    state.spectrogram.rafId = requestAnimationFrame(draw);
+    state.analyser.getByteFrequencyData(data);
+    ctx.drawImage(canvas, -1, 0);
+
+    for (let y = 0; y < canvas.height; y += 1) {
+      const bin = Math.floor((1 - y / canvas.height) * (bins - 1));
+      const magnitude = data[bin] / 255;
+      const hue = 220 - magnitude * 220;
+      const light = 8 + magnitude * 58;
+      ctx.fillStyle = `hsl(${hue}, 95%, ${light}%)`;
+      ctx.fillRect(canvas.width - 1, y, 1, 1);
+    }
+  };
+
+  if (!state.spectrogram.rafId) {
+    draw();
+  }
+}
+
+function stopSpectrogram() {
+  if (state.spectrogram.rafId) {
+    cancelAnimationFrame(state.spectrogram.rafId);
+    state.spectrogram.rafId = null;
+  }
+}
+
+function isDawnDusk(hour) {
+  if (!Number.isFinite(hour)) {
+    return false;
+  }
+  return (hour >= 5 && hour <= 7) || (hour >= 17 && hour <= 19);
+}
+
+function formatHour(hour) {
+  if (!Number.isFinite(hour)) {
+    return "--:00";
+  }
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function formatTime(totalSeconds) {
+  const safe = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+init();

@@ -4,5 +4,6 @@
     {
       "text": "This project is a long-term ecological soundscape archive using Cloudflare Pages and R2 with CSV-based metadata."
     }
-  ]
+  ],
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }

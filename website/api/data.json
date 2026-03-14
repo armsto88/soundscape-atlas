@@ -1,0 +1,222 @@
+{
+  "generated_from": "metadata",
+  "sites_count": 1,
+  "sessions_count": 1,
+  "segments_count": 3,
+  "detections_count": 4,
+  "segments": [
+    {
+      "segment_id": "AU_NSW_IMBOTA_20240814_0500",
+      "session_id": "AU_NSW_IMBOTA_20240814_0530",
+      "site_id": "AU_NSW_IMBOTA",
+      "site_name": "Imbota Creek",
+      "latitude": "-30.4580",
+      "longitude": "151.6350",
+      "segment_start_local": "2024-08-14T05:00:00",
+      "segment_end_local": "2024-08-14T06:00:00",
+      "local_date": "2024-08-14",
+      "local_hour": "5",
+      "season": "winter",
+      "sound_quality": "4",
+      "wind_level": "1",
+      "rain_present": false,
+      "water_present": true,
+      "anthropogenic_noise": "0",
+      "published": true,
+      "featured": false,
+      "notes": "Pre-dawn creek ambience with first scattered bird calls",
+      "listening_opus_path": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0500.opus",
+      "spectrogram_image_url": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0500.png",
+      "public_url": "",
+      "session": {
+        "timezone": "Australia/Sydney",
+        "recorder": "Zoom F3",
+        "microphones": "Clippy EM272 stereo",
+        "sample_rate_hz": "96000",
+        "bit_depth": "24",
+        "channels": "2",
+        "weather_notes": "Cold still morning with low wind",
+        "field_notes": "Recorder placed near creek edge under riparian canopy",
+        "operator": "Tom Armstrong",
+        "copyright_owner": "Tom Armstrong",
+        "license": "all_rights_reserved"
+      },
+      "site": {
+        "country_code": "AU",
+        "region_code": "NSW",
+        "locality": "Armidale",
+        "elevation_m": "980",
+        "habitat": "riparian_forest",
+        "biome": "temperate",
+        "public_location_precision": "rounded",
+        "description": "Creek-side forest site with strong dawn bird activity and flowing water",
+        "is_sensitive": false
+      },
+      "detection_count": 0,
+      "top_species": [],
+      "detections": []
+    },
+    {
+      "segment_id": "AU_NSW_IMBOTA_20240814_0600",
+      "session_id": "AU_NSW_IMBOTA_20240814_0530",
+      "site_id": "AU_NSW_IMBOTA",
+      "site_name": "Imbota Creek",
+      "latitude": "-30.4580",
+      "longitude": "151.6350",
+      "segment_start_local": "2024-08-14T06:00:00",
+      "segment_end_local": "2024-08-14T07:00:00",
+      "local_date": "2024-08-14",
+      "local_hour": "6",
+      "season": "winter",
+      "sound_quality": "5",
+      "wind_level": "1",
+      "rain_present": false,
+      "water_present": true,
+      "anthropogenic_noise": "0",
+      "published": true,
+      "featured": true,
+      "notes": "Strong dawn chorus with creek present throughout",
+      "listening_opus_path": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0600.opus",
+      "spectrogram_image_url": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0600.png",
+      "public_url": "",
+      "session": {
+        "timezone": "Australia/Sydney",
+        "recorder": "Zoom F3",
+        "microphones": "Clippy EM272 stereo",
+        "sample_rate_hz": "96000",
+        "bit_depth": "24",
+        "channels": "2",
+        "weather_notes": "Cold still morning with low wind",
+        "field_notes": "Recorder placed near creek edge under riparian canopy",
+        "operator": "Tom Armstrong",
+        "copyright_owner": "Tom Armstrong",
+        "license": "all_rights_reserved"
+      },
+      "site": {
+        "country_code": "AU",
+        "region_code": "NSW",
+        "locality": "Armidale",
+        "elevation_m": "980",
+        "habitat": "riparian_forest",
+        "biome": "temperate",
+        "public_location_precision": "rounded",
+        "description": "Creek-side forest site with strong dawn bird activity and flowing water",
+        "is_sensitive": false
+      },
+      "detection_count": 2,
+      "top_species": [
+        {
+          "name": "Australian Magpie",
+          "count": 1
+        },
+        {
+          "name": "Eastern Rosella",
+          "count": 1
+        }
+      ],
+      "detections": [
+        {
+          "detection_id": "DET_0001",
+          "common_name": "Australian Magpie",
+          "scientific_name": "Gymnorhina tibicen",
+          "start_sec": 125.4,
+          "end_sec": 128.7,
+          "confidence": "0.94",
+          "model": "BirdNET",
+          "review_status": "unreviewed"
+        },
+        {
+          "detection_id": "DET_0002",
+          "common_name": "Eastern Rosella",
+          "scientific_name": "Platycercus eximius",
+          "start_sec": 412.1,
+          "end_sec": 415.0,
+          "confidence": "0.88",
+          "model": "BirdNET",
+          "review_status": "unreviewed"
+        }
+      ]
+    },
+    {
+      "segment_id": "AU_NSW_IMBOTA_20240814_0700",
+      "session_id": "AU_NSW_IMBOTA_20240814_0530",
+      "site_id": "AU_NSW_IMBOTA",
+      "site_name": "Imbota Creek",
+      "latitude": "-30.4580",
+      "longitude": "151.6350",
+      "segment_start_local": "2024-08-14T07:00:00",
+      "segment_end_local": "2024-08-14T08:00:00",
+      "local_date": "2024-08-14",
+      "local_hour": "7",
+      "season": "winter",
+      "sound_quality": "5",
+      "wind_level": "1",
+      "rain_present": false,
+      "water_present": true,
+      "anthropogenic_noise": "1",
+      "published": true,
+      "featured": false,
+      "notes": "Morning activity remains high with occasional distant human noise",
+      "listening_opus_path": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0700.opus",
+      "spectrogram_image_url": "audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240814_0700.png",
+      "public_url": "",
+      "session": {
+        "timezone": "Australia/Sydney",
+        "recorder": "Zoom F3",
+        "microphones": "Clippy EM272 stereo",
+        "sample_rate_hz": "96000",
+        "bit_depth": "24",
+        "channels": "2",
+        "weather_notes": "Cold still morning with low wind",
+        "field_notes": "Recorder placed near creek edge under riparian canopy",
+        "operator": "Tom Armstrong",
+        "copyright_owner": "Tom Armstrong",
+        "license": "all_rights_reserved"
+      },
+      "site": {
+        "country_code": "AU",
+        "region_code": "NSW",
+        "locality": "Armidale",
+        "elevation_m": "980",
+        "habitat": "riparian_forest",
+        "biome": "temperate",
+        "public_location_precision": "rounded",
+        "description": "Creek-side forest site with strong dawn bird activity and flowing water",
+        "is_sensitive": false
+      },
+      "detection_count": 2,
+      "top_species": [
+        {
+          "name": "Superb Fairywren",
+          "count": 1
+        },
+        {
+          "name": "Red Wattlebird",
+          "count": 1
+        }
+      ],
+      "detections": [
+        {
+          "detection_id": "DET_0003",
+          "common_name": "Superb Fairywren",
+          "scientific_name": "Malurus cyaneus",
+          "start_sec": 98.2,
+          "end_sec": 100.4,
+          "confidence": "0.91",
+          "model": "BirdNET",
+          "review_status": "unreviewed"
+        },
+        {
+          "detection_id": "DET_0004",
+          "common_name": "Red Wattlebird",
+          "scientific_name": "Anthochaera carunculata",
+          "start_sec": 1532.0,
+          "end_sec": 1535.8,
+          "confidence": "0.86",
+          "model": "BirdNET",
+          "review_status": "unreviewed"
+        }
+      ]
+    }
+  ]
+}
