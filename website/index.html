@@ -33,6 +33,16 @@
           <p class="kicker">Soundscape Atlas</p>
           <h1>Field Listening Map</h1>
           <p id="datasetSummary" class="subtle"></p>
+          <div class="auth-row" aria-label="Sign in">
+            <input id="signInName" type="text" placeholder="Your name" maxlength="40" autocomplete="name" />
+            <button id="signInBtn" type="button">Sign in</button>
+            <button id="signOutBtn" type="button" hidden>Sign out</button>
+          </div>
+          <p id="authStatus" class="subtle">Not signed in.</p>
+          <div class="mode-switch" role="group" aria-label="App mode">
+            <button id="modeChillBtn" type="button" class="mode-btn">Chill</button>
+            <button id="modeFullBtn" type="button" class="mode-btn">Full</button>
+          </div>
         </header>
 
         <details class="panel controls-panel" id="controlsPanel" open>
@@ -82,6 +92,12 @@
         <details class="panel segment-panel" id="segmentPanel" open>
           <summary class="panel-summary"><h2>Segments</h2></summary>
           <ul id="segmentList" class="segment-list"></ul>
+        </details>
+
+        <details class="panel library-panel" id="libraryPanel" open>
+          <summary class="panel-summary"><h2>My Library</h2></summary>
+          <p id="userLibraryEmpty" class="subtle">Sign in to view your comments.</p>
+          <ul id="userLibraryList" class="user-library-list"></ul>
         </details>
 
         <section class="panel player-panel" id="playerPanel">
@@ -161,16 +177,33 @@
           <button id="closeMapImageBtn" class="map-image-close" type="button" aria-label="Close image preview">Close</button>
           <img id="mapImagePreview" alt="Expanded segment visual" />
         </div>
-        <section class="panel audio-timeline-panel">
+        <section class="panel audio-timeline-panel" id="audioTimelinePanel">
           <div class="timeline-header">
             <h2>Detection Timeline</h2>
-            <p id="audioTimeLabel" class="subtle">00:00 / 00:00</p>
+            <div class="timeline-head-right">
+              <label class="inline-check comments-toggle" for="showCommentsToggle">
+                <input id="showCommentsToggle" type="checkbox" />
+                Show comments
+              </label>
+              <p id="audioTimeLabel" class="subtle">00:00 / 00:00</p>
+            </div>
           </div>
           <div id="audioTimeline" class="audio-timeline" aria-label="Audio detection timeline">
             <div id="audioProgress" class="audio-progress"></div>
             <div id="detectionMarkers" class="detection-markers"></div>
+            <div id="commentMarkers" class="comment-markers"></div>
+            <div id="timelineActionMenu" class="timeline-action-menu" hidden>
+              <input id="timelineActionText" type="text" maxlength="180" placeholder="Comment text" />
+              <div class="timeline-action-row">
+                <button id="timelineActionApplyBtn" type="button">Add</button>
+                <button id="timelineActionCancelBtn" type="button">Cancel</button>
+              </div>
+            </div>
           </div>
-          <p id="timelineHint" class="subtle">Click detection points to jump 5 seconds before detection.</p>
+          <div class="timeline-hint-row">
+            <p id="timelineHint" class="subtle">Click detection points to jump 5 seconds before detection. Click track to add a comment.</p>
+            <button id="deleteTimelineCommentBtn" type="button" hidden>Delete comment</button>
+          </div>
         </section>
       </main>
     </div>

@@ -18,10 +18,26 @@ const state = {
     offsetX: 0,
     offsetY: 0,
   },
+  uiMode: "full",
+  signedInUser: null,
+  commentsBySegmentId: {},
+  showTimelineComments: false,
+  timelineActionSec: null,
+  selectedTimelineComment: null,
 };
+
+const STORAGE_MODE_KEY = "soundscapeAtlas.uiMode";
+const STORAGE_USER_KEY = "soundscapeAtlas.userName";
+const STORAGE_COMMENTS_KEY = "soundscapeAtlas.timelineComments";
 
 const dom = {
   datasetSummary: document.getElementById("datasetSummary"),
+  signInName: document.getElementById("signInName"),
+  signInBtn: document.getElementById("signInBtn"),
+  signOutBtn: document.getElementById("signOutBtn"),
+  authStatus: document.getElementById("authStatus"),
+  modeChillBtn: document.getElementById("modeChillBtn"),
+  modeFullBtn: document.getElementById("modeFullBtn"),
   clusterToggle: document.getElementById("clusterToggle"),
   dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
   seasonFilter: document.getElementById("seasonFilter"),
@@ -54,8 +70,18 @@ const dom = {
   audioTimeline: document.getElementById("audioTimeline"),
   audioProgress: document.getElementById("audioProgress"),
   detectionMarkers: document.getElementById("detectionMarkers"),
+  commentMarkers: document.getElementById("commentMarkers"),
+  showCommentsToggle: document.getElementById("showCommentsToggle"),
+  timelineActionMenu: document.getElementById("timelineActionMenu"),
+  timelineActionText: document.getElementById("timelineActionText"),
+  timelineActionApplyBtn: document.getElementById("timelineActionApplyBtn"),
+  timelineActionCancelBtn: document.getElementById("timelineActionCancelBtn"),
+  deleteTimelineCommentBtn: document.getElementById("deleteTimelineCommentBtn"),
+  userLibraryList: document.getElementById("userLibraryList"),
+  userLibraryEmpty: document.getElementById("userLibraryEmpty"),
   audioTimeLabel: document.getElementById("audioTimeLabel"),
   timelineHint: document.getElementById("timelineHint"),
+  audioTimelinePanel: document.getElementById("audioTimelinePanel"),
   mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
   controlsPanel: document.getElementById("controlsPanel"),
   segmentPanel: document.getElementById("segmentPanel"),
@@ -128,6 +154,10 @@ async function init() {
 
     buildFilterOptions(state.segments);
     wireEvents();
+    restoreSignedInUser();
+    restoreTimelineComments();
+    renderUserLibrary();
+    applyUIMode(loadStoredUIMode());
     applyFilters();
 
     // Collapse secondary panels on narrow screens for a cleaner initial view
@@ -150,6 +180,106 @@ async function init() {
 }
 
 function wireEvents() {
+  if (dom.signInBtn) {
+    dom.signInBtn.addEventListener("click", () => {
+      signInFromInput();
+    });
+  }
+
+  if (dom.signOutBtn) {
+    dom.signOutBtn.addEventListener("click", () => {
+      signOutUser();
+    });
+  }
+
+  if (dom.signInName) {
+    dom.signInName.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        signInFromInput();
+      }
+    });
+  }
+
+  if (dom.showCommentsToggle) {
+    dom.showCommentsToggle.checked = state.showTimelineComments;
+    dom.showCommentsToggle.addEventListener("change", () => {
+      state.showTimelineComments = dom.showCommentsToggle.checked;
+      state.selectedTimelineComment = null;
+      updateDeleteTimelineCommentButton();
+      renderDetectionTimeline(state.activeSegment);
+    });
+  }
+
+  if (dom.audioTimeline) {
+    dom.audioTimeline.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      if (event.target.closest(".detection-dot, .comment-marker, #timelineActionMenu")) {
+        return;
+      }
+      openTimelineActionMenuAtClick(event);
+    });
+  }
+
+  if (dom.timelineActionApplyBtn) {
+    dom.timelineActionApplyBtn.addEventListener("click", () => {
+      addTimelineAnnotationFromMenu();
+    });
+  }
+
+  if (dom.timelineActionCancelBtn) {
+    dom.timelineActionCancelBtn.addEventListener("click", () => {
+      closeTimelineActionMenu();
+    });
+  }
+
+  if (dom.timelineActionText) {
+    dom.timelineActionText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        addTimelineAnnotationFromMenu();
+      }
+    });
+  }
+
+  if (dom.deleteTimelineCommentBtn) {
+    dom.deleteTimelineCommentBtn.addEventListener("click", () => {
+      deleteSelectedTimelineComment();
+    });
+  }
+
+  if (dom.userLibraryList) {
+    dom.userLibraryList.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const button = event.target.closest(".library-recall-btn");
+      if (!button) {
+        return;
+      }
+
+      const segmentId = button.getAttribute("data-segment-id") || "";
+      const commentId = button.getAttribute("data-comment-id") || "";
+      const sec = Number(button.getAttribute("data-sec"));
+      recallLibraryItem(segmentId, commentId, sec);
+    });
+  }
+
+  if (dom.modeChillBtn) {
+    dom.modeChillBtn.addEventListener("click", () => {
+      applyUIMode("chill");
+      storeUIMode("chill");
+    });
+  }
+
+  if (dom.modeFullBtn) {
+    dom.modeFullBtn.addEventListener("click", () => {
+      applyUIMode("full");
+      storeUIMode("full");
+    });
+  }
+
   if (dom.mobileFiltersBtn) {
     dom.mobileFiltersBtn.addEventListener("click", () => {
       if (dom.controlsPanel) {
@@ -237,7 +367,21 @@ function wireEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeMapImageLightbox();
+      closeTimelineActionMenu();
     }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+    if (!dom.timelineActionMenu || dom.timelineActionMenu.hidden) {
+      return;
+    }
+    if (event.target.closest("#timelineActionMenu") || event.target.closest("#audioTimeline")) {
+      return;
+    }
+    closeTimelineActionMenu();
   });
 
   dom.clusterToggle.addEventListener("change", () => {
@@ -458,6 +602,401 @@ function handleViewportChange() {
   window.setTimeout(() => {
     map.invalidateSize();
   }, 120);
+}
+
+function loadStoredUIMode() {
+  try {
+    const mode = localStorage.getItem(STORAGE_MODE_KEY);
+    return mode === "chill" ? "chill" : "full";
+  } catch {
+    return "full";
+  }
+}
+
+function storeUIMode(mode) {
+  try {
+    localStorage.setItem(STORAGE_MODE_KEY, mode);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function applyUIMode(mode) {
+  const nextMode = mode === "chill" ? "chill" : "full";
+  state.uiMode = nextMode;
+  document.body.setAttribute("data-mode", nextMode);
+
+  if (dom.modeChillBtn) {
+    dom.modeChillBtn.classList.toggle("active", nextMode === "chill");
+    dom.modeChillBtn.setAttribute("aria-pressed", nextMode === "chill" ? "true" : "false");
+  }
+
+  if (dom.modeFullBtn) {
+    dom.modeFullBtn.classList.toggle("active", nextMode === "full");
+    dom.modeFullBtn.setAttribute("aria-pressed", nextMode === "full" ? "true" : "false");
+  }
+
+  if (nextMode === "chill") {
+    if (state.spectrogram.enabled) {
+      state.spectrogram.enabled = false;
+      stopSpectrogram();
+      if (dom.toggleSpectrogramBtn) {
+        dom.toggleSpectrogramBtn.textContent = "Show spectrogram";
+      }
+      if (dom.spectrogramCanvas) dom.spectrogramCanvas.hidden = true;
+      if (dom.spectrogramImage) dom.spectrogramImage.hidden = true;
+      if (dom.spectrogramHint) dom.spectrogramHint.hidden = true;
+      if (dom.spectrogramDock) dom.spectrogramDock.hidden = true;
+    }
+
+    if (dom.controlsPanel) {
+      dom.controlsPanel.open = true;
+    }
+    if (dom.picturePanel) {
+      dom.picturePanel.open = false;
+    }
+  }
+
+  handleViewportChange();
+}
+
+function signInFromInput() {
+  if (!dom.signInName) {
+    return;
+  }
+
+  const name = dom.signInName.value.trim();
+  if (!name) {
+    if (dom.authStatus) {
+      dom.authStatus.textContent = "Enter a name to sign in.";
+    }
+    return;
+  }
+
+  state.signedInUser = name;
+  try {
+    localStorage.setItem(STORAGE_USER_KEY, name);
+  } catch {
+    // Ignore storage failures.
+  }
+
+  updateAuthUI();
+  renderUserLibrary();
+}
+
+function signOutUser() {
+  state.signedInUser = null;
+  try {
+    localStorage.removeItem(STORAGE_USER_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+
+  updateAuthUI();
+  renderUserLibrary();
+}
+
+function restoreSignedInUser() {
+  try {
+    const saved = localStorage.getItem(STORAGE_USER_KEY);
+    state.signedInUser = saved && saved.trim() !== "" ? saved.trim() : null;
+  } catch {
+    state.signedInUser = null;
+  }
+
+  updateAuthUI();
+  renderUserLibrary();
+}
+
+function restoreTimelineComments() {
+  try {
+    const raw = localStorage.getItem(STORAGE_COMMENTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const source = parsed && typeof parsed === "object" ? parsed : {};
+    const cleaned = {};
+
+    for (const [segmentId, entries] of Object.entries(source)) {
+      if (!Array.isArray(entries)) {
+        continue;
+      }
+
+      const comments = entries
+        .filter((entry) => entry && entry.type !== "mark")
+        .map((entry) => ({
+          id: String(entry.id || `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`),
+          user: String(entry.user || "Unknown"),
+          text: String(entry.text || "").trim(),
+          type: "comment",
+          sec: Number.isFinite(Number(entry.sec)) ? Math.max(0, Number(entry.sec)) : 0,
+          created_at: String(entry.created_at || new Date().toISOString()),
+        }))
+        .filter((entry) => entry.text !== "");
+
+      if (comments.length > 0) {
+        comments.sort((a, b) => Number(a.sec) - Number(b.sec));
+        cleaned[segmentId] = comments;
+      }
+    }
+
+    state.commentsBySegmentId = cleaned;
+  } catch {
+    state.commentsBySegmentId = {};
+  }
+
+  saveTimelineComments();
+}
+
+function saveTimelineComments() {
+  try {
+    localStorage.setItem(STORAGE_COMMENTS_KEY, JSON.stringify(state.commentsBySegmentId));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function addTimelineComment(annotation) {
+  const segmentId = state.activeSegment?.segment_id;
+  if (!segmentId) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Select a segment before adding a comment.";
+    }
+    return;
+  }
+
+  if (!state.signedInUser) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Sign in to add timeline comments.";
+    }
+    return;
+  }
+
+  const text = String(annotation?.text || "").trim();
+  if (!text) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Enter comment text before adding.";
+    }
+    return;
+  }
+
+  const atSecRaw = Number(annotation?.sec);
+  const atSec = Number.isFinite(atSecRaw)
+    ? Math.max(0, atSecRaw)
+    : Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
+
+  const list = Array.isArray(state.commentsBySegmentId[segmentId])
+    ? state.commentsBySegmentId[segmentId]
+    : [];
+
+  list.push({
+    id: `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+    user: state.signedInUser,
+    text,
+    type: "comment",
+    sec: atSec,
+    created_at: new Date().toISOString(),
+  });
+
+  list.sort((a, b) => Number(a.sec) - Number(b.sec));
+  state.commentsBySegmentId[segmentId] = list;
+  saveTimelineComments();
+  renderUserLibrary();
+
+  state.showTimelineComments = true;
+  if (dom.showCommentsToggle) {
+    dom.showCommentsToggle.checked = true;
+  }
+
+  state.selectedTimelineComment = null;
+  updateDeleteTimelineCommentButton();
+
+  renderDetectionTimeline(state.activeSegment);
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = `Comment added at ${formatTime(atSec)}.`;
+  }
+}
+
+function openTimelineActionMenuAtClick(event) {
+  if (!dom.audioTimeline || !dom.timelineActionMenu || !state.activeSegment) {
+    return;
+  }
+
+  const duration = getDurationForTimeline(state.activeSegment);
+  const rect = dom.audioTimeline.getBoundingClientRect();
+  const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+  const ratio = rect.width > 0 ? x / rect.width : 0;
+  state.timelineActionSec = Math.max(0, ratio * duration);
+
+  dom.timelineActionMenu.hidden = false;
+  if (dom.timelineActionText) {
+    dom.timelineActionText.value = "";
+    dom.timelineActionText.hidden = false;
+    dom.timelineActionText.focus();
+  }
+
+  const menuRect = dom.timelineActionMenu.getBoundingClientRect();
+  const menuWidth = menuRect.width || 220;
+  const menuHeight = menuRect.height || 120;
+  const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, event.clientX - menuWidth / 2));
+  const top = Math.max(8, Math.min(window.innerHeight - menuHeight - 8, event.clientY - menuHeight - 10));
+
+  dom.timelineActionMenu.style.left = `${left}px`;
+  dom.timelineActionMenu.style.top = `${top}px`;
+}
+
+function closeTimelineActionMenu() {
+  if (!dom.timelineActionMenu) {
+    return;
+  }
+  dom.timelineActionMenu.hidden = true;
+  state.timelineActionSec = null;
+}
+
+function addTimelineAnnotationFromMenu() {
+  const text = String(dom.timelineActionText?.value || "").trim();
+  const sec = Number(state.timelineActionSec);
+
+  addTimelineComment({ text, sec });
+  closeTimelineActionMenu();
+}
+
+function updateAuthUI() {
+  const signedIn = Boolean(state.signedInUser);
+
+  if (dom.signInName) {
+    dom.signInName.disabled = signedIn;
+    if (!signedIn) {
+      dom.signInName.value = "";
+    }
+  }
+
+  if (dom.signInBtn) {
+    dom.signInBtn.hidden = signedIn;
+  }
+
+  if (dom.signOutBtn) {
+    dom.signOutBtn.hidden = !signedIn;
+  }
+
+  if (dom.authStatus) {
+    dom.authStatus.textContent = signedIn
+      ? `Signed in as ${state.signedInUser}.`
+      : "Not signed in.";
+  }
+
+  updateDeleteTimelineCommentButton();
+}
+
+function getSignedInUserLibraryItems() {
+  if (!state.signedInUser) {
+    return [];
+  }
+
+  const items = [];
+  for (const [segmentId, annotations] of Object.entries(state.commentsBySegmentId)) {
+    if (!Array.isArray(annotations)) {
+      continue;
+    }
+
+    const segment = state.segments.find((entry) => entry.segment_id === segmentId) || null;
+    for (const annotation of annotations) {
+      if (!annotation || annotation.user !== state.signedInUser) {
+        continue;
+      }
+
+      items.push({
+        segmentId,
+        segment,
+        commentId: String(annotation.id || ""),
+        text: String(annotation.text || ""),
+        sec: Number(annotation.sec) || 0,
+        createdAt: String(annotation.created_at || ""),
+      });
+    }
+  }
+
+  items.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
+  return items;
+}
+
+function renderUserLibrary() {
+  if (!dom.userLibraryList || !dom.userLibraryEmpty) {
+    return;
+  }
+
+  dom.userLibraryList.innerHTML = "";
+
+  if (!state.signedInUser) {
+    dom.userLibraryEmpty.hidden = false;
+    dom.userLibraryEmpty.textContent = "Sign in to view your comments.";
+    return;
+  }
+
+  const items = getSignedInUserLibraryItems();
+  if (items.length === 0) {
+    dom.userLibraryEmpty.hidden = false;
+    dom.userLibraryEmpty.textContent = "No comments yet.";
+    return;
+  }
+
+  dom.userLibraryEmpty.hidden = true;
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.className = "library-item";
+
+    const locationLabel = item.segment
+      ? `${item.segment.site_name || item.segment.site_id} - ${item.segmentId}`
+      : item.segmentId;
+    const noteText = item.text || "Comment";
+
+    li.innerHTML = `
+      <div class="library-item-head">
+        <strong>${escapeHtml(locationLabel)}</strong>
+        <span class="library-kind">Comment</span>
+      </div>
+      <p>${escapeHtml(formatTime(item.sec))} - ${escapeHtml(noteText)}</p>
+      <button
+        type="button"
+        class="library-recall-btn"
+        data-segment-id="${escapeHtml(item.segmentId)}"
+        data-comment-id="${escapeHtml(item.commentId)}"
+        data-sec="${escapeHtml(String(item.sec))}"
+      >Recall file</button>
+    `;
+
+    dom.userLibraryList.append(li);
+  }
+}
+
+function recallLibraryItem(segmentId, commentId, sec) {
+  if (!segmentId) {
+    return;
+  }
+
+  state.showTimelineComments = true;
+  if (dom.showCommentsToggle) {
+    dom.showCommentsToggle.checked = true;
+  }
+
+  selectSegment(segmentId, { flyTo: true, autoplay: false });
+
+  const seekTo = Number.isFinite(sec) ? Math.max(0, sec) : 0;
+  const setTime = () => {
+    dom.audioPlayer.currentTime = seekTo;
+    updateAudioTimelineProgress();
+  };
+
+  if (Number.isFinite(dom.audioPlayer.duration) && dom.audioPlayer.duration > 0) {
+    setTime();
+  } else {
+    dom.audioPlayer.addEventListener("loadedmetadata", setTime, { once: true });
+  }
+
+  state.selectedTimelineComment = { segmentId, commentId };
+  updateDeleteTimelineCommentButton();
+
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = `Recalled ${formatTime(seekTo)} from your library.`;
+  }
 }
 
 function buildFilterOptions(segments) {
@@ -788,6 +1327,10 @@ function renderMetadata(segment) {
 
 function renderDetectionTimeline(segment) {
   dom.detectionMarkers.innerHTML = "";
+  if (dom.commentMarkers) {
+    dom.commentMarkers.innerHTML = "";
+  }
+  closeTimelineActionMenu();
 
   if (!segment) {
     dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
@@ -800,8 +1343,10 @@ function renderDetectionTimeline(segment) {
     return;
   }
 
-  const defaultHint = "Hover to preview detection details. Click to jump 5 seconds before detection.";
+  const defaultHint = "Hover to preview detection details. Click to jump 5 seconds before detection. Click track to add a comment.";
   dom.timelineHint.textContent = defaultHint;
+  state.selectedTimelineComment = null;
+  updateDeleteTimelineCommentButton();
 
   const duration = getDurationForTimeline(segment);
   for (const detection of detections) {
@@ -853,6 +1398,121 @@ function renderDetectionTimeline(segment) {
 
     dom.detectionMarkers.append(dot);
   }
+
+  renderTimelineComments(segment, duration, defaultHint);
+}
+
+function renderTimelineComments(segment, duration, defaultHint) {
+  if (!dom.commentMarkers || !segment) {
+    return;
+  }
+
+  if (!state.showTimelineComments) {
+    return;
+  }
+
+  const comments = Array.isArray(state.commentsBySegmentId[segment.segment_id])
+    ? state.commentsBySegmentId[segment.segment_id]
+    : [];
+
+  for (const comment of comments) {
+    const sec = Number(comment.sec);
+    if (!Number.isFinite(sec) || sec < 0) {
+      continue;
+    }
+
+    const ratio = Math.max(0, Math.min(1, sec / duration));
+    const marker = document.createElement("button");
+    marker.type = "button";
+    marker.className = "comment-marker";
+    marker.style.left = `${ratio * 100}%`;
+    marker.setAttribute(
+      "aria-label",
+      `Comment by ${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`
+    );
+
+    marker.addEventListener("mouseenter", () => {
+      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
+      dom.timelineHint.textContent = label;
+    });
+
+    marker.addEventListener("mouseleave", () => {
+      dom.timelineHint.textContent = defaultHint;
+    });
+
+    marker.addEventListener("focus", () => {
+      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
+      dom.timelineHint.textContent = label;
+    });
+
+    marker.addEventListener("blur", () => {
+      dom.timelineHint.textContent = defaultHint;
+    });
+
+    marker.addEventListener("click", () => {
+      dom.audioPlayer.currentTime = Math.max(0, sec);
+      updateAudioTimelineProgress();
+      state.selectedTimelineComment = { segmentId: segment.segment_id, commentId: comment.id };
+      updateDeleteTimelineCommentButton();
+      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
+      dom.timelineHint.textContent = label;
+    });
+
+    dom.commentMarkers.append(marker);
+  }
+}
+
+function updateDeleteTimelineCommentButton() {
+  if (!dom.deleteTimelineCommentBtn) {
+    return;
+  }
+
+  const selected = state.selectedTimelineComment;
+  if (!selected || !state.signedInUser) {
+    dom.deleteTimelineCommentBtn.hidden = true;
+    dom.deleteTimelineCommentBtn.textContent = "Delete comment";
+    return;
+  }
+
+  const list = Array.isArray(state.commentsBySegmentId[selected.segmentId])
+    ? state.commentsBySegmentId[selected.segmentId]
+    : [];
+  const comment = list.find((item) => item.id === selected.commentId);
+  const canDelete = Boolean(comment && comment.user === state.signedInUser);
+  dom.deleteTimelineCommentBtn.hidden = !canDelete;
+  dom.deleteTimelineCommentBtn.textContent = "Delete comment";
+}
+
+function deleteSelectedTimelineComment() {
+  const selected = state.selectedTimelineComment;
+  if (!selected) {
+    return;
+  }
+
+  const list = Array.isArray(state.commentsBySegmentId[selected.segmentId])
+    ? state.commentsBySegmentId[selected.segmentId]
+    : [];
+  const index = list.findIndex((item) => item.id === selected.commentId);
+  if (index < 0) {
+    return;
+  }
+
+  const comment = list[index];
+  if (!state.signedInUser || comment.user !== state.signedInUser) {
+    return;
+  }
+
+  list.splice(index, 1);
+  state.commentsBySegmentId[selected.segmentId] = list;
+  saveTimelineComments();
+  renderUserLibrary();
+
+  state.selectedTimelineComment = null;
+  updateDeleteTimelineCommentButton();
+  renderDetectionTimeline(state.activeSegment);
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = "Comment deleted.";
+  }
 }
 
 function updateAudioTimelineProgress() {
@@ -902,6 +1562,12 @@ function clearActiveSegmentState() {
   dom.audioPlayer.removeAttribute("src");
   dom.audioPlayer.load();
   dom.detectionMarkers.innerHTML = "";
+  if (dom.commentMarkers) {
+    dom.commentMarkers.innerHTML = "";
+  }
+  closeTimelineActionMenu();
+  state.selectedTimelineComment = null;
+  updateDeleteTimelineCommentButton();
   dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
   if (dom.playPauseBtn) {
     dom.playPauseBtn.disabled = true;
