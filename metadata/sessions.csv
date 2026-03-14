@@ -1,0 +1,2 @@
+session_id,site_id,raw_file_name,start_datetime_local,end_datetime_local,timezone,recorder,microphones,sample_rate_hz,bit_depth,channels,weather_notes,field_notes,operator,copyright_owner,license
+AU_NSW_IMBOTA_20240814_0530,AU_NSW_IMBOTA,AU_NSW_IMBOTA_20240814_0530.wav,2024-08-14T05:30:00,2024-08-14T15:30:00,Australia/Sydney,Zoom F3,Clippy EM272 stereo,96000,24,2,Cold still morning with low wind,Recorder placed near creek edge under riparian canopy,Tom Armstrong,Tom Armstrong,all_rights_reserved
