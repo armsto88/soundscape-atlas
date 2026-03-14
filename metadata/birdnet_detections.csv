@@ -1,0 +1,5 @@
+detection_id,segment_id,common_name,scientific_name,start_sec,end_sec,confidence,model,review_status
+DET_0001,AU_NSW_IMBOTA_20240814_0600,Australian Magpie,Gymnorhina tibicen,125.4,128.7,0.94,BirdNET,unreviewed
+DET_0002,AU_NSW_IMBOTA_20240814_0600,Eastern Rosella,Platycercus eximius,412.1,415.0,0.88,BirdNET,unreviewed
+DET_0003,AU_NSW_IMBOTA_20240814_0700,Superb Fairywren,Malurus cyaneus,98.2,100.4,0.91,BirdNET,unreviewed
+DET_0004,AU_NSW_IMBOTA_20240814_0700,Red Wattlebird,Anthochaera carunculata,1532.0,1535.8,0.86,BirdNET,unreviewed
