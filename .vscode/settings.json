@@ -1,0 +1,8 @@
+{
+  "github.copilot.enable": true,
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "This project is a long-term ecological soundscape archive using Cloudflare Pages and R2 with CSV-based metadata."
+    }
+  ]
+}
