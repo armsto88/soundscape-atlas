@@ -6,11 +6,17 @@ const state = {
   markersBySegmentId: new Map(),
   markerLayer: null,
   useClustering: true,
+  isAudioPlaying: false,
   audioContext: null,
   analyser: null,
   spectrogram: {
     enabled: false,
     rafId: null,
+  },
+  spectrogramDockDrag: {
+    active: false,
+    offsetX: 0,
+    offsetY: 0,
   },
 };
 
@@ -31,9 +37,20 @@ const dom = {
   speciesList: document.getElementById("speciesList"),
   spectrogramMode: document.getElementById("spectrogramMode"),
   toggleSpectrogramBtn: document.getElementById("toggleSpectrogramBtn"),
+  spectrogramDock: document.getElementById("spectrogramDock"),
+  spectrogramDockHandle: document.getElementById("spectrogramDockHandle"),
+  closeSpectrogramDockBtn: document.getElementById("closeSpectrogramDockBtn"),
   spectrogramCanvas: document.getElementById("spectrogramCanvas"),
   spectrogramImage: document.getElementById("spectrogramImage"),
   spectrogramHint: document.getElementById("spectrogramHint"),
+  segmentImage: document.getElementById("segmentImage"),
+  segmentImagePlaceholder: document.getElementById("segmentImagePlaceholder"),
+  segmentImageCaption: document.getElementById("segmentImageCaption"),
+  picturePanel: document.getElementById("picturePanel"),
+  expandPictureBtn: document.getElementById("expandPictureBtn"),
+  mapImageLightbox: document.getElementById("mapImageLightbox"),
+  mapImagePreview: document.getElementById("mapImagePreview"),
+  closeMapImageBtn: document.getElementById("closeMapImageBtn"),
   audioTimeline: document.getElementById("audioTimeline"),
   audioProgress: document.getElementById("audioProgress"),
   detectionMarkers: document.getElementById("detectionMarkers"),
@@ -53,6 +70,7 @@ const dom = {
   seekCurrentTime: document.getElementById("seekCurrentTime"),
   seekDuration: document.getElementById("seekDuration"),
   volumeSlider: document.getElementById("volumeSlider"),
+  timeBlockButtons: document.querySelectorAll("[data-time-block]"),
 };
 
 const map = L.map("map", {
@@ -192,6 +210,36 @@ function wireEvents() {
     });
   }
 
+  if (dom.expandPictureBtn) {
+    dom.expandPictureBtn.addEventListener("click", () => {
+      if (dom.mapImageLightbox && !dom.mapImageLightbox.hidden) {
+        closeMapImageLightbox();
+      } else {
+        openMapImageLightbox();
+      }
+    });
+  }
+
+  if (dom.closeMapImageBtn) {
+    dom.closeMapImageBtn.addEventListener("click", () => {
+      closeMapImageLightbox();
+    });
+  }
+
+  if (dom.mapImageLightbox) {
+    dom.mapImageLightbox.addEventListener("click", (event) => {
+      if (event.target === dom.mapImageLightbox) {
+        closeMapImageLightbox();
+      }
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMapImageLightbox();
+    }
+  });
+
   dom.clusterToggle.addEventListener("change", () => {
     state.useClustering = dom.clusterToggle.checked;
     renderMarkers(state.filteredSegments);
@@ -206,6 +254,7 @@ function wireEvents() {
       dom.hourRangeMax.value = dom.hourRangeMin.value;
     }
     updateHourRangeLabel();
+    updateTimeBlockButtons();
     applyFilters();
   });
 
@@ -214,8 +263,25 @@ function wireEvents() {
       dom.hourRangeMin.value = dom.hourRangeMax.value;
     }
     updateHourRangeLabel();
+    updateTimeBlockButtons();
     applyFilters();
   });
+
+  for (const button of dom.timeBlockButtons) {
+    button.addEventListener("click", () => {
+      const block = button.dataset.timeBlock || "";
+      const range = getTimeBlockRange(block);
+      if (!range) {
+        return;
+      }
+
+      dom.hourRangeMin.value = String(range.min);
+      dom.hourRangeMax.value = String(range.max);
+      updateHourRangeLabel();
+      updateTimeBlockButtons();
+      applyFilters();
+    });
+  }
 
   dom.clearFiltersBtn.addEventListener("click", () => {
     dom.seasonFilter.value = "all";
@@ -228,6 +294,7 @@ function wireEvents() {
     }
     state.useClustering = true;
     updateHourRangeLabel();
+    updateTimeBlockButtons();
     applyFilters();
   });
 
@@ -246,14 +313,91 @@ function wireEvents() {
       : "Show spectrogram";
 
     if (state.spectrogram.enabled) {
+      if (dom.spectrogramDock) {
+        dom.spectrogramDock.hidden = false;
+      }
       renderSpectrogramForCurrentSegment();
     } else {
       stopSpectrogram();
       dom.spectrogramCanvas.hidden = true;
       dom.spectrogramImage.hidden = true;
       dom.spectrogramHint.hidden = true;
+      if (dom.spectrogramDock) {
+        dom.spectrogramDock.hidden = true;
+      }
     }
   });
+
+  if (dom.closeSpectrogramDockBtn) {
+    dom.closeSpectrogramDockBtn.addEventListener("mousedown", (event) => {
+      // Prevent header drag logic from starting when pressing the hide button.
+      event.stopPropagation();
+    });
+
+    dom.closeSpectrogramDockBtn.addEventListener("click", () => {
+      state.spectrogram.enabled = false;
+      dom.toggleSpectrogramBtn.textContent = "Show spectrogram";
+      stopSpectrogram();
+      dom.spectrogramCanvas.hidden = true;
+      dom.spectrogramImage.hidden = true;
+      dom.spectrogramHint.hidden = true;
+      if (dom.spectrogramDock) {
+        dom.spectrogramDock.hidden = true;
+      }
+    });
+  }
+
+  if (dom.spectrogramDockHandle && dom.spectrogramDock) {
+    dom.spectrogramDockHandle.addEventListener("mousedown", (event) => {
+      if (window.innerWidth <= 980) {
+        return;
+      }
+
+      // If the click started on an interactive control, do not start dragging.
+      if (event.target instanceof Element && event.target.closest("button, select, input, a")) {
+        return;
+      }
+
+      state.spectrogramDockDrag.active = true;
+      const rect = dom.spectrogramDock.getBoundingClientRect();
+      const parentRect = dom.spectrogramDock.offsetParent instanceof Element
+        ? dom.spectrogramDock.offsetParent.getBoundingClientRect()
+        : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+      state.spectrogramDockDrag.offsetX = event.clientX - rect.left;
+      state.spectrogramDockDrag.offsetY = event.clientY - rect.top;
+      dom.spectrogramDock.style.right = "auto";
+      dom.spectrogramDock.style.bottom = "auto";
+      dom.spectrogramDock.style.left = `${rect.left - parentRect.left}px`;
+      dom.spectrogramDock.style.top = `${rect.top - parentRect.top}px`;
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (!state.spectrogramDockDrag.active) {
+        return;
+      }
+
+      const dock = dom.spectrogramDock;
+      const parentRect = dock.offsetParent instanceof Element
+        ? dock.offsetParent.getBoundingClientRect()
+        : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+      const width = dock.offsetWidth;
+      const height = dock.offsetHeight;
+      const nextLeft = Math.max(
+        0,
+        Math.min(parentRect.width - width, event.clientX - parentRect.left - state.spectrogramDockDrag.offsetX)
+      );
+      const nextTop = Math.max(
+        0,
+        Math.min(parentRect.height - height, event.clientY - parentRect.top - state.spectrogramDockDrag.offsetY)
+      );
+      dock.style.left = `${nextLeft}px`;
+      dock.style.top = `${nextTop}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+      state.spectrogramDockDrag.active = false;
+    });
+  }
 
   dom.audioPlayer.addEventListener("loadedmetadata", () => {
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = false;
@@ -270,6 +414,8 @@ function wireEvents() {
   });
 
   dom.audioPlayer.addEventListener("play", () => {
+    state.isAudioPlaying = true;
+    refreshMarkerIcons();
     if (dom.iconPlay) dom.iconPlay.hidden = true;
     if (dom.iconPause) dom.iconPause.hidden = false;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Pause");
@@ -280,6 +426,8 @@ function wireEvents() {
   });
 
   dom.audioPlayer.addEventListener("pause", () => {
+    state.isAudioPlaying = false;
+    refreshMarkerIcons();
     if (dom.iconPlay) dom.iconPlay.hidden = false;
     if (dom.iconPause) dom.iconPause.hidden = true;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
@@ -289,6 +437,8 @@ function wireEvents() {
   });
 
   dom.audioPlayer.addEventListener("ended", () => {
+    state.isAudioPlaying = false;
+    refreshMarkerIcons();
     if (dom.iconPlay) dom.iconPlay.hidden = false;
     if (dom.iconPause) dom.iconPause.hidden = true;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
@@ -344,6 +494,33 @@ function updateHourRangeLabel() {
   const startHour = Number(dom.hourRangeMin.value);
   const endHour = Number(dom.hourRangeMax.value);
   dom.hourRangeLabel.textContent = `${formatHour(startHour)} to ${formatHour(endHour)}`;
+}
+
+function getTimeBlockRange(block) {
+  const ranges = {
+    night: { min: 0, max: 4 },
+    dawn: { min: 5, max: 7 },
+    morning: { min: 8, max: 11 },
+    afternoon: { min: 12, max: 16 },
+    dusk: { min: 17, max: 19 },
+  };
+
+  return ranges[block] || null;
+}
+
+function updateTimeBlockButtons() {
+  const startHour = Number(dom.hourRangeMin.value);
+  const endHour = Number(dom.hourRangeMax.value);
+
+  for (const button of dom.timeBlockButtons) {
+    const range = getTimeBlockRange(button.dataset.timeBlock || "");
+    if (!range) {
+      continue;
+    }
+
+    const isActive = range.min === startHour && range.max === endHour;
+    button.classList.toggle("active", isActive);
+  }
 }
 
 function getSelectedSpecies() {
@@ -415,10 +592,6 @@ function renderMarkers(segments) {
       title: `${segment.site_name || segment.site_id} - ${segment.segment_id}`,
     });
 
-    marker.bindPopup(
-      `<strong>${escapeHtml(segment.site_name || segment.site_id || "Site")}</strong><br>${escapeHtml(segment.segment_id)}<br>${escapeHtml(segment.local_date || "")}`
-    );
-
     marker.on("click", () => {
       selectSegment(segment.segment_id, { flyTo: false, autoplay: false });
     });
@@ -444,14 +617,17 @@ function markerIcon(segment, isActive) {
   }
   if (isActive) {
     classes.push("marker-active");
+    if (state.isAudioPlaying) {
+      classes.push("marker-playing");
+    }
   }
 
   return L.divIcon({
     className: "",
-    html: `<span class="${classes.join(" ")}"></span>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -8],
+    html: `<span class="${classes.join(" ")}"><span class="wave"></span><span class="wave"></span><span class="wave"></span></span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -10],
   });
 }
 
@@ -476,15 +652,23 @@ function renderSegmentList(segments) {
   for (const segment of segments) {
     const item = document.createElement("li");
     item.className = "segment-item";
+    const segmentHour = Number(segment.local_hour);
+    const timeBand = getTimeBand(segmentHour);
+    const activity = getActivityBand(segment.detection_count);
+    item.classList.add(`time-${timeBand}`);
+    item.classList.add(`activity-${activity.level}`);
     if (segment.segment_id === state.activeSegmentId) {
       item.classList.add("active");
     }
-    if (isDawnDusk(Number(segment.local_hour))) {
+    if (isDawnDusk(segmentHour)) {
       item.classList.add("dawn-dusk");
     }
 
     item.innerHTML = `
-      <strong>${escapeHtml(segment.site_name || segment.site_id)}</strong>
+      <div class="segment-head-row">
+        <strong>${escapeHtml(segment.site_name || segment.site_id)}</strong>
+        ${activity.level === "high" ? `<span class="activity-badge">High activity</span>` : ""}
+      </div>
       <p>${escapeHtml(segment.local_date || "")} ${formatHour(Number(segment.local_hour))}</p>
       <p>${escapeHtml(segment.segment_id)}</p>
     `;
@@ -510,6 +694,7 @@ function selectSegment(segmentId, options = {}) {
 
   renderSegmentList(state.filteredSegments);
   renderMetadata(segment);
+  renderSegmentImage(segment);
   refreshMarkerIcons();
   renderDetectionTimeline(segment);
 
@@ -545,7 +730,6 @@ function selectSegment(segmentId, options = {}) {
 
   const marker = state.markersBySegmentId.get(segment.segment_id);
   if (marker) {
-    marker.openPopup();
     if (options.flyTo) {
       map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 12), { duration: 0.9 });
     }
@@ -616,25 +800,51 @@ function renderDetectionTimeline(segment) {
     return;
   }
 
+  const defaultHint = "Hover to preview detection details. Click to jump 5 seconds before detection.";
+  dom.timelineHint.textContent = defaultHint;
+
   const duration = getDurationForTimeline(segment);
   for (const detection of detections) {
     const startSec = Number(detection.start_sec);
     const ratio = Math.max(0, Math.min(1, startSec / duration));
+    const confidence = getDetectionConfidence(detection);
+    const confidenceRatio = Math.max(0, Math.min(1, confidence));
+    const yPercent = 84 - confidenceRatio * 66;
+
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = "detection-dot";
     dot.style.left = `${ratio * 100}%`;
-    dot.title = `${detection.common_name || "Unknown"} at ${formatTime(startSec)}`;
+    dot.style.top = `${yPercent}%`;
+    dot.setAttribute(
+      "aria-label",
+      `${detection.common_name || "Unknown"}, ${formatTime(startSec)}, confidence ${Math.round(confidenceRatio * 100)} percent`
+    );
 
     dot.addEventListener("mouseenter", () => {
-      dom.timelineHint.textContent = `${detection.common_name || "Unknown"} (${formatTime(startSec)})`;
+      const species = detection.common_name || "Unknown";
+      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
+      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel})`;
     });
 
     dot.addEventListener("mouseleave", () => {
-      dom.timelineHint.textContent = "Hover detection points for species. Click to jump 5 seconds before detection.";
+      dom.timelineHint.textContent = defaultHint;
+    });
+
+    dot.addEventListener("focus", () => {
+      const species = detection.common_name || "Unknown";
+      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
+      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel})`;
+    });
+
+    dot.addEventListener("blur", () => {
+      dom.timelineHint.textContent = defaultHint;
     });
 
     dot.addEventListener("click", () => {
+      const species = detection.common_name || "Unknown";
+      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
+      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel}). Jumped to 5s before detection.`;
       const seekTarget = Math.max(0, startSec - 5);
       dom.audioPlayer.currentTime = seekTarget;
       dom.audioPlayer.play().catch(() => {});
@@ -688,6 +898,7 @@ function clearActiveSegmentState() {
   dom.nowPlaying.textContent = "No segment selected.";
   dom.metadataGrid.innerHTML = "";
   dom.speciesList.innerHTML = "";
+  clearSegmentImage();
   dom.audioPlayer.removeAttribute("src");
   dom.audioPlayer.load();
   dom.detectionMarkers.innerHTML = "";
@@ -701,8 +912,123 @@ function clearActiveSegmentState() {
   if (dom.seekBar) dom.seekBar.value = "0";
   if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
   if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
+  state.isAudioPlaying = false;
   updateAudioTimelineProgress();
   refreshMarkerIcons();
+}
+
+function getDetectionConfidence(detection) {
+  const raw = Number(detection.confidence);
+  if (!Number.isFinite(raw)) {
+    return 0.5;
+  }
+  if (raw > 1) {
+    return Math.max(0, Math.min(1, raw / 100));
+  }
+  return Math.max(0, Math.min(1, raw));
+}
+
+function getSegmentImageInfo(segment) {
+  const candidates = [
+    segment?.photo_url,
+    segment?.image_url,
+    segment?.site?.image_url,
+    segment?.session?.image_url,
+    segment?.spectrogram_image_url,
+  ];
+
+  for (const candidate of candidates) {
+    const url = String(candidate || "").trim();
+    if (!url) {
+      continue;
+    }
+
+    const isSpectrogram = url === String(segment?.spectrogram_image_url || "").trim();
+    return {
+      url,
+      caption: isSpectrogram
+        ? "Spectrogram preview image for this segment."
+        : "Segment image preview.",
+    };
+  }
+
+  return null;
+}
+
+function renderSegmentImage(segment) {
+  if (!dom.segmentImage || !dom.segmentImagePlaceholder || !dom.segmentImageCaption) {
+    return;
+  }
+
+  const imageInfo = getSegmentImageInfo(segment);
+  if (!imageInfo) {
+    clearSegmentImage();
+    dom.segmentImageCaption.textContent = "No image is linked to this segment.";
+    return;
+  }
+
+  dom.segmentImage.hidden = false;
+  dom.segmentImagePlaceholder.hidden = true;
+  dom.segmentImage.src = imageInfo.url;
+  dom.segmentImage.alt = `${segment.site_name || segment.site_id} ${segment.segment_id} image`;
+  dom.segmentImageCaption.textContent = imageInfo.caption;
+  if (dom.expandPictureBtn) {
+    dom.expandPictureBtn.disabled = false;
+    dom.expandPictureBtn.textContent = "Expand";
+  }
+
+  dom.segmentImage.onerror = () => {
+    clearSegmentImage();
+    if (dom.segmentImageCaption) {
+      dom.segmentImageCaption.textContent = "Image could not be loaded for this segment.";
+    }
+  };
+}
+
+function clearSegmentImage() {
+  if (!dom.segmentImage || !dom.segmentImagePlaceholder || !dom.segmentImageCaption) {
+    return;
+  }
+
+  dom.segmentImage.hidden = true;
+  dom.segmentImage.removeAttribute("src");
+  dom.segmentImagePlaceholder.hidden = false;
+  dom.segmentImageCaption.textContent = "Select a segment to preview an image.";
+  if (dom.expandPictureBtn) {
+    dom.expandPictureBtn.disabled = true;
+    dom.expandPictureBtn.textContent = "Expand";
+  }
+  closeMapImageLightbox();
+}
+
+function openMapImageLightbox() {
+  if (!dom.mapImageLightbox || !dom.mapImagePreview || !dom.segmentImage) {
+    return;
+  }
+
+  const src = dom.segmentImage.getAttribute("src");
+  if (!src) {
+    return;
+  }
+
+  dom.mapImagePreview.src = src;
+  dom.mapImagePreview.alt = dom.segmentImage.alt || "Expanded segment visual";
+  dom.mapImageLightbox.hidden = false;
+  if (dom.expandPictureBtn) {
+    dom.expandPictureBtn.textContent = "Retract";
+  }
+}
+
+function closeMapImageLightbox() {
+  if (!dom.mapImageLightbox || !dom.mapImagePreview) {
+    return;
+  }
+
+  dom.mapImageLightbox.hidden = true;
+  dom.mapImagePreview.removeAttribute("src");
+  if (dom.expandPictureBtn && !dom.expandPictureBtn.disabled) {
+    dom.expandPictureBtn.textContent = "Expand";
+  }
 }
 
 function ensureAudioGraph() {
@@ -814,6 +1140,42 @@ function isDawnDusk(hour) {
     return false;
   }
   return (hour >= 5 && hour <= 7) || (hour >= 17 && hour <= 19);
+}
+
+function getTimeBand(hour) {
+  if (!Number.isFinite(hour)) {
+    return "unknown";
+  }
+  if (hour >= 0 && hour <= 4) {
+    return "night";
+  }
+  if (hour >= 5 && hour <= 7) {
+    return "dawn";
+  }
+  if (hour >= 8 && hour <= 11) {
+    return "morning";
+  }
+  if (hour >= 12 && hour <= 16) {
+    return "afternoon";
+  }
+  if (hour >= 17 && hour <= 19) {
+    return "dusk";
+  }
+  return "night";
+}
+
+function getActivityBand(detectionCount) {
+  const count = Number(detectionCount);
+  if (!Number.isFinite(count) || count <= 0) {
+    return { level: "low", count: 0 };
+  }
+  if (count >= 20) {
+    return { level: "high", count };
+  }
+  if (count >= 8) {
+    return { level: "medium", count };
+  }
+  return { level: "low", count };
 }
 
 function formatHour(hour) {

@@ -49,6 +49,13 @@
             <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" />
           </div>
           <p id="hourRangeLabel" class="subtle">00:00 to 23:00</p>
+          <div class="time-blocks" aria-label="Ecological time shortcuts">
+            <button type="button" class="time-chip" data-time-block="night">Night</button>
+            <button type="button" class="time-chip" data-time-block="dawn">Dawn</button>
+            <button type="button" class="time-chip" data-time-block="morning">Morning</button>
+            <button type="button" class="time-chip" data-time-block="afternoon">Afternoon</button>
+            <button type="button" class="time-chip" data-time-block="dusk">Dusk</button>
+          </div>
 
           <details class="advanced-filters" id="advancedFilters">
             <summary>Advanced filters</summary>
@@ -109,11 +116,21 @@
               <button id="toggleSpectrogramBtn" type="button">Spectrogram</button>
             </div>
           </div>
-
-          <canvas id="spectrogramCanvas" width="760" height="180" hidden></canvas>
-          <img id="spectrogramImage" alt="Spectrogram" hidden />
-          <p id="spectrogramHint" class="subtle" hidden>Live spectrogram view derived from audio playback.</p>
         </section>
+
+        <details class="panel picture-panel" id="picturePanel">
+          <summary class="panel-summary"><h2>Picture</h2></summary>
+          <div class="picture-body">
+            <div class="segment-image-wrap">
+              <img id="segmentImage" alt="Segment visual" hidden />
+              <div id="segmentImagePlaceholder" class="segment-image-placeholder">No image available for this segment.</div>
+            </div>
+            <div class="picture-actions">
+              <button id="expandPictureBtn" type="button" disabled>Expand</button>
+            </div>
+            <p id="segmentImageCaption" class="subtle">Select a segment to preview an image.</p>
+          </div>
+        </details>
 
         <details class="panel metadata-panel" id="metadataPanel" open>
           <summary class="panel-summary"><h2>Segment metadata</h2></summary>
@@ -129,6 +146,21 @@
         </div>
         <button id="mobileFiltersBtn" class="mobile-filters-btn" type="button">Filters</button>
         <div id="map" aria-label="Soundscape map"></div>
+        <section id="spectrogramDock" class="panel spectrogram-dock" hidden>
+          <header id="spectrogramDockHandle" class="spectrogram-dock-header">
+            <h3>Spectrogram</h3>
+            <button id="closeSpectrogramDockBtn" type="button" aria-label="Close spectrogram">Hide</button>
+          </header>
+          <div class="spectrogram-dock-body">
+            <canvas id="spectrogramCanvas" width="760" height="180" hidden></canvas>
+            <img id="spectrogramImage" alt="Spectrogram" hidden />
+            <p id="spectrogramHint" class="subtle" hidden>Live spectrogram view derived from audio playback.</p>
+          </div>
+        </section>
+        <div id="mapImageLightbox" class="map-image-lightbox" hidden>
+          <button id="closeMapImageBtn" class="map-image-close" type="button" aria-label="Close image preview">Close</button>
+          <img id="mapImagePreview" alt="Expanded segment visual" />
+        </div>
         <section class="panel audio-timeline-panel">
           <div class="timeline-header">
             <h2>Detection Timeline</h2>
@@ -138,7 +170,7 @@
             <div id="audioProgress" class="audio-progress"></div>
             <div id="detectionMarkers" class="detection-markers"></div>
           </div>
-          <p id="timelineHint" class="subtle">Hover detection points for species. Click to jump 5 seconds before detection.</p>
+          <p id="timelineHint" class="subtle">Click detection points to jump 5 seconds before detection.</p>
         </section>
       </main>
     </div>
