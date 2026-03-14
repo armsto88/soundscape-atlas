@@ -592,6 +592,12 @@ button:hover {
   gap: 0.5rem;
 }
 
+.segment-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .activity-badge {
   display: inline-flex;
   align-items: center;
@@ -626,6 +632,47 @@ button:hover {
   font-weight: 500;
   line-height: 1.35;
   min-height: 1.35em;
+}
+
+.now-playing-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.segment-like-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.segment-like-btn.active {
+  border-color: color-mix(in srgb, var(--accent-2) 52%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+  color: var(--accent-2);
+}
+
+.segment-item-like-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.segment-item-like-btn.active {
+  border-color: color-mix(in srgb, var(--accent-2) 52%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+  color: var(--accent-2);
 }
 
 #audioPlayer {

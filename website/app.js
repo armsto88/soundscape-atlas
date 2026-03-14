@@ -21,6 +21,7 @@ const state = {
   uiMode: "full",
   theme: "dark",
   signedInUser: null,
+  likedSegmentsByUser: {},
   commentsBySegmentId: {},
   showTimelineComments: false,
   timelineActionSec: null,
@@ -30,6 +31,7 @@ const state = {
 const STORAGE_MODE_KEY = "soundscapeAtlas.uiMode";
 const STORAGE_THEME_KEY = "soundscapeAtlas.theme";
 const STORAGE_USER_KEY = "soundscapeAtlas.userName";
+const STORAGE_LIKES_KEY = "soundscapeAtlas.segmentLikes";
 const STORAGE_COMMENTS_KEY = "soundscapeAtlas.timelineComments";
 
 const dom = {
@@ -55,6 +57,7 @@ const dom = {
   clearFiltersBtn: document.getElementById("clearFiltersBtn"),
   segmentList: document.getElementById("segmentList"),
   nowPlaying: document.getElementById("nowPlaying"),
+  toggleSegmentLikeBtn: document.getElementById("toggleSegmentLikeBtn"),
   audioPlayer: document.getElementById("audioPlayer"),
   metadataGrid: document.getElementById("metadataGrid"),
   speciesList: document.getElementById("speciesList"),
@@ -187,6 +190,7 @@ async function init() {
     buildFilterOptions(state.segments);
     wireEvents();
     restoreSignedInUser();
+    restoreSegmentLikes();
     restoreTimelineComments();
     renderUserLibrary();
     applyTheme(loadStoredTheme());
@@ -319,6 +323,15 @@ function wireEvents() {
       const commentId = button.getAttribute("data-comment-id") || "";
       const sec = Number(button.getAttribute("data-sec"));
       recallLibraryItem(segmentId, commentId, sec);
+    });
+  }
+
+  if (dom.toggleSegmentLikeBtn) {
+    dom.toggleSegmentLikeBtn.addEventListener("click", () => {
+      if (!state.activeSegment) {
+        return;
+      }
+      toggleLikeForSegment(state.activeSegment.segment_id);
     });
   }
 
@@ -845,6 +858,101 @@ function restoreSignedInUser() {
   renderUserLibrary();
 }
 
+function restoreSegmentLikes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_LIKES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    state.likedSegmentsByUser = parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    state.likedSegmentsByUser = {};
+  }
+}
+
+function saveSegmentLikes() {
+  try {
+    localStorage.setItem(STORAGE_LIKES_KEY, JSON.stringify(state.likedSegmentsByUser));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function getSignedInUserLikesMap() {
+  if (!state.signedInUser) {
+    return {};
+  }
+  const entry = state.likedSegmentsByUser[state.signedInUser];
+  if (!entry || typeof entry !== "object") {
+    return {};
+  }
+  return entry;
+}
+
+function isSegmentLikedForSignedInUser(segmentId) {
+  if (!state.signedInUser || !segmentId) {
+    return false;
+  }
+  const likes = getSignedInUserLikesMap();
+  return Boolean(likes[segmentId]);
+}
+
+function toggleLikeForSegment(segmentId) {
+  if (!segmentId) {
+    return;
+  }
+
+  if (!state.signedInUser) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Sign in to save segments to your library.";
+    }
+    return;
+  }
+
+  const current = getSignedInUserLikesMap();
+  const next = { ...current };
+  const isLiked = Boolean(next[segmentId]);
+
+  if (isLiked) {
+    delete next[segmentId];
+  } else {
+    next[segmentId] = new Date().toISOString();
+  }
+
+  state.likedSegmentsByUser[state.signedInUser] = next;
+  saveSegmentLikes();
+  updateActiveSegmentLikeButton();
+  renderSegmentList(state.filteredSegments);
+  renderUserLibrary();
+
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = isLiked
+      ? "Removed segment from your library."
+      : "Saved segment to your library.";
+  }
+}
+
+function updateActiveSegmentLikeButton() {
+  if (!dom.toggleSegmentLikeBtn) {
+    return;
+  }
+
+  const segmentId = state.activeSegment?.segment_id;
+  if (!segmentId || !state.signedInUser) {
+    dom.toggleSegmentLikeBtn.disabled = true;
+    dom.toggleSegmentLikeBtn.classList.remove("active");
+    dom.toggleSegmentLikeBtn.innerHTML = '<span aria-hidden="true">♡</span>';
+    return;
+  }
+
+  const liked = isSegmentLikedForSignedInUser(segmentId);
+  dom.toggleSegmentLikeBtn.disabled = false;
+  dom.toggleSegmentLikeBtn.classList.toggle("active", liked);
+  dom.toggleSegmentLikeBtn.innerHTML = liked
+    ? '<span aria-hidden="true">♥</span>'
+    : '<span aria-hidden="true">♡</span>';
+  dom.toggleSegmentLikeBtn.setAttribute("aria-label", liked ? "Remove segment from library" : "Save segment to library");
+  dom.toggleSegmentLikeBtn.title = liked ? "Saved" : "Save segment";
+}
+
 function restoreTimelineComments() {
   try {
     const raw = localStorage.getItem(STORAGE_COMMENTS_KEY);
@@ -1028,6 +1136,8 @@ function updateAuthUI() {
     }
   }
 
+  renderSegmentList(state.filteredSegments);
+  updateActiveSegmentLikeButton();
   updateDeleteTimelineCommentButton();
 }
 
@@ -1037,6 +1147,21 @@ function getSignedInUserLibraryItems() {
   }
 
   const items = [];
+
+  const likes = getSignedInUserLikesMap();
+  for (const [segmentId, createdAtRaw] of Object.entries(likes)) {
+    const segment = state.segments.find((entry) => entry.segment_id === segmentId) || null;
+    items.push({
+      kind: "segment",
+      segmentId,
+      segment,
+      commentId: "",
+      text: "",
+      sec: 0,
+      createdAt: String(createdAtRaw || ""),
+    });
+  }
+
   for (const [segmentId, annotations] of Object.entries(state.commentsBySegmentId)) {
     if (!Array.isArray(annotations)) {
       continue;
@@ -1049,6 +1174,7 @@ function getSignedInUserLibraryItems() {
       }
 
       items.push({
+        kind: "comment",
         segmentId,
         segment,
         commentId: String(annotation.id || ""),
@@ -1072,14 +1198,14 @@ function renderUserLibrary() {
 
   if (!state.signedInUser) {
     dom.userLibraryEmpty.hidden = false;
-    dom.userLibraryEmpty.textContent = "Sign in to view your comments.";
+    dom.userLibraryEmpty.textContent = "Sign in to view your saved segments and comments.";
     return;
   }
 
   const items = getSignedInUserLibraryItems();
   if (items.length === 0) {
     dom.userLibraryEmpty.hidden = false;
-    dom.userLibraryEmpty.textContent = "No comments yet.";
+    dom.userLibraryEmpty.textContent = "No saved items yet.";
     return;
   }
 
@@ -1091,21 +1217,22 @@ function renderUserLibrary() {
     const locationLabel = item.segment
       ? `${item.segment.site_name || item.segment.site_id} - ${item.segmentId}`
       : item.segmentId;
-    const noteText = item.text || "Comment";
+    const isComment = item.kind === "comment";
+    const noteText = isComment ? item.text || "Comment" : "Saved segment";
 
     li.innerHTML = `
       <div class="library-item-head">
         <strong>${escapeHtml(locationLabel)}</strong>
-        <span class="library-kind">Comment</span>
+        <span class="library-kind">${isComment ? "Comment" : "Segment"}</span>
       </div>
-      <p>${escapeHtml(formatTime(item.sec))} - ${escapeHtml(noteText)}</p>
+      <p>${isComment ? `${escapeHtml(formatTime(item.sec))} - ` : ""}${escapeHtml(noteText)}</p>
       <button
         type="button"
         class="library-recall-btn"
         data-segment-id="${escapeHtml(item.segmentId)}"
         data-comment-id="${escapeHtml(item.commentId)}"
         data-sec="${escapeHtml(String(item.sec))}"
-      >Recall file</button>
+      >${isComment ? "Recall file" : "Open segment"}</button>
     `;
 
     dom.userLibraryList.append(li);
@@ -1117,9 +1244,11 @@ function recallLibraryItem(segmentId, commentId, sec) {
     return;
   }
 
-  state.showTimelineComments = true;
-  if (dom.showCommentsToggle) {
-    dom.showCommentsToggle.checked = true;
+  if (commentId) {
+    state.showTimelineComments = true;
+    if (dom.showCommentsToggle) {
+      dom.showCommentsToggle.checked = true;
+    }
   }
 
   selectSegment(segmentId, { flyTo: true, autoplay: false });
@@ -1136,7 +1265,11 @@ function recallLibraryItem(segmentId, commentId, sec) {
     dom.audioPlayer.addEventListener("loadedmetadata", setTime, { once: true });
   }
 
-  state.selectedTimelineComment = { segmentId, commentId };
+  if (commentId) {
+    state.selectedTimelineComment = { segmentId, commentId };
+  } else {
+    state.selectedTimelineComment = null;
+  }
   updateDeleteTimelineCommentButton();
 
   if (dom.timelineHint) {
@@ -1348,14 +1481,34 @@ function renderSegmentList(segments) {
       item.classList.add("dawn-dusk");
     }
 
+    const liked = isSegmentLikedForSignedInUser(segment.segment_id);
+
     item.innerHTML = `
       <div class="segment-head-row">
         <strong>${escapeHtml(segment.site_name || segment.site_id)}</strong>
-        ${activity.level === "high" ? `<span class="activity-badge">High activity</span>` : ""}
+        <div class="segment-card-actions">
+          ${activity.level === "high" ? `<span class="activity-badge">High activity</span>` : ""}
+          <button
+            type="button"
+            class="segment-item-like-btn ${liked ? "active" : ""}"
+            data-segment-like-id="${escapeHtml(segment.segment_id)}"
+            aria-label="${liked ? "Remove segment from library" : "Save segment to library"}"
+            title="${liked ? "Saved" : "Save segment"}"
+          >${liked ? "♥" : "♡"}</button>
+        </div>
       </div>
       <p>${escapeHtml(segment.local_date || "")} ${formatHour(Number(segment.local_hour))}</p>
       <p>${escapeHtml(segment.segment_id)}</p>
     `;
+
+    const likeButton = item.querySelector("[data-segment-like-id]");
+    if (likeButton) {
+      likeButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const targetId = likeButton.getAttribute("data-segment-like-id") || "";
+        toggleLikeForSegment(targetId);
+      });
+    }
 
     item.addEventListener("click", () => {
       selectSegment(segment.segment_id, { flyTo: true, autoplay: false });
@@ -1379,6 +1532,7 @@ function selectSegment(segmentId, options = {}) {
   renderSegmentList(state.filteredSegments);
   renderMetadata(segment);
   renderSegmentImage(segment);
+  updateActiveSegmentLikeButton();
   refreshMarkerIcons();
   renderDetectionTimeline(segment);
 
@@ -1724,6 +1878,7 @@ function clearActiveSegmentState() {
   if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
   if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
   state.isAudioPlaying = false;
+  updateActiveSegmentLikeButton();
   updateAudioTimelineProgress();
   refreshMarkerIcons();
 }

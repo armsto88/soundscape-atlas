@@ -106,7 +106,12 @@
 
         <section class="panel player-panel" id="playerPanel">
           <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
-          <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
+          <div class="now-playing-row">
+            <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
+            <button id="toggleSegmentLikeBtn" class="segment-like-btn" type="button" aria-label="Save segment to library" title="Save segment">
+              <span aria-hidden="true">♡</span>
+            </button>
+          </div>
 
           <div class="transport">
             <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">-10s</button>
