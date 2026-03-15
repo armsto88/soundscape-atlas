@@ -240,24 +240,39 @@ function setupBrandLogo() {
     return;
   }
 
-  const logoSrc = String(dom.brandLogo.dataset.logoSrc || "").trim();
-  if (!logoSrc) {
+  const configuredSrc = String(dom.brandLogo.dataset.logoSrc || "").trim();
+  const candidateSources = Array.from(new Set([
+    configuredSrc,
+    "assets/logo.png",
+    "assets/logo.svg",
+  ].filter(Boolean)));
+
+  if (candidateSources.length === 0) {
     dom.brandLogo.hidden = true;
     dom.brandLogoFallback.hidden = false;
     return;
   }
 
-  dom.brandLogo.addEventListener("load", () => {
-    dom.brandLogo.hidden = false;
-    dom.brandLogoFallback.hidden = true;
-  }, { once: true });
+  const loadCandidate = (index) => {
+    if (index >= candidateSources.length) {
+      dom.brandLogo.hidden = true;
+      dom.brandLogoFallback.hidden = false;
+      return;
+    }
 
-  dom.brandLogo.addEventListener("error", () => {
-    dom.brandLogo.hidden = true;
-    dom.brandLogoFallback.hidden = false;
-  }, { once: true });
+    dom.brandLogo.onload = () => {
+      dom.brandLogo.hidden = false;
+      dom.brandLogoFallback.hidden = true;
+    };
 
-  dom.brandLogo.src = logoSrc;
+    dom.brandLogo.onerror = () => {
+      loadCandidate(index + 1);
+    };
+
+    dom.brandLogo.src = candidateSources[index];
+  };
+
+  loadCandidate(0);
 }
 
 function wireEvents() {
