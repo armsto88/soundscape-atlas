@@ -409,6 +409,14 @@ function wireEvents() {
         return;
       }
 
+      const deleteBtn = event.target.closest(".library-delete-btn");
+      if (deleteBtn) {
+        const segmentId = deleteBtn.getAttribute("data-segment-id") || "";
+        const commentId = deleteBtn.getAttribute("data-comment-id") || "";
+        deleteCommentById(segmentId, commentId);
+        return;
+      }
+
       const button = event.target.closest(".library-recall-btn");
       if (!button) {
         return;
@@ -1596,7 +1604,7 @@ function updateAuthUI() {
   }
 
   if (dom.settingsToggleBtn) {
-    dom.settingsToggleBtn.disabled = !signedIn;
+    dom.settingsToggleBtn.disabled = false;
   }
 
   if (!signedIn) {
@@ -1720,13 +1728,16 @@ function renderUserLibrary() {
           <span class="library-kind">${isCommentSection ? "Comment" : "Segment"}</span>
         </div>
         <p>${isCommentSection ? `${escapeHtml(formatTime(item.sec))} - ` : ""}${escapeHtml(noteText)}</p>
-        <button
-          type="button"
-          class="library-recall-btn"
-          data-segment-id="${escapeHtml(item.segmentId)}"
-          data-comment-id="${escapeHtml(item.commentId)}"
-          data-sec="${escapeHtml(String(item.sec))}"
-        >${isCommentSection ? "Recall file" : "Open segment"}</button>
+        <div class="library-actions">
+          <button
+            type="button"
+            class="library-recall-btn"
+            data-segment-id="${escapeHtml(item.segmentId)}"
+            data-comment-id="${escapeHtml(item.commentId)}"
+            data-sec="${escapeHtml(String(item.sec))}"
+          >${isCommentSection ? "Recall file" : "Open segment"}</button>
+          ${isCommentSection ? `<button type="button" class="library-delete-btn" data-segment-id="${escapeHtml(item.segmentId)}" data-comment-id="${escapeHtml(item.commentId)}">Delete</button>` : ""}
+        </div>
       `;
 
       list.append(li);
@@ -2299,21 +2310,32 @@ async function deleteSelectedTimelineComment() {
     return;
   }
 
-  const list = Array.isArray(state.commentsBySegmentId[selected.segmentId])
-    ? state.commentsBySegmentId[selected.segmentId]
+  await deleteCommentById(selected.segmentId, selected.commentId);
+}
+
+async function deleteCommentById(segmentId, commentId) {
+  if (!segmentId || !commentId) {
+    return;
+  }
+
+  const list = Array.isArray(state.commentsBySegmentId[segmentId])
+    ? state.commentsBySegmentId[segmentId]
     : [];
-  const index = list.findIndex((item) => item.id === selected.commentId);
+  const index = list.findIndex((item) => item.id === commentId);
   if (index < 0) {
     return;
   }
 
   const comment = list[index];
   if (!state.signedInUser || comment.user !== state.signedInUser) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "You can only delete your own comments while signed in.";
+    }
     return;
   }
 
   try {
-    const response = await fetch(`/api/comments/${encodeURIComponent(selected.commentId)}`, {
+    const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user: state.signedInUser }),
@@ -2327,7 +2349,7 @@ async function deleteSelectedTimelineComment() {
     }
 
     list.splice(index, 1);
-    state.commentsBySegmentId[selected.segmentId] = list;
+  state.commentsBySegmentId[segmentId] = list;
     renderUserLibrary();
 
     state.selectedTimelineComment = null;
