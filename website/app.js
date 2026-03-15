@@ -104,6 +104,7 @@ const dom = {
   timelineHint: document.getElementById("timelineHint"),
   audioTimelinePanel: document.getElementById("audioTimelinePanel"),
   mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
+  mobileClosePanelsBtn: document.getElementById("mobileClosePanelsBtn"),
   mobileMiniPlayer: document.getElementById("mobileMiniPlayer"),
   mobileMiniNowPlaying: document.getElementById("mobileMiniNowPlaying"),
   mobileMiniPlayPause: document.getElementById("mobileMiniPlayPause"),
@@ -445,6 +446,15 @@ function wireEvents() {
       if (dom.controlsPanel) {
         dom.controlsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
       }
+    });
+  }
+
+  if (dom.mobileClosePanelsBtn) {
+    dom.mobileClosePanelsBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      document.body.classList.remove("mobile-panels-open");
+      setMobilePanelsOpen(false);
     });
   }
 
@@ -803,7 +813,7 @@ function setMobilePanelsOpen(open) {
   const shouldOpen = Boolean(open) && isSmallPhoneViewport();
   document.body.classList.toggle("mobile-panels-open", shouldOpen);
   if (dom.mobileFiltersBtn) {
-    dom.mobileFiltersBtn.textContent = shouldOpen ? "Close" : "Panels";
+    dom.mobileFiltersBtn.textContent = "Panels";
     dom.mobileFiltersBtn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
   }
 }

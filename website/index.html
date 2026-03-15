@@ -46,6 +46,7 @@
 
     <div class="app-shell">
       <aside class="sidebar">
+        <button id="mobileClosePanelsBtn" class="mobile-close-panels-btn" type="button">Back to map</button>
         <header class="sidebar-header">
           <div class="brand-shell">
             <div class="brand-mark-frame" aria-hidden="true">
@@ -181,8 +182,9 @@
         <div class="topbar-controls topbar-cluster">
           <span id="signedInBadge" class="signed-in-badge">Guest</span>
           <button id="libraryToggleBtn" type="button" class="library-toggle-btn" aria-label="Open My Library" title="My Library" aria-expanded="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H7.5A3.5 3.5 0 0 0 4 22V5.5zm2.5-.5A.5.5 0 0 0 6 5.5V19.1c.47-.07.97-.1 1.5-.1H18V5H6.5z" fill="currentColor"/>
+            <svg class="library-toggle-mobile-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6 4h11a2 2 0 0 1 2 2v13H8.5A2.5 2.5 0 0 0 6 21.5V4z" fill="currentColor"/>
+              <path d="M6 4v17.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
             </svg>
             <span class="library-toggle-label">Library</span>
           </button>
