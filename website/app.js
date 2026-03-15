@@ -317,9 +317,14 @@ function wireEvents() {
   }
 
   if (dom.settingsToggleBtn) {
-    dom.settingsToggleBtn.addEventListener("click", () => {
+    const handleSettingsToggle = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       toggleSettingsMenu();
-    });
+    };
+
+    dom.settingsToggleBtn.addEventListener("click", handleSettingsToggle);
+    dom.settingsToggleBtn.addEventListener("touchstart", handleSettingsToggle, { passive: false });
   }
 
   if (dom.libraryToggleBtn) {
@@ -558,7 +563,7 @@ function wireEvents() {
     }
 
     if (dom.settingsMenu && !dom.settingsMenu.hidden) {
-      const clickedInsideSettings = event.target.closest("#settingsMenu") || event.target.closest("#settingsToggleBtn");
+      const clickedInsideSettings = event.target.closest("#settingsMenu") || event.target.closest(".settings-wrap");
       if (!clickedInsideSettings) {
         closeSettingsMenu();
       }
@@ -942,6 +947,8 @@ function toggleSettingsMenu() {
   if (!dom.settingsMenu || !dom.settingsToggleBtn) {
     return;
   }
+  // Prevent the menu from sitting under the mobile panels sheet.
+  setMobilePanelsOpen(false);
   dom.settingsMenu.hidden = !dom.settingsMenu.hidden;
   dom.settingsToggleBtn.setAttribute("aria-expanded", dom.settingsMenu.hidden ? "false" : "true");
 }
