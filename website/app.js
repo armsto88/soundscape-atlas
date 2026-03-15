@@ -34,8 +34,12 @@ const STORAGE_USER_KEY = "soundscapeAtlas.userName";
 // Likes are stored in Cloudflare D1 via /api/likes
 // Comments are now stored in Cloudflare D1 via /api/comments
 
+let shareFeedbackTimer = null;
+
 const dom = {
   datasetSummary: document.getElementById("datasetSummary"),
+  brandLogo: document.getElementById("brandLogo"),
+  brandLogoFallback: document.getElementById("brandLogoFallback"),
   landingOverlay: document.getElementById("landingOverlay"),
   landingSignInName: document.getElementById("landingSignInName"),
   landingSignInPassword: document.getElementById("landingSignInPassword"),
@@ -58,6 +62,7 @@ const dom = {
   clearFiltersBtn: document.getElementById("clearFiltersBtn"),
   segmentList: document.getElementById("segmentList"),
   nowPlaying: document.getElementById("nowPlaying"),
+  shareSegmentBtn: document.getElementById("shareSegmentBtn"),
   toggleSegmentLikeBtn: document.getElementById("toggleSegmentLikeBtn"),
   audioPlayer: document.getElementById("audioPlayer"),
   metadataGrid: document.getElementById("metadataGrid"),
@@ -90,6 +95,10 @@ const dom = {
   deleteTimelineCommentBtn: document.getElementById("deleteTimelineCommentBtn"),
   userLibraryList: document.getElementById("userLibraryList"),
   userLibraryEmpty: document.getElementById("userLibraryEmpty"),
+  rightSidebar: document.getElementById("rightSidebar"),
+  libraryToggleBtn: document.getElementById("libraryToggleBtn"),
+  libraryCloseBtn: document.getElementById("libraryCloseBtn"),
+  librarySidebarResizeHandle: document.getElementById("librarySidebarResizeHandle"),
   audioTimeLabel: document.getElementById("audioTimeLabel"),
   timelineHint: document.getElementById("timelineHint"),
   audioTimelinePanel: document.getElementById("audioTimelinePanel"),
@@ -174,6 +183,9 @@ new LocateControl().addTo(map);
 
 async function init() {
   try {
+    setupBrandLogo();
+    setupLibrarySidebarResize();
+
     const response = await fetch("api/data.json", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Failed to load metadata: ${response.status}`);
@@ -197,6 +209,8 @@ async function init() {
     applyUIMode(loadStoredUIMode());
     applyFilters();
 
+    const sharedSegmentId = getSharedSegmentIdFromUrl();
+
     // Collapse secondary panels on narrow screens for a cleaner initial view
     if (window.innerWidth <= 760) {
       if (dom.controlsPanel) dom.controlsPanel.open = false;
@@ -204,7 +218,12 @@ async function init() {
       if (dom.metadataPanel) dom.metadataPanel.open = false;
     }
 
-    if (state.filteredSegments.length > 0) {
+    if (sharedSegmentId) {
+      selectSegment(sharedSegmentId, {
+        flyTo: true,
+        autoplay: false,
+      });
+    } else if (state.filteredSegments.length > 0) {
       selectSegment(state.filteredSegments[0].segment_id, {
         flyTo: true,
         autoplay: false,
@@ -214,6 +233,31 @@ async function init() {
     dom.datasetSummary.textContent = "Could not load metadata. Run build script first.";
     dom.segmentList.innerHTML = `<li class="subtle">${escapeHtml(String(error.message || error))}</li>`;
   }
+}
+
+function setupBrandLogo() {
+  if (!dom.brandLogo || !dom.brandLogoFallback) {
+    return;
+  }
+
+  const logoSrc = String(dom.brandLogo.dataset.logoSrc || "").trim();
+  if (!logoSrc) {
+    dom.brandLogo.hidden = true;
+    dom.brandLogoFallback.hidden = false;
+    return;
+  }
+
+  dom.brandLogo.addEventListener("load", () => {
+    dom.brandLogo.hidden = false;
+    dom.brandLogoFallback.hidden = true;
+  }, { once: true });
+
+  dom.brandLogo.addEventListener("error", () => {
+    dom.brandLogo.hidden = true;
+    dom.brandLogoFallback.hidden = false;
+  }, { once: true });
+
+  dom.brandLogo.src = logoSrc;
 }
 
 function wireEvents() {
@@ -249,6 +293,18 @@ function wireEvents() {
   if (dom.settingsToggleBtn) {
     dom.settingsToggleBtn.addEventListener("click", () => {
       toggleSettingsMenu();
+    });
+  }
+
+  if (dom.libraryToggleBtn) {
+    dom.libraryToggleBtn.addEventListener("click", () => {
+      toggleLibrarySidebar();
+    });
+  }
+
+  if (dom.libraryCloseBtn) {
+    dom.libraryCloseBtn.addEventListener("click", () => {
+      closeLibrarySidebar();
     });
   }
 
@@ -343,6 +399,12 @@ function wireEvents() {
     });
   }
 
+  if (dom.shareSegmentBtn) {
+    dom.shareSegmentBtn.addEventListener("click", () => {
+      copyCurrentSegmentShareLink();
+    });
+  }
+
   if (dom.mobileFiltersBtn) {
     dom.mobileFiltersBtn.addEventListener("click", () => {
       if (dom.controlsPanel) {
@@ -432,6 +494,7 @@ function wireEvents() {
       closeMapImageLightbox();
       closeTimelineActionMenu();
       closeSettingsMenu();
+      closeLibrarySidebar();
     }
   });
 
@@ -444,6 +507,13 @@ function wireEvents() {
       const clickedInsideSettings = event.target.closest("#settingsMenu") || event.target.closest("#settingsToggleBtn");
       if (!clickedInsideSettings) {
         closeSettingsMenu();
+      }
+    }
+
+    if (dom.rightSidebar && !dom.rightSidebar.classList.contains("collapsed")) {
+      const clickedInsideSidebar = event.target.closest("#rightSidebar") || event.target.closest("#libraryToggleBtn");
+      if (!clickedInsideSidebar) {
+        closeLibrarySidebar();
       }
     }
 
@@ -776,6 +846,58 @@ function closeSettingsMenu() {
   dom.settingsToggleBtn.setAttribute("aria-expanded", "false");
 }
 
+function setupLibrarySidebarResize() {
+  const handle = dom.librarySidebarResizeHandle;
+  const sidebar = dom.rightSidebar;
+  if (!handle || !sidebar) return;
+
+  let startX = 0;
+  let startWidth = 0;
+  let dragging = false;
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startWidth = sidebar.offsetWidth;
+    handle.classList.add("dragging");
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const delta = startX - e.clientX;
+    const maxW = Math.floor(window.innerWidth * 0.75);
+    const newWidth = Math.min(Math.max(220, startWidth + delta), maxW);
+    sidebar.style.width = newWidth + "px";
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  });
+}
+
+function toggleLibrarySidebar() {
+  if (!dom.rightSidebar) return;
+  const isCollapsed = dom.rightSidebar.classList.toggle("collapsed");
+  if (dom.libraryToggleBtn) {
+    dom.libraryToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+  }
+}
+
+function closeLibrarySidebar() {
+  if (!dom.rightSidebar) return;
+  dom.rightSidebar.classList.add("collapsed");
+  if (dom.libraryToggleBtn) {
+    dom.libraryToggleBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
 function applyUIMode(mode) {
   const nextMode = mode === "chill" ? "chill" : "full";
   state.uiMode = nextMode;
@@ -786,6 +908,7 @@ function applyUIMode(mode) {
   }
 
   if (nextMode === "chill") {
+    closeLibrarySidebar();
     if (state.spectrogram.enabled) {
       state.spectrogram.enabled = false;
       stopSpectrogram();
@@ -954,6 +1077,101 @@ async function fetchLikesForUser(userName) {
     renderSegmentList(state.filteredSegments);
   } catch {
     // Silently ignored — likes just won't show until next load.
+  }
+}
+
+function getSharedSegmentIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const segmentId = String(params.get("segment") || "").trim();
+  return segmentId || "";
+}
+
+function buildSegmentShareUrl(segmentId) {
+  const url = new URL(window.location.href);
+  if (segmentId) {
+    url.searchParams.set("segment", segmentId);
+  } else {
+    url.searchParams.delete("segment");
+  }
+  return url.toString();
+}
+
+function updateSegmentShareUrl(segmentId) {
+  const url = new URL(window.location.href);
+  if (segmentId) {
+    url.searchParams.set("segment", segmentId);
+  } else {
+    url.searchParams.delete("segment");
+  }
+  history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function showShareButtonFeedback(copied) {
+  if (!dom.shareSegmentBtn) {
+    return;
+  }
+
+  if (shareFeedbackTimer) {
+    clearTimeout(shareFeedbackTimer);
+    shareFeedbackTimer = null;
+  }
+
+  if (copied) {
+    dom.shareSegmentBtn.textContent = "Copied!";
+    dom.shareSegmentBtn.title = "Link copied";
+    shareFeedbackTimer = window.setTimeout(() => {
+      if (!dom.shareSegmentBtn) {
+        return;
+      }
+      dom.shareSegmentBtn.textContent = "Share";
+      dom.shareSegmentBtn.title = "Copy share link";
+      shareFeedbackTimer = null;
+    }, 1800);
+    return;
+  }
+
+  dom.shareSegmentBtn.textContent = "Share";
+  dom.shareSegmentBtn.title = "Copy share link";
+}
+
+async function copyCurrentSegmentShareLink() {
+  const segmentId = state.activeSegment?.segment_id;
+  if (!segmentId) {
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Select a segment before sharing.";
+    }
+    showShareButtonFeedback(false);
+    return;
+  }
+
+  const shareUrl = buildSegmentShareUrl(segmentId);
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showShareButtonFeedback(true);
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Share link copied.";
+    }
+  } catch {
+    const fallback = document.createElement("input");
+    fallback.value = shareUrl;
+    fallback.setAttribute("readonly", "");
+    fallback.style.position = "absolute";
+    fallback.style.left = "-9999px";
+    document.body.append(fallback);
+    fallback.select();
+    const copied = document.execCommand("copy");
+    fallback.remove();
+    if (copied) {
+      showShareButtonFeedback(true);
+      if (dom.timelineHint) {
+        dom.timelineHint.textContent = "Share link copied.";
+      }
+    } else {
+      showShareButtonFeedback(false);
+      if (dom.timelineHint) {
+        dom.timelineHint.textContent = "Could not copy link automatically.";
+      }
+    }
   }
 }
 
@@ -1332,33 +1550,64 @@ function renderUserLibrary() {
   }
 
   dom.userLibraryEmpty.hidden = true;
-  for (const item of items) {
-    const li = document.createElement("li");
-    li.className = "library-item";
 
-    const locationLabel = item.segment
-      ? `${item.segment.site_name || item.segment.site_id} - ${item.segmentId}`
-      : item.segmentId;
-    const isComment = item.kind === "comment";
-    const noteText = isComment ? item.text || "Comment" : "Saved segment";
+  const likedItems = items.filter((item) => item.kind === "segment");
+  const commentItems = items.filter((item) => item.kind === "comment");
 
-    li.innerHTML = `
-      <div class="library-item-head">
-        <strong>${escapeHtml(locationLabel)}</strong>
-        <span class="library-kind">${isComment ? "Comment" : "Segment"}</span>
-      </div>
-      <p>${isComment ? `${escapeHtml(formatTime(item.sec))} - ` : ""}${escapeHtml(noteText)}</p>
-      <button
-        type="button"
-        class="library-recall-btn"
-        data-segment-id="${escapeHtml(item.segmentId)}"
-        data-comment-id="${escapeHtml(item.commentId)}"
-        data-sec="${escapeHtml(String(item.sec))}"
-      >${isComment ? "Recall file" : "Open segment"}</button>
-    `;
+  const renderSection = (title, sectionItems, isCommentSection) => {
+    const wrapper = document.createElement("section");
+    wrapper.className = "library-section";
 
-    dom.userLibraryList.append(li);
-  }
+    const heading = document.createElement("h3");
+    heading.className = "library-section-title";
+    heading.textContent = title;
+    wrapper.append(heading);
+
+    if (sectionItems.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "subtle";
+      empty.textContent = isCommentSection ? "No comments yet." : "No liked segments yet.";
+      wrapper.append(empty);
+      dom.userLibraryList.append(wrapper);
+      return;
+    }
+
+    const list = document.createElement("ul");
+    list.className = "user-library-list";
+
+    for (const item of sectionItems) {
+      const li = document.createElement("li");
+      li.className = "library-item";
+
+      const locationLabel = item.segment
+        ? `${item.segment.site_name || item.segment.site_id} - ${item.segmentId}`
+        : item.segmentId;
+      const noteText = isCommentSection ? item.text || "Comment" : "Saved segment";
+
+      li.innerHTML = `
+        <div class="library-item-head">
+          <strong>${escapeHtml(locationLabel)}</strong>
+          <span class="library-kind">${isCommentSection ? "Comment" : "Segment"}</span>
+        </div>
+        <p>${isCommentSection ? `${escapeHtml(formatTime(item.sec))} - ` : ""}${escapeHtml(noteText)}</p>
+        <button
+          type="button"
+          class="library-recall-btn"
+          data-segment-id="${escapeHtml(item.segmentId)}"
+          data-comment-id="${escapeHtml(item.commentId)}"
+          data-sec="${escapeHtml(String(item.sec))}"
+        >${isCommentSection ? "Recall file" : "Open segment"}</button>
+      `;
+
+      list.append(li);
+    }
+
+    wrapper.append(list);
+    dom.userLibraryList.append(wrapper);
+  };
+
+  renderSection("Liked Segments", likedItems, false);
+  renderSection("My Comments", commentItems, true);
 }
 
 function recallLibraryItem(segmentId, commentId, sec) {
@@ -1650,6 +1899,7 @@ function selectSegment(segmentId, options = {}) {
 
   state.activeSegmentId = segment.segment_id;
   state.activeSegment = segment;
+  updateSegmentShareUrl(segment.segment_id);
 
   renderSegmentList(state.filteredSegments);
   renderMetadata(segment);

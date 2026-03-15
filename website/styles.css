@@ -211,6 +211,25 @@ body {
   display: block;
 }
 
+.library-toggle-btn {
+  height: 36px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-size: 0.76rem;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.library-toggle-btn[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
 .settings-menu {
   position: absolute;
   right: 0;
@@ -255,6 +274,145 @@ body {
   overscroll-behavior: contain;
   height: 100vh;
   height: 100dvh;
+}
+
+.right-sidebar {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+  width: 360px;
+  z-index: 500;
+  background: linear-gradient(180deg, var(--sidebar-grad-a), var(--sidebar-grad-b));
+  border-left: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-top-left-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px)) 1.1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: -6px 4px 28px rgba(var(--shadow-rgb), 0.2);
+  min-width: 220px;
+  max-width: 75vw;
+}
+
+.right-sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 1;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.right-sidebar-resize-handle:hover,
+.right-sidebar-resize-handle.dragging {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.right-sidebar.collapsed {
+  transform: translateX(110%);
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.right-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  flex-shrink: 0;
+}
+
+.right-sidebar-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.right-sidebar-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.2rem;
+  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 14% 8%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 36%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-2) 72%, transparent), color-mix(in srgb, var(--panel) 80%, transparent));
+  box-shadow: 0 8px 20px rgba(var(--shadow-rgb), 0.14);
+}
+
+.brand-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.brand-mark-frame {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 22%, var(--surface-strong)),
+    color-mix(in srgb, var(--surface-strong-2) 85%, transparent)
+  );
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.brand-logo-fallback {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--text) 80%, var(--accent));
+}
+
+.brand-copy h1 {
+  margin: 0.1rem 0 0.2rem;
+}
+
+.brand-subtle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.header-meta {
+  display: grid;
+  gap: 0.18rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 58%, transparent);
+  padding-top: 0.45rem;
 }
 
 .sidebar-header h1 {
@@ -495,10 +653,28 @@ button:hover {
   overflow: auto;
 }
 
+.user-library-sections {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.library-section {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.library-section-title {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .user-library-list {
   list-style: none;
   margin: 0;
-  margin-top: 0.45rem;
   padding: 0;
   display: grid;
   gap: 0.45rem;
@@ -646,6 +822,23 @@ button:hover {
   gap: 0.5rem;
 }
 
+.now-playing-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.segment-share-btn {
+  height: 34px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 0.7rem;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
 .segment-like-btn {
   width: 34px;
   height: 34px;
@@ -658,9 +851,9 @@ button:hover {
 }
 
 .segment-like-btn.active {
-  border-color: color-mix(in srgb, var(--accent-2) 52%, var(--line));
-  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
-  color: var(--accent-2);
+  border-color: #e05575;
+  background: color-mix(in srgb, #e05575 18%, transparent);
+  color: #e05575;
 }
 
 .segment-item-like-btn {
@@ -675,9 +868,9 @@ button:hover {
 }
 
 .segment-item-like-btn.active {
-  border-color: color-mix(in srgb, var(--accent-2) 52%, var(--line));
-  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
-  color: var(--accent-2);
+  border-color: #e05575;
+  background: color-mix(in srgb, #e05575 18%, transparent);
+  color: #e05575;
 }
 
 #audioPlayer {
@@ -818,7 +1011,6 @@ button:hover {
 }
 
 body[data-mode="chill"] .segment-panel,
-body[data-mode="chill"] .library-panel,
 body[data-mode="chill"] .metadata-panel,
 body[data-mode="chill"] .audio-timeline-panel,
 body[data-mode="chill"] .advanced-filters,
@@ -1323,6 +1515,10 @@ body[data-mode="chill"] .spectrogram-dock {
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
   }
 
+  .right-sidebar {
+    width: min(360px, 92vw);
+  }
+
   .map-wrap {
     order: 1;
     min-height: 0;
@@ -1390,6 +1586,17 @@ body[data-mode="chill"] .spectrogram-dock {
     gap: 0.65rem;
     padding-left: 0.8rem;
     padding-right: 0.8rem;
+  }
+
+  .brand-mark-frame {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
   }
 
   .panel {

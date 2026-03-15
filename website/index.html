@@ -44,10 +44,21 @@
     <div class="app-shell">
       <aside class="sidebar">
         <header class="sidebar-header">
-          <p class="kicker">Soundscape Atlas</p>
-          <h1>Field Listening Map</h1>
-          <p id="datasetSummary" class="subtle"></p>
-          <p id="authStatus" class="subtle" hidden></p>
+          <div class="brand-shell">
+            <div class="brand-mark-frame" aria-hidden="true">
+              <img id="brandLogo" class="brand-logo" alt="Soundscape Atlas logo" data-logo-src="assets/logo.svg" hidden />
+              <span id="brandLogoFallback" class="brand-logo-fallback">SA</span>
+            </div>
+            <div class="brand-copy">
+              <p class="kicker">Soundscape Atlas</p>
+              <h1>Listening Map</h1>
+              <p class="brand-subtle">Long-form environmental listening archive</p>
+            </div>
+          </div>
+          <div class="header-meta">
+            <p id="datasetSummary" class="subtle"></p>
+            <p id="authStatus" class="subtle" hidden></p>
+          </div>
         </header>
 
         <details class="panel controls-panel" id="controlsPanel" open>
@@ -99,19 +110,16 @@
           <ul id="segmentList" class="segment-list"></ul>
         </details>
 
-        <details class="panel library-panel" id="libraryPanel" open>
-          <summary class="panel-summary"><h2>My Library</h2></summary>
-          <p id="userLibraryEmpty" class="subtle">Sign in to view your comments.</p>
-          <ul id="userLibraryList" class="user-library-list"></ul>
-        </details>
-
         <section class="panel player-panel" id="playerPanel">
           <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
           <div class="now-playing-row">
             <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
-            <button id="toggleSegmentLikeBtn" class="segment-like-btn" type="button" aria-label="Save segment to library" title="Save segment">
-              <span aria-hidden="true">♡</span>
-            </button>
+            <div class="now-playing-actions">
+              <button id="shareSegmentBtn" class="segment-share-btn" type="button" aria-label="Copy share link" title="Copy share link">Share</button>
+              <button id="toggleSegmentLikeBtn" class="segment-like-btn" type="button" aria-label="Save segment to library" title="Save segment">
+                <span aria-hidden="true">♡</span>
+              </button>
+            </div>
           </div>
 
           <div class="transport">
@@ -169,6 +177,7 @@
       <main class="map-wrap">
         <div class="topbar-controls topbar-cluster">
           <span id="signedInBadge" class="signed-in-badge">Guest</span>
+          <button id="libraryToggleBtn" type="button" class="library-toggle-btn" aria-label="Open My Library" title="My Library" aria-expanded="false">Library</button>
           <div class="settings-wrap">
             <button
               id="settingsToggleBtn"
@@ -249,6 +258,17 @@
           </div>
         </section>
       </main>
+      <aside class="right-sidebar collapsed" id="rightSidebar" aria-label="My Library">
+        <div class="right-sidebar-resize-handle" id="librarySidebarResizeHandle" aria-hidden="true"></div>
+        <div class="right-sidebar-header">
+          <h2 class="right-sidebar-title">My Library</h2>
+          <button id="libraryCloseBtn" type="button" class="right-sidebar-close" aria-label="Close library">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+          </button>
+        </div>
+        <p id="userLibraryEmpty" class="subtle">Sign in to view your comments.</p>
+        <div id="userLibraryList" class="user-library-sections"></div>
+      </aside>
     </div>
 
     <script
