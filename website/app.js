@@ -45,6 +45,7 @@ const dom = {
   landingSignInPassword: document.getElementById("landingSignInPassword"),
   landingSignInBtn: document.getElementById("landingSignInBtn"),
   landingSignInHint: document.getElementById("landingSignInHint"),
+  guestEnterBtn: document.getElementById("guestEnterBtn"),
   signedInBadge: document.getElementById("signedInBadge"),
   settingsToggleBtn: document.getElementById("settingsToggleBtn"),
   settingsMenu: document.getElementById("settingsMenu"),
@@ -103,6 +104,9 @@ const dom = {
   timelineHint: document.getElementById("timelineHint"),
   audioTimelinePanel: document.getElementById("audioTimelinePanel"),
   mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
+  mobileMiniPlayer: document.getElementById("mobileMiniPlayer"),
+  mobileMiniNowPlaying: document.getElementById("mobileMiniNowPlaying"),
+  mobileMiniPlayPause: document.getElementById("mobileMiniPlayPause"),
   controlsPanel: document.getElementById("controlsPanel"),
   segmentPanel: document.getElementById("segmentPanel"),
   metadataPanel: document.getElementById("metadataPanel"),
@@ -282,6 +286,12 @@ function wireEvents() {
     });
   }
 
+  if (dom.guestEnterBtn) {
+    dom.guestEnterBtn.addEventListener("click", () => {
+      enterAsGuest();
+    });
+  }
+
   if (dom.landingSignInName) {
     dom.landingSignInName.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
@@ -422,6 +432,10 @@ function wireEvents() {
 
   if (dom.mobileFiltersBtn) {
     dom.mobileFiltersBtn.addEventListener("click", () => {
+      if (isSmallPhoneViewport()) {
+        toggleMobilePanels();
+        return;
+      }
       if (dom.controlsPanel) {
         dom.controlsPanel.open = true;
       }
@@ -430,6 +444,19 @@ function wireEvents() {
       }
       if (dom.controlsPanel) {
         dom.controlsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  if (dom.mobileMiniPlayPause) {
+    dom.mobileMiniPlayPause.addEventListener("click", () => {
+      if (!dom.audioPlayer.src) {
+        return;
+      }
+      if (dom.audioPlayer.paused) {
+        dom.audioPlayer.play().catch(() => {});
+      } else {
+        dom.audioPlayer.pause();
       }
     });
   }
@@ -493,6 +520,7 @@ function wireEvents() {
   if (dom.closeMapImageBtn) {
     dom.closeMapImageBtn.addEventListener("click", () => {
       closeMapImageLightbox();
+      setMobilePanelsOpen(false);
     });
   }
 
@@ -510,6 +538,7 @@ function wireEvents() {
       closeTimelineActionMenu();
       closeSettingsMenu();
       closeLibrarySidebar();
+      setMobilePanelsOpen(false);
     }
   });
 
@@ -529,6 +558,13 @@ function wireEvents() {
       const clickedInsideSidebar = event.target.closest("#rightSidebar") || event.target.closest("#libraryToggleBtn");
       if (!clickedInsideSidebar) {
         closeLibrarySidebar();
+      }
+    }
+
+    if (document.body.classList.contains("mobile-panels-open") && isSmallPhoneViewport()) {
+      const clickedInsidePanels = event.target.closest(".sidebar") || event.target.closest("#mobileFiltersBtn");
+      if (!clickedInsidePanels) {
+        setMobilePanelsOpen(false);
       }
     }
 
@@ -708,6 +744,7 @@ function wireEvents() {
     }
     updateAudioTimelineProgress();
     renderDetectionTimeline(state.activeSegment);
+    updateMobileMiniPlayer();
   });
 
   dom.audioPlayer.addEventListener("timeupdate", () => {
@@ -720,6 +757,7 @@ function wireEvents() {
     if (dom.iconPlay) dom.iconPlay.hidden = true;
     if (dom.iconPause) dom.iconPause.hidden = false;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Pause");
+    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       ensureAudioGraph();
       startSpectrogram();
@@ -732,6 +770,7 @@ function wireEvents() {
     if (dom.iconPlay) dom.iconPlay.hidden = false;
     if (dom.iconPause) dom.iconPause.hidden = true;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
     }
@@ -743,6 +782,7 @@ function wireEvents() {
     if (dom.iconPlay) dom.iconPlay.hidden = false;
     if (dom.iconPause) dom.iconPause.hidden = true;
     if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
     }
@@ -755,7 +795,50 @@ function wireEvents() {
   });
 }
 
+function isSmallPhoneViewport() {
+  return window.matchMedia("(max-width: 700px)").matches;
+}
+
+function setMobilePanelsOpen(open) {
+  const shouldOpen = Boolean(open) && isSmallPhoneViewport();
+  document.body.classList.toggle("mobile-panels-open", shouldOpen);
+  if (dom.mobileFiltersBtn) {
+    dom.mobileFiltersBtn.textContent = shouldOpen ? "Close" : "Panels";
+    dom.mobileFiltersBtn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  }
+}
+
+function toggleMobilePanels() {
+  const isOpen = document.body.classList.contains("mobile-panels-open");
+  setMobilePanelsOpen(!isOpen);
+}
+
+function updateMobileMiniPlayer() {
+  if (!dom.mobileMiniPlayer || !dom.mobileMiniNowPlaying || !dom.mobileMiniPlayPause) {
+    return;
+  }
+
+  const hasSegment = Boolean(state.activeSegment);
+  const shouldShow = isSmallPhoneViewport() && hasSegment;
+  dom.mobileMiniPlayer.hidden = !shouldShow;
+  if (!shouldShow) {
+    return;
+  }
+
+  dom.mobileMiniNowPlaying.textContent = hasSegment
+    ? `${state.activeSegment.site_name || state.activeSegment.site_id} - ${state.activeSegment.segment_id}`
+    : "No segment selected.";
+  dom.mobileMiniPlayPause.disabled = !Boolean(dom.audioPlayer.src);
+  const isPaused = dom.audioPlayer.paused;
+  dom.mobileMiniPlayPause.textContent = isPaused ? "Play" : "Pause";
+  dom.mobileMiniPlayPause.setAttribute("aria-label", isPaused ? "Play" : "Pause");
+}
+
 function handleViewportChange() {
+  if (!isSmallPhoneViewport()) {
+    setMobilePanelsOpen(false);
+  }
+  updateMobileMiniPlayer();
   window.setTimeout(() => {
     map.invalidateSize();
   }, 120);
@@ -996,12 +1079,12 @@ async function signInFromInput() {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
+      if (response.status === 404 || response.status === 405 || response.status === 501) {
+        enterAsGuest();
+        return;
+      }
       if (dom.landingSignInHint) {
-        if (response.status === 404 || response.status === 405 || response.status === 501) {
-          dom.landingSignInHint.textContent = "Auth API unavailable on this server. Use Cloudflare Pages Functions (wrangler pages dev).";
-        } else {
-          dom.landingSignInHint.textContent = err.error || "Sign-in failed. Try again.";
-        }
+        dom.landingSignInHint.textContent = err.error || "Sign-in failed. Try again.";
       }
       return;
     }
@@ -1053,6 +1136,21 @@ function signOutUser() {
   }
 
   updateAuthUI();
+  renderUserLibrary();
+}
+
+function enterAsGuest() {
+  state.signedInUser = null;
+  if (dom.landingOverlay) {
+    dom.landingOverlay.hidden = true;
+  }
+  if (dom.authStatus) {
+    dom.authStatus.hidden = false;
+    dom.authStatus.textContent = "Browsing as guest — sign in for likes & comments.";
+  }
+  if (dom.signedInBadge) {
+    dom.signedInBadge.textContent = "Guest";
+  }
   renderUserLibrary();
 }
 
@@ -1637,7 +1735,8 @@ function recallLibraryItem(segmentId, commentId, sec) {
     }
   }
 
-  selectSegment(segmentId, { flyTo: true, autoplay: false });
+  selectSegment(segmentId, { flyTo: true, autoplay: isSmallPhoneViewport() });
+  setMobilePanelsOpen(false);
 
   const seekTo = Number.isFinite(sec) ? Math.max(0, sec) : 0;
   const setTime = () => {
@@ -1796,7 +1895,8 @@ function renderMarkers(segments) {
     });
 
     marker.on("click", () => {
-      selectSegment(segment.segment_id, { flyTo: false, autoplay: false });
+      selectSegment(segment.segment_id, { flyTo: false, autoplay: true });
+      setMobilePanelsOpen(false);
     });
 
     state.markersBySegmentId.set(segment.segment_id, marker);
@@ -1897,7 +1997,8 @@ function renderSegmentList(segments) {
     }
 
     item.addEventListener("click", () => {
-      selectSegment(segment.segment_id, { flyTo: true, autoplay: false });
+      selectSegment(segment.segment_id, { flyTo: true, autoplay: isSmallPhoneViewport() });
+      setMobilePanelsOpen(false);
     });
 
     dom.segmentList.append(item);
@@ -1951,6 +2052,7 @@ function selectSegment(segmentId, options = {}) {
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = true;
   }
 
+  updateMobileMiniPlayer();
   updateAudioTimelineProgress();
 
   if (state.spectrogram.enabled) {
@@ -2265,6 +2367,7 @@ function getDurationForTimeline(segment) {
 function clearActiveSegmentState() {
   state.activeSegmentId = null;
   state.activeSegment = null;
+  setMobilePanelsOpen(false);
   dom.nowPlaying.textContent = "No segment selected.";
   dom.metadataGrid.innerHTML = "";
   dom.speciesList.innerHTML = "";
@@ -2291,6 +2394,7 @@ function clearActiveSegmentState() {
   state.isAudioPlaying = false;
   updateActiveSegmentLikeButton();
   updateAudioTimelineProgress();
+  updateMobileMiniPlayer();
   refreshMarkerIcons();
 }
 

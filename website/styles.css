@@ -145,7 +145,7 @@ body {
 
 .topbar-controls {
   position: absolute;
-  z-index: 900;
+  z-index: 970;
   top: 12px;
   right: 12px;
   display: inline-flex;
@@ -160,6 +160,7 @@ body {
   background: var(--chrome-bg);
   backdrop-filter: blur(5px);
   box-shadow: 0 8px 18px rgba(var(--shadow-rgb), 0.16);
+  overflow: visible;
 }
 
 .signed-in-badge {
@@ -183,7 +184,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  z-index: 1;
+  z-index: 971;
 }
 
 .settings-wrap::before {
@@ -222,7 +223,19 @@ body {
   color: var(--text);
   display: inline-flex;
   align-items: center;
+  gap: 0.35rem;
   white-space: nowrap;
+}
+
+.library-toggle-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.library-toggle-label {
+  line-height: 1;
 }
 
 .library-toggle-btn[aria-expanded="true"] {
@@ -234,7 +247,7 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 0.35rem);
-  z-index: 950;
+  z-index: 972;
   width: 210px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
@@ -1220,6 +1233,42 @@ body[data-mode="chill"] .spectrogram-dock {
   font-weight: 600;
 }
 
+.mobile-mini-player {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 12px;
+  z-index: 640;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chrome-bg) 94%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 16px rgba(var(--shadow-rgb), 0.2);
+  padding: 0.4rem 0.5rem 0.4rem 0.7rem;
+}
+
+.mobile-mini-title {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-mini-play {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 #map {
   min-height: 0;
   height: 100%;
@@ -1387,9 +1436,7 @@ body[data-mode="chill"] .spectrogram-dock {
 }
 
 .leaflet-control-attribution {
-  font-family: "IBM Plex Mono", monospace;
-  background: color-mix(in srgb, var(--map-ui-bg) 92%, transparent);
-  color: var(--muted);
+  display: none !important;
 }
 
 .leaflet-control-locate {
@@ -1568,13 +1615,41 @@ body[data-mode="chill"] .spectrogram-dock {
   }
 
   .signed-in-badge {
-    max-width: 120px;
-    padding: 0 0.6rem;
-    font-size: 0.72rem;
+    max-width: 92px;
+    height: 32px;
+    padding: 0 0.45rem;
+    font-size: 0.66rem;
+  }
+
+  .library-toggle-btn {
+    height: 32px;
+    padding: 0 0.58rem;
+    font-size: 0.66rem;
+  }
+
+  .settings-toggle-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .settings-wrap::before {
+    height: 18px;
+    margin-right: 0.15rem;
   }
 
   .leaflet-top.leaflet-right {
     top: 54px;
+  }
+
+  .map-overlay {
+    display: none;
+  }
+
+  .right-sidebar {
+    top: 56px;
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    width: min(320px, 88vw);
   }
 
   .landing-form-col {
@@ -1660,6 +1735,34 @@ body[data-mode="chill"] .spectrogram-dock {
     right: 8px;
   }
 
+  .topbar-cluster {
+    padding: 0.18rem;
+  }
+
+  .signed-in-badge {
+    display: none;
+  }
+
+  .library-toggle-btn {
+    height: 30px;
+    padding: 0 0.5rem;
+    font-size: 0.62rem;
+  }
+
+  .library-toggle-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .settings-toggle-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .settings-wrap::before {
+    display: none;
+  }
+
   .leaflet-top.leaflet-right {
     top: 50px;
   }
@@ -1679,10 +1782,147 @@ body[data-mode="chill"] .spectrogram-dock {
     font-size: 0.78rem;
   }
 
+  .right-sidebar {
+    top: 52px;
+    height: calc(100vh - 52px);
+    height: calc(100dvh - 52px);
+    width: min(300px, 90vw);
+  }
+
   .segment-list,
   .species-list,
   .user-library-list {
     max-height: 180px;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .map-wrap {
+    order: 1;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  #map {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .topbar-controls {
+    top: 8px;
+    right: 8px;
+    gap: 0.2rem;
+  }
+
+  .signed-in-badge {
+    display: none;
+  }
+
+  .library-toggle-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .library-toggle-label {
+    display: none;
+  }
+
+  .settings-toggle-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .settings-wrap::before {
+    display: none;
+  }
+
+  .map-overlay,
+  .audio-timeline-panel,
+  .leaflet-top.leaflet-right {
+    display: none !important;
+  }
+
+  .mobile-filters-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    right: 10px;
+    bottom: 62px;
+    top: auto;
+    z-index: 965;
+    min-height: 34px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.72rem;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    z-index: 960;
+    border: none;
+    border-radius: 0;
+    padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0.8rem
+      calc(0.7rem + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
+  body.mobile-panels-open .sidebar {
+    transform: translateY(0);
+    box-shadow: 0 -12px 24px rgba(var(--shadow-rgb), 0.24);
+  }
+
+  body.mobile-panels-open .mobile-filters-btn {
+    right: 10px;
+    bottom: auto;
+    top: 10px;
+  }
+
+  .mobile-mini-player {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-filters-btn {
+    right: 8px;
+    bottom: 58px;
+    font-size: 0.68rem;
+    padding: 0.32rem 0.6rem;
+  }
+
+  .mobile-mini-player {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 0.35rem 0.45rem 0.35rem 0.6rem;
+  }
+
+  .mobile-mini-title {
+    font-size: 0.7rem;
+  }
+
+  .mobile-mini-play {
+    min-height: 30px;
+    padding: 0.24rem 0.6rem;
+    font-size: 0.68rem;
   }
 }
 
