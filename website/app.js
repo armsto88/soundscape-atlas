@@ -409,6 +409,13 @@ function wireEvents() {
         return;
       }
 
+      const dislikeBtn = event.target.closest(".library-dislike-btn");
+      if (dislikeBtn) {
+        const segmentId = dislikeBtn.getAttribute("data-segment-id") || "";
+        removeLikeFromLibrary(segmentId);
+        return;
+      }
+
       const deleteBtn = event.target.closest(".library-delete-btn");
       if (deleteBtn) {
         const segmentId = deleteBtn.getAttribute("data-segment-id") || "";
@@ -1735,8 +1742,10 @@ function renderUserLibrary() {
             data-segment-id="${escapeHtml(item.segmentId)}"
             data-comment-id="${escapeHtml(item.commentId)}"
             data-sec="${escapeHtml(String(item.sec))}"
-          >${isCommentSection ? "Recall file" : "Open segment"}</button>
-          ${isCommentSection ? `<button type="button" class="library-delete-btn" data-segment-id="${escapeHtml(item.segmentId)}" data-comment-id="${escapeHtml(item.commentId)}">Delete</button>` : ""}
+          >Open segment</button>
+          ${isCommentSection
+            ? `<button type="button" class="library-delete-btn" data-segment-id="${escapeHtml(item.segmentId)}" data-comment-id="${escapeHtml(item.commentId)}">Delete</button>`
+            : `<button type="button" class="library-dislike-btn" data-segment-id="${escapeHtml(item.segmentId)}">Dislike</button>`}
         </div>
       `;
 
@@ -2311,6 +2320,16 @@ async function deleteSelectedTimelineComment() {
   }
 
   await deleteCommentById(selected.segmentId, selected.commentId);
+}
+
+async function removeLikeFromLibrary(segmentId) {
+  if (!segmentId) {
+    return;
+  }
+  if (!isSegmentLikedForSignedInUser(segmentId)) {
+    return;
+  }
+  await toggleLikeForSegment(segmentId);
 }
 
 async function deleteCommentById(segmentId, commentId) {

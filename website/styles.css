@@ -739,7 +739,8 @@ button:hover {
   flex-wrap: wrap;
 }
 
-.library-delete-btn {
+.library-delete-btn,
+.library-dislike-btn {
   min-width: 82px;
   border-color: color-mix(in srgb, #d85a72 45%, var(--line));
   color: #d85a72;
