@@ -125,7 +125,7 @@ const dom = {
 };
 
 const map = L.map("map", {
-  zoomControl: true,
+  zoomControl: false,
   worldCopyJump: true,
 }).setView([-30.458, 151.635], 10);
 
@@ -167,12 +167,12 @@ const LocateControl = L.Control.extend({
   },
 
   onAdd() {
-    const container = L.DomUtil.create("div", "leaflet-bar leaflet-control leaflet-control-locate");
+    const container = L.DomUtil.create("div", "leaflet-control leaflet-control-locate");
     const button = L.DomUtil.create("button", "leaflet-control-locate-btn", container);
     button.type = "button";
     button.setAttribute("aria-label", "Find my location");
     button.title = "Find my location";
-    button.innerHTML = "<span aria-hidden=\"true\">⌖</span>";
+    button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>';
 
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.on(button, "click", (event) => {

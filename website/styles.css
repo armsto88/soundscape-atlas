@@ -258,6 +258,10 @@ body {
   top: 58px;
 }
 
+.leaflet-top.leaflet-left {
+  top: 58px;
+}
+
 .settings-menu[hidden] {
   display: none;
 }
@@ -1456,24 +1460,28 @@ body[data-mode="chill"] .spectrogram-dock {
 }
 
 .leaflet-control-locate {
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .leaflet-control-locate-btn {
-  width: 30px;
-  height: 30px;
-  border: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   padding: 0;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--map-ui-bg) 96%, transparent);
+  background: color-mix(in srgb, var(--chrome-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--text);
-  font-size: 1rem;
-  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .leaflet-control-locate-btn:hover {
-  background: color-mix(in srgb, var(--accent) 18%, var(--map-ui-bg));
+  background: color-mix(in srgb, var(--accent) 22%, var(--chrome-bg));
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .marker-dot {
