@@ -84,7 +84,7 @@ body {
   overflow: hidden;
   background:
     radial-gradient(circle at 18% 5%, var(--bg-glow-a), transparent 30%),
-    radial-gradient(circle at 85% 80%, var(--bg-glow-b), transparent 24%),
+    radial-gradient(circle at 85% 84%, var(--bg-glow-b), transparent 15%),
     linear-gradient(180deg, var(--bg), var(--bg-base-mid) 55%, var(--bg));
 }
 
@@ -260,6 +260,19 @@ body {
 
 .leaflet-top.leaflet-left {
   top: 58px;
+}
+
+#settingsSignOutBtn {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--line) 70%, transparent);
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-top: 0.2rem;
+}
+
+#settingsSignOutBtn:hover {
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--line));
+  color: var(--danger);
 }
 
 .settings-menu[hidden] {
@@ -527,6 +540,8 @@ body {
 
 .panel-summary h2 {
   margin: 0;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
 }
 
 .panel-summary::after {
@@ -1047,6 +1062,10 @@ body[data-mode="chill"] .advanced-filters,
 body[data-mode="chill"] .spectrogram-ctrl {
   display: none !important;
 }
+ 
+#mobileMiniPlayer {
+  display: none !important;
+}
 
 body[data-mode="chill"] .map-overlay {
   display: none;
@@ -1327,6 +1346,7 @@ body[data-mode="chill"] .spectrogram-dock {
   margin-top: 0.45rem;
   min-height: 1.2em;
   color: color-mix(in srgb, var(--text) 72%, var(--muted));
+  display: none;
 }
 
 .audio-timeline {

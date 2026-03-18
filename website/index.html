@@ -40,7 +40,8 @@
           <button id="landingSignInBtn" type="button">Enter Atlas</button>
         </div>
         <p id="landingSignInHint" class="subtle">New username? Your password is set on first entry.</p>
-        <p class="subtle" style="margin-top:0.5rem"><button id="guestEnterBtn" type="button" style="background:none;border:none;padding:0;font:inherit;font-size:0.8rem;color:var(--muted);text-decoration:underline;cursor:pointer;">Continue as Guest</button></p>
+        <hr style="border:none;border-top:1px solid color-mix(in srgb, var(--line) 45%, transparent);margin:0.15rem 0 0.1rem;" />
+        <p class="subtle" style="margin-top:0.4rem;text-align:center"><button id="guestEnterBtn" type="button" style="background:none;border:none;padding:0;font:inherit;font-size:0.82rem;color:var(--muted);text-decoration:underline;cursor:pointer;">Continue as Guest</button></p>
       </section>
     </div>
 
@@ -127,12 +128,12 @@
           </div>
 
           <div class="transport">
-            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">-10s</button>
+            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">← 10s</button>
             <button id="playPauseBtn" class="transport-btn t-play" type="button" aria-label="Play" disabled>
               <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
               <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
-            <button id="skipFwdBtn" class="transport-btn t-skip" type="button" aria-label="Skip forward 10 seconds">+10s</button>
+            <button id="skipFwdBtn" class="transport-btn t-skip" type="button" aria-label="Skip forward 10 seconds">10s →</button>
           </div>
 
           <div class="seek-wrap">
@@ -156,7 +157,7 @@
           </div>
         </section>
 
-        <details class="panel picture-panel" id="picturePanel">
+        <details class="panel picture-panel" id="picturePanel" hidden>
           <summary class="panel-summary"><h2>Picture</h2></summary>
           <div class="picture-body">
             <div class="segment-image-wrap">
@@ -170,7 +171,7 @@
           </div>
         </details>
 
-        <details class="panel metadata-panel" id="metadataPanel" open>
+        <details class="panel metadata-panel" id="metadataPanel">
           <summary class="panel-summary"><h2>Segment metadata</h2></summary>
           <dl id="metadataGrid" class="metadata-grid"></dl>
           <h3>Top detected species</h3>
@@ -267,7 +268,7 @@
             </div>
           </div>
           <div class="timeline-hint-row">
-            <p id="timelineHint" class="subtle">Click detection points to jump 5 seconds before detection. Click track to add a comment.</p>
+            <p id="timelineHint" class="subtle">Click a detection to jump · click track to comment</p>
             <button id="deleteTimelineCommentBtn" type="button" hidden>Delete comment</button>
           </div>
         </section>

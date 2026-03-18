@@ -2163,17 +2163,17 @@ function renderDetectionTimeline(segment) {
   closeTimelineActionMenu();
 
   if (!segment) {
-    dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
+    dom.timelineHint.textContent = "Select a segment to view detections.";
     return;
   }
 
   const detections = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
   if (detections.length === 0) {
-    dom.timelineHint.textContent = "No detections available for this segment.";
+    dom.timelineHint.textContent = "No detections recorded for this segment.";
     return;
   }
 
-  const defaultHint = "Hover to preview detection details. Click to jump 5 seconds before detection. Click track to add a comment.";
+  const defaultHint = "Click a detection to jump \u00b7 click track to comment";
   dom.timelineHint.textContent = defaultHint;
   state.selectedTimelineComment = null;
   updateDeleteTimelineCommentButton();
@@ -2439,7 +2439,7 @@ function clearActiveSegmentState() {
   closeTimelineActionMenu();
   state.selectedTimelineComment = null;
   updateDeleteTimelineCommentButton();
-  dom.timelineHint.textContent = "Select a segment to view detections on the timeline.";
+  dom.timelineHint.textContent = "Select a segment to view detections.";
   if (dom.playPauseBtn) {
     dom.playPauseBtn.disabled = true;
     if (dom.iconPlay) dom.iconPlay.hidden = false;
@@ -2508,6 +2508,9 @@ function renderSegmentImage(segment) {
 
   dom.segmentImage.hidden = false;
   dom.segmentImagePlaceholder.hidden = true;
+  if (dom.picturePanel) {
+    dom.picturePanel.hidden = false;
+  }
   dom.segmentImage.src = imageInfo.url;
   dom.segmentImage.alt = `${segment.site_name || segment.site_id} ${segment.segment_id} image`;
   dom.segmentImageCaption.textContent = imageInfo.caption;
@@ -2537,6 +2540,7 @@ function clearSegmentImage() {
     dom.expandPictureBtn.disabled = true;
     dom.expandPictureBtn.textContent = "Expand";
   }
+  if (dom.picturePanel) dom.picturePanel.hidden = true;
   closeMapImageLightbox();
 }
 
