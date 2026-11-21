@@ -98,8 +98,11 @@
             <details class="advanced-filters" id="advancedFilters">
               <summary>Advanced filters</summary>
               <div class="advanced-body">
-                <label for="speciesFilter">Species (match any)</label>
-                <select id="speciesFilter" multiple size="6"></select>
+                <label for="speciesSearch">Species</label>
+                <div id="speciesChips" class="species-chips" aria-live="polite"></div>
+                <input id="speciesSearch" type="search" placeholder="Search species" autocomplete="off" spellcheck="false" />
+                <ul id="speciesOptions" class="species-options" aria-label="Species"></ul>
+                <p id="speciesMore" class="subtle species-more" hidden></p>
 
                 <label class="inline-check" for="clusterToggle">
                   <input id="clusterToggle" type="checkbox" checked />

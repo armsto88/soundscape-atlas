@@ -6,6 +6,8 @@ const state = {
   markersBySiteId: new Map(),
   sitesById: new Map(),
   focusedSiteId: null,
+  selectedSpecies: new Set(),
+  speciesIndex: [],
   hasFittedBounds: false,
   markerLayer: null,
   useClustering: true,
@@ -68,7 +70,10 @@ const dom = {
   clusterToggle: document.getElementById("clusterToggle"),
   dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
   seasonFilter: document.getElementById("seasonFilter"),
-  speciesFilter: document.getElementById("speciesFilter"),
+  speciesSearch: document.getElementById("speciesSearch"),
+  speciesOptions: document.getElementById("speciesOptions"),
+  speciesChips: document.getElementById("speciesChips"),
+  speciesMore: document.getElementById("speciesMore"),
   hourRangeMin: document.getElementById("hourRangeMin"),
   hourRangeMax: document.getElementById("hourRangeMax"),
   hourRangeLabel: document.getElementById("hourRangeLabel"),
@@ -233,7 +238,13 @@ async function init() {
       return Number.isFinite(lat) && Number.isFinite(lng);
     });
 
-    dom.datasetSummary.textContent = `${payload.sites_count || 0} site(s)  |  ${payload.segments_count || 0} segment(s)  |  ${payload.detections_count || 0} detections`;
+    dom.datasetSummary.textContent = describeDataset(payload);
+    if (state.segments.length === 0) {
+      const overlay = document.querySelector(".map-overlay p");
+      if (overlay) {
+        overlay.textContent = "No recordings are published yet. Check back soon.";
+      }
+    }
 
     // Read the shared link before anything selects a segment and rewrites the URL.
     const sharedSegmentId = getSharedSegmentIdFromUrl();
@@ -265,6 +276,8 @@ async function init() {
       // Otherwise keep the overview of all sites and just load a default segment.
       const initial = pickSiteSegment(state.filteredSegments[0].site_id);
       selectSegment(initial.segment_id, { flyTo: false, autoplay: false });
+    } else {
+      clearActiveSegmentState();
     }
   } catch (error) {
     dom.datasetSummary.textContent = "Could not load metadata. Run build script first.";
@@ -473,6 +486,30 @@ function wireEvents() {
   }
 
   dom.addCommentBtn?.addEventListener("click", openCommentMenu);
+
+  // One listener for the whole segment list (rows are re-rendered often).
+  dom.segmentList.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+    const like = event.target.closest("[data-segment-like-id]");
+    if (like) {
+      event.stopPropagation();
+      toggleLikeForSegment(like.dataset.segmentLikeId || "");
+      return;
+    }
+    const item = event.target.closest(".segment-item");
+    if (item && item.dataset.segmentId) {
+      selectSegment(item.dataset.segmentId, { flyTo: true, autoplay: isSmallPhoneViewport() });
+      setMobilePanelsOpen(false);
+    }
+  });
+  dom.segmentList.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target instanceof Element && event.target.classList.contains("segment-item")) {
+      event.preventDefault();
+      event.target.click();
+    }
+  });
 
   if (dom.confidenceFilter) {
     restoreMinConfidence();
@@ -747,7 +784,18 @@ function wireEvents() {
 
   dom.dawnDuskOnlyToggle.addEventListener("change", applyFilters);
   dom.seasonFilter.addEventListener("change", applyFilters);
-  dom.speciesFilter.addEventListener("change", applyFilters);
+  dom.speciesSearch?.addEventListener("input", renderSpeciesFilter);
+  dom.speciesOptions?.addEventListener("change", (event) => {
+    if (event.target instanceof HTMLInputElement && event.target.type === "checkbox") {
+      setSpeciesSelected(event.target.value, event.target.checked);
+    }
+  });
+  dom.speciesChips?.addEventListener("click", (event) => {
+    const chip = event.target instanceof Element ? event.target.closest("[data-species]") : null;
+    if (chip) {
+      setSpeciesSelected(chip.dataset.species, false);
+    }
+  });
 
   dom.hourRangeMin.addEventListener("input", () => {
     if (Number(dom.hourRangeMin.value) > Number(dom.hourRangeMax.value)) {
@@ -796,9 +844,9 @@ function wireEvents() {
     dom.dawnDuskOnlyToggle.checked = false;
     dom.hourRangeMin.value = "0";
     dom.hourRangeMax.value = "23";
-    for (const option of dom.speciesFilter.options) {
-      option.selected = false;
-    }
+    state.selectedSpecies.clear();
+    if (dom.speciesSearch) dom.speciesSearch.value = "";
+    renderSpeciesFilter();
     state.useClustering = true;
     updateHourRangeLabel();
     updateTimeBlockButtons();
@@ -1874,7 +1922,7 @@ function renderUserLibrary() {
       li.className = "library-item";
 
       const locationLabel = item.segment
-        ? `${item.segment.site_name || item.segment.site_id} - ${item.segmentId}`
+        ? `${item.segment.site_name || item.segment.site_id} · ${formatDayLabel(item.segment.local_date)}, ${formatClock(item.segment.segment_start_local)}`
         : item.segmentId;
       const noteText = isCommentSection ? item.text || "Comment" : "Saved segment";
 
@@ -1968,14 +2016,84 @@ function buildFilterOptions(segments) {
     dom.seasonFilter.append(option);
   }
 
-  for (const species of [...speciesNames].sort((a, b) => a.localeCompare(b))) {
-    const option = document.createElement("option");
-    option.value = species;
-    option.textContent = species;
-    dom.speciesFilter.append(option);
+  // Species index for the searchable filter: how many segments contain each.
+  const segmentCounts = new Map();
+  for (const segment of segments) {
+    for (const name of segment.speciesSet || []) {
+      segmentCounts.set(name, (segmentCounts.get(name) || 0) + 1);
+    }
   }
+  state.speciesIndex = [...speciesNames]
+    .map((name) => ({ name, segments: segmentCounts.get(name) || 0 }))
+    .sort((a, b) => b.segments - a.segments || a.name.localeCompare(b.name));
+  renderSpeciesFilter();
 
   updateHourRangeLabel();
+}
+
+const SPECIES_OPTIONS_LIMIT = 40;
+
+function renderSpeciesFilter() {
+  if (!dom.speciesOptions) {
+    return;
+  }
+  const query = (dom.speciesSearch?.value || "").trim().toLowerCase();
+  const matches = state.speciesIndex.filter((entry) => !query || entry.name.toLowerCase().includes(query));
+
+  dom.speciesOptions.innerHTML = "";
+  for (const entry of matches.slice(0, SPECIES_OPTIONS_LIMIT)) {
+    const item = document.createElement("li");
+    const label = document.createElement("label");
+    label.className = "species-option";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = entry.name;
+    box.checked = state.selectedSpecies.has(entry.name);
+    const name = document.createElement("span");
+    name.className = "species-option-name";
+    name.textContent = entry.name;
+    const count = document.createElement("span");
+    count.className = "species-option-count";
+    count.textContent = String(entry.segments);
+    count.title = `${entry.segments} segment${entry.segments === 1 ? "" : "s"}`;
+    label.append(box, name, count);
+    item.append(label);
+    dom.speciesOptions.append(item);
+  }
+  if (matches.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "subtle";
+    empty.textContent = state.speciesIndex.length ? "No species match." : "No detections published yet.";
+    dom.speciesOptions.append(empty);
+  }
+  if (dom.speciesMore) {
+    const hiddenCount = matches.length - SPECIES_OPTIONS_LIMIT;
+    dom.speciesMore.hidden = hiddenCount <= 0;
+    dom.speciesMore.textContent = hiddenCount > 0 ? `${hiddenCount} more — type to narrow the list.` : "";
+  }
+
+  if (dom.speciesChips) {
+    dom.speciesChips.innerHTML = "";
+    for (const name of state.selectedSpecies) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "species-chip";
+      chip.dataset.species = name;
+      chip.setAttribute("aria-label", `Remove ${name} from the filter`);
+      chip.textContent = name;
+      dom.speciesChips.append(chip);
+    }
+  }
+}
+
+function setSpeciesSelected(name, selected) {
+  if (selected) {
+    state.selectedSpecies.add(name);
+  } else {
+    state.selectedSpecies.delete(name);
+  }
+  renderSpeciesFilter();
+  applyFilters();
 }
 
 function updateHourRangeLabel() {
@@ -1986,7 +2104,7 @@ function updateHourRangeLabel() {
 
 function getTimeBlockRange(block) {
   const ranges = {
-    night: { min: 0, max: 4 },
+    night: { min: 20, max: 4 },
     dawn: { min: 5, max: 7 },
     morning: { min: 8, max: 11 },
     afternoon: { min: 12, max: 16 },
@@ -2012,13 +2130,7 @@ function updateTimeBlockButtons() {
 }
 
 function getSelectedSpecies() {
-  const selected = [];
-  for (const option of dom.speciesFilter.options) {
-    if (option.selected) {
-      selected.push(option.value);
-    }
-  }
-  return selected;
+  return [...state.selectedSpecies];
 }
 
 function applyFilters(options = {}) {
@@ -2032,7 +2144,10 @@ function applyFilters(options = {}) {
   state.filteredSegments = state.segments.filter((segment) => {
     const segmentHour = Number(segment.local_hour);
     const seasonMatch = season === "all" || segment.season === season;
-    const hourMatch = Number.isFinite(segmentHour) && segmentHour >= hourMin && segmentHour <= hourMax;
+    const inRange = hourMin <= hourMax
+      ? segmentHour >= hourMin && segmentHour <= hourMax
+      : segmentHour >= hourMin || segmentHour <= hourMax; // wraps past midnight
+    const hourMatch = Number.isFinite(segmentHour) && inRange;
     const dawnDuskMatch = !dawnDuskOnly || isDawnDusk(segmentHour);
 
     let speciesMatch = true;
@@ -2271,71 +2386,74 @@ function scrollActiveSegmentIntoView() {
 
 function renderSegmentList(segments) {
   const focusedSiteId = state.focusedSiteId;
-  const visible = focusedSiteId
-    ? segments.filter((segment) => segment.site_id === focusedSiteId)
-    : segments;
+  const visible = (focusedSiteId ? segments.filter((segment) => segment.site_id === focusedSiteId) : segments.slice())
+    .sort(
+      (a, b) =>
+        String(a.segment_start_local || "").localeCompare(String(b.segment_start_local || "")) ||
+        String(a.site_id || "").localeCompare(String(b.site_id || ""))
+    );
   updateSiteFocusBar(visible.length);
   dom.segmentList.innerHTML = "";
 
   if (visible.length === 0) {
-    const message = focusedSiteId
-      ? `No segments at ${getSiteName(focusedSiteId)} match the current filters.`
-      : "No segments match the current filters.";
-    dom.segmentList.innerHTML = `<li class="subtle">${escapeHtml(message)}</li>`;
+    let message = "No segments match the current filters.";
+    if (state.segments.length === 0) {
+      message = "No recordings are published yet.";
+    } else if (focusedSiteId) {
+      message = `No segments at ${getSiteName(focusedSiteId)} match the current filters.`;
+    }
+    dom.segmentList.innerHTML = `<li class="segment-empty">${escapeHtml(message)}</li>`;
     return;
   }
 
+  const maxDetections = visible.reduce((max, segment) => Math.max(max, Number(segment.detection_count) || 0), 1);
+  const fragment = document.createDocumentFragment();
+  let currentDay = null;
+
   for (const segment of visible) {
-    const item = document.createElement("li");
-    item.className = "segment-item";
-    const segmentHour = Number(segment.local_hour);
-    const timeBand = getTimeBand(segmentHour);
-    const activity = getActivityBand(segment.detection_count);
-    item.classList.add(`time-${timeBand}`);
-    item.classList.add(`activity-${activity.level}`);
-    if (segment.segment_id === state.activeSegmentId) {
-      item.classList.add("active");
-    }
-    if (isDawnDusk(segmentHour)) {
-      item.classList.add("dawn-dusk");
+    if (segment.local_date !== currentDay) {
+      currentDay = segment.local_date;
+      const heading = document.createElement("li");
+      heading.className = "segment-day";
+      heading.setAttribute("role", "presentation");
+      heading.textContent = formatDayLabel(currentDay) || "Undated";
+      fragment.append(heading);
     }
 
+    const active = segment.segment_id === state.activeSegmentId;
     const liked = isSegmentLikedForSignedInUser(segment.segment_id);
+    const count = Number(segment.detection_count) || 0;
+    const start = formatClock(segment.segment_start_local) || formatHour(Number(segment.local_hour));
+    const end = formatClock(segment.segment_end_local);
+    const siteName = segment.site_name || segment.site_id;
 
-    item.innerHTML = `
-      <div class="segment-head-row">
-        <strong>${escapeHtml(segment.site_name || segment.site_id)}</strong>
-        <div class="segment-card-actions">
-          ${activity.level === "high" ? `<span class="activity-badge">High activity</span>` : ""}
-          <button
-            type="button"
-            class="segment-item-like-btn ${liked ? "active" : ""}"
-            data-segment-like-id="${escapeHtml(segment.segment_id)}"
-            aria-label="${liked ? "Remove segment from library" : "Save segment to library"}"
-            title="${liked ? "Saved" : "Save segment"}"
-          >${liked ? "♥" : "♡"}</button>
-        </div>
-      </div>
-      <p>${escapeHtml(segment.local_date || "")} ${formatHour(Number(segment.local_hour))}</p>
-      <p>${escapeHtml(segment.segment_id)}</p>
-    `;
-
-    const likeButton = item.querySelector("[data-segment-like-id]");
-    if (likeButton) {
-      likeButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const targetId = likeButton.getAttribute("data-segment-like-id") || "";
-        toggleLikeForSegment(targetId);
-      });
+    const item = document.createElement("li");
+    item.className = `segment-item time-${getTimeBand(Number(segment.local_hour))}${active ? " active" : ""}`;
+    item.tabIndex = 0;
+    item.dataset.segmentId = segment.segment_id;
+    item.title = segment.segment_id;
+    if (active) {
+      item.setAttribute("aria-current", "true");
     }
-
-    item.addEventListener("click", () => {
-      selectSegment(segment.segment_id, { flyTo: true, autoplay: isSmallPhoneViewport() });
-      setMobilePanelsOpen(false);
-    });
-
-    dom.segmentList.append(item);
+    item.innerHTML = `
+      <span class="segment-time">${escapeHtml(start)}${end ? `<span class="segment-time-end">–${escapeHtml(end)}</span>` : ""}</span>
+      <span class="segment-main">
+        ${focusedSiteId ? "" : `<span class="segment-site">${escapeHtml(siteName)}</span>`}
+        <span class="segment-activity" aria-hidden="true"><span style="width:${Math.max(count ? 4 : 0, Math.round((count / maxDetections) * 100))}%"></span></span>
+      </span>
+      <span class="segment-count" title="${count} detection${count === 1 ? "" : "s"}">${count}</span>
+      <button
+        type="button"
+        class="segment-item-like-btn${liked ? " active" : ""}"
+        data-segment-like-id="${escapeHtml(segment.segment_id)}"
+        aria-label="${liked ? "Remove from library" : "Save to library"}"
+        title="${liked ? "Saved to your library" : "Save to library"}"
+      >${liked ? "♥" : "♡"}</button>
+    `;
+    fragment.append(item);
   }
+
+  dom.segmentList.append(fragment);
 }
 
 function selectSegment(segmentId, options = {}) {
@@ -2417,35 +2535,51 @@ function selectSegment(segmentId, options = {}) {
 }
 
 function renderMetadata(segment) {
+  const site = segment.site || {};
+  const session = segment.session || {};
+  const precisionNote = { rounded: " (approx. 1 km)", coarse: " (approx. 10 km)" }[site.public_location_precision] || "";
+  const location = segment.latitude && segment.longitude
+    ? `${segment.latitude}, ${segment.longitude}${precisionNote}`
+    : "";
+  const heard = [segment.water_present ? "Water" : "", segment.rain_present ? "Rain" : ""].filter(Boolean).join(", ");
+  const place = [site.locality, site.region_code, site.country_code].filter(Boolean).join(", ");
+
   const metadataRows = [
-    ["Segment", segment.segment_id],
+    ["Recorded", describeSegmentTime(segment)],
+    ["Season", humanize(segment.season)],
     ["Site", segment.site_name || segment.site_id],
-    ["Date", segment.local_date],
-    ["Hour", formatHour(Number(segment.local_hour))],
-    ["Season", segment.season],
-    ["Dawn/Dusk", isDawnDusk(Number(segment.local_hour)) ? "yes" : "no"],
-    ["Timezone", segment.session?.timezone],
-    ["Habitat", segment.site?.habitat],
-    ["Biome", segment.site?.biome],
-    ["Latitude", segment.latitude],
-    ["Longitude", segment.longitude],
+    ["Place", place],
+    ["Habitat", humanize(site.habitat)],
+    ["Biome", humanize(site.biome)],
+    ["Elevation", site.elevation_m ? `${site.elevation_m} m` : ""],
+    ["Location", location],
+    ["Time zone", session.timezone],
+    ["Also audible", heard],
     ["Sound quality", segment.sound_quality],
-    ["Wind level", segment.wind_level],
-    ["Rain present", segment.rain_present ? "yes" : "no"],
-    ["Water present", segment.water_present ? "yes" : "no"],
-    ["Noise score", segment.anthropogenic_noise],
-    ["Detections", String(segment.detection_count ?? 0)],
-    ["Recorder", segment.session?.recorder],
-    ["Microphones", segment.session?.microphones],
+    ["Wind", segment.wind_level],
+    ["Human noise", segment.anthropogenic_noise],
+    ["Recorder", session.recorder],
+    ["Microphones", session.microphones],
+    ["Weather", session.weather_notes],
     ["Notes", segment.notes],
+    ["Recordist", session.operator],
+    ["Licence", humanize(session.license)],
+    ["Segment ID", segment.segment_id],
   ];
 
   dom.metadataGrid.innerHTML = "";
   for (const [key, value] of metadataRows) {
+    const text = value === undefined || value === null ? "" : String(value).trim();
+    if (!text) {
+      continue; // Only show what is known.
+    }
     const dt = document.createElement("dt");
     dt.textContent = key;
     const dd = document.createElement("dd");
-    dd.textContent = value === undefined || value === null || String(value).trim() === "" ? "-" : String(value);
+    dd.textContent = text;
+    if (key === "Segment ID") {
+      dd.className = "mono";
+    }
     dom.metadataGrid.append(dt, dd);
   }
 
@@ -3205,6 +3339,28 @@ function getActivityBand(detectionCount) {
     return { level: "medium", count };
   }
   return { level: "low", count };
+}
+
+// "3 sites · 1,440 segments · 115,160 detections"
+function describeDataset(payload) {
+  const count = (value, singular, plural) => {
+    const n = Number(value) || 0;
+    return `${n.toLocaleString("en-GB")} ${n === 1 ? singular : plural}`;
+  };
+  if (!Number(payload.segments_count)) {
+    return "No recordings published yet";
+  }
+  return [
+    count(payload.sites_count, "site", "sites"),
+    count(payload.segments_count, "segment", "segments"),
+    count(payload.detections_count, "detection", "detections"),
+  ].join(" · ");
+}
+
+// "riparian_forest" -> "Riparian forest"
+function humanize(value) {
+  const text = String(value ?? "").trim().replace(/_/g, " ");
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
 }
 
 // "Sat 13 Apr 2024". Dates are local to the recording, so format them as-is (UTC).
