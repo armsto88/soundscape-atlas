@@ -6,9 +6,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 def read_csv(path: Path) -> List[dict]:
@@ -20,10 +21,24 @@ def to_bool(value: str) -> bool:
     return str(value).strip().lower() == "true"
 
 
-def build_payload(metadata_dir: Path) -> dict:
+def split_published(segments: List[dict]) -> Tuple[List[dict], List[dict], List[Tuple[str, str]]]:
+    """Return (published, unpublished, unrecognised values).
+
+    Only an explicit "true" publishes a segment. Anything else, including blanks
+    and typos, stays private; unrecognised values are reported so they can be fixed.
+    """
+    published, unpublished, unrecognised = [], [], []
+    for segment in segments:
+        raw = str(segment.get("published") or "").strip()
+        if raw.lower() not in ("true", "false", ""):
+            unrecognised.append((segment.get("segment_id", ""), raw))
+        (published if raw.lower() == "true" else unpublished).append(segment)
+    return published, unpublished, unrecognised
+
+
+def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
     sites = read_csv(metadata_dir / "sites.csv")
     sessions = read_csv(metadata_dir / "sessions.csv")
-    segments = read_csv(metadata_dir / "segments.csv")
     detections = read_csv(metadata_dir / "birdnet_detections.csv")
 
     sessions_by_id = {s["session_id"]: s for s in sessions}
@@ -137,12 +152,14 @@ def build_payload(metadata_dir: Path) -> dict:
             }
         )
 
+    # Totals describe only what is published, so hidden recordings are not
+    # revealed through the counts either.
     return {
         "generated_from": str(metadata_dir),
-        "sites_count": len(sites),
-        "sessions_count": len(sessions),
-        "segments_count": len(segments),
-        "detections_count": len(detections),
+        "sites_count": len({s["site_id"] for s in web_segments}),
+        "sessions_count": len({s["session_id"] for s in web_segments}),
+        "segments_count": len(web_segments),
+        "detections_count": sum(s["detection_count"] for s in web_segments),
         "segments": web_segments,
     }
 
@@ -156,14 +173,24 @@ def main() -> int:
     metadata_dir = Path(args.metadata_dir)
     output_path = Path(args.output)
 
-    payload = build_payload(metadata_dir)
+    published, unpublished, unrecognised = split_published(read_csv(metadata_dir / "segments.csv"))
+    for segment_id, value in unrecognised:
+        print(
+            f"warning: segments.csv {segment_id}: published={value!r} is not true/false; treated as unpublished",
+            file=sys.stderr,
+        )
+
+    payload = build_payload(metadata_dir, published)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with output_path.open("w", encoding="utf-8", newline="") as handle:
         json.dump(payload, handle, indent=2)
         handle.write("\n")
 
-    print(f"Wrote {output_path} with {payload['segments_count']} segment(s).")
+    print(
+        f"Wrote {output_path} with {payload['segments_count']} published segment(s); "
+        f"{len(unpublished)} unpublished segment(s) left out."
+    )
     return 0
 
 
