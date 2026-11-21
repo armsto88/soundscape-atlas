@@ -25,7 +25,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from solar import segment_sun
+
+# Solar noon more than this far from 12:00 on the local clock almost always
+# means the session's timezone is wrong (real offsets reach about 3 hours).
+MAX_PLAUSIBLE_NOON_OFFSET_HOURS = 3.5
 
 # Decimal places published per sites.csv public_location_precision value.
 # 2 dp is about 1.1 km north-south, 1 dp about 11 km (less east-west away from
@@ -135,23 +141,35 @@ def parse_seconds(value) -> float | None:
         return None
 
 
-def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Optional[dict]:
+def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Tuple[Optional[dict], str]:
     """Time-of-day period and that day's sunrise/sunset for a segment.
 
-    Uses the *published* coordinates, so these values reveal nothing more
-    precise about a site than the map already shows.
+    Returns (info, "") or (None, reason). Uses the *published* coordinates, so
+    these values reveal nothing more precise about a site than the map shows.
     """
+    timezone_name = str(session.get("timezone") or "").strip()
+    if not timezone_name:
+        return None, "the session has no timezone"
     try:
-        start = datetime.fromisoformat(str(segment.get("segment_start_local") or ""))
-        end = datetime.fromisoformat(str(segment.get("segment_end_local") or ""))
+        tz = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None, f"unknown timezone {timezone_name!r} (on Windows: pip install tzdata)"
+    try:
         latitude = float(location.latitude)
         longitude = float(location.longitude)
     except ValueError:
-        return None
-    timezone_name = str(session.get("timezone") or "").strip()
-    if not timezone_name:
-        return None
-    return segment_sun(start, end, latitude, longitude, timezone_name)
+        return None, "the site has no usable coordinates"
+    try:
+        start = datetime.fromisoformat(str(segment.get("segment_start_local") or ""))
+        end = datetime.fromisoformat(str(segment.get("segment_end_local") or ""))
+    except ValueError:
+        return None, "segment start/end times are not ISO dates"
+    # Times are meant to be local clock times; accept ones written with an offset.
+    if start.tzinfo is not None:
+        start = start.astimezone(tz).replace(tzinfo=None)
+    if end.tzinfo is not None:
+        end = end.astimezone(tz).replace(tzinfo=None)
+    return segment_sun(start, end, latitude, longitude, tz), ""
 
 
 def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[str, dict]]:
@@ -233,16 +251,23 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "license": session.get("license"),
             }
 
-        sun = segment_sun_info(segment, locations.get(site_id, no_location), sessions_by_id.get(session_id, {}))
-        if sun and sun["sunrise"] and sun["sunset"] and sun["sunrise"] > sun["sunset"] and site_id not in suspect_sites:
-            # Outside the polar regions sunrise is always before sunset in local
-            # time; otherwise the sessions' timezone is almost certainly wrong.
-            suspect_sites.add(site_id)
-            print(
-                f"warning: {site_id} (e.g. session {session_id}): sunrise {sun['sunrise']} after sunset "
-                f"{sun['sunset']} in {sessions_by_id.get(session_id, {}).get('timezone')!r}; check the timezone",
-                file=sys.stderr,
-            )
+        sun, problem = segment_sun_info(segment, locations.get(site_id, no_location), sessions_by_id.get(session_id, {}))
+        if site_id not in suspect_sites:
+            timezone_name = sessions_by_id.get(session_id, {}).get("timezone")
+            if problem:
+                suspect_sites.add(site_id)
+                print(
+                    f"warning: {site_id} (e.g. segment {segment_id}): no time of day, {problem}; "
+                    "the site falls back to clock hours",
+                    file=sys.stderr,
+                )
+            elif abs(sun["noon_offset_hours"]) > MAX_PLAUSIBLE_NOON_OFFSET_HOURS:
+                suspect_sites.add(site_id)
+                print(
+                    f"warning: {site_id} (e.g. session {session_id}): the sun is highest "
+                    f"{sun['noon_offset_hours']:+.1f} h from 12:00 in {timezone_name!r}; check the timezone",
+                    file=sys.stderr,
+                )
 
         rows = detections_by_segment[segment_id]
         counts = Counter((row.get("common_name") or "Unknown").strip() for row in rows)

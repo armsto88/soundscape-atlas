@@ -102,58 +102,80 @@ def _polar_state(day: date, latitude: float, longitude: float) -> str:
     return "always_down" if cos_hour_angle > 1 else "always_up"
 
 
-def sun_day(day: date, latitude: float, longitude: float, tz: ZoneInfo) -> SunDay:
-    """Sunrise, sunset and solar noon for a local date, in the site's local time."""
-    midnight_utc = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+def _sun_for_utc_date(base: date, latitude: float, longitude: float, tz: ZoneInfo) -> SunDay:
+    """Events around the solar noon that falls on UTC date `base`, in local time."""
+    midnight_utc = datetime(base.year, base.month, base.day, tzinfo=timezone.utc)
 
     def to_local(minutes: float) -> datetime:
         return (midnight_utc + timedelta(minutes=minutes)).astimezone(tz).replace(tzinfo=None)
 
-    _, eq_time = _sun(_julian_day(day) + (720 - 4 * longitude) / 1440)
+    _, eq_time = _sun(_julian_day(base) + (720 - 4 * longitude) / 1440)
     noon = to_local(720 - 4 * longitude - eq_time)
 
-    rise = _event_minutes(day, latitude, longitude, rising=True)
-    set_ = _event_minutes(day, latitude, longitude, rising=False)
+    rise = _event_minutes(base, latitude, longitude, rising=True)
+    set_ = _event_minutes(base, latitude, longitude, rising=False)
     if rise is None or set_ is None:
-        state = _polar_state(day, latitude, longitude)
+        state = _polar_state(base, latitude, longitude)
         return SunDay(None, None, noon, always_up=state == "always_up", always_down=state == "always_down")
     return SunDay(to_local(rise), to_local(set_), noon)
 
 
-def period_at(moment: datetime, sun: SunDay) -> str:
-    """Time-of-day period for a naive local datetime on the SunDay's date."""
+def sun_day(day: date, latitude: float, longitude: float, tz: ZoneInfo) -> SunDay:
+    """The sunrise, solar noon and sunset belonging to a local date.
+
+    "Belonging" means the solar noon falls on that date. Sunset may then be
+    after local midnight (high latitudes in summer), and for timezones far
+    from solar time (e.g. Pacific/Tongatapu) the UTC date differs from the
+    local one, so the neighbouring UTC dates are tried as well.
+    """
+    for shift in (0, -1, 1):
+        candidate = _sun_for_utc_date(day + timedelta(days=shift), latitude, longitude, tz)
+        if candidate.solar_noon.date() == day:
+            return candidate
+    return _sun_for_utc_date(day, latitude, longitude, tz)
+
+
+def _in_window(moment: datetime, event: Optional[datetime]) -> bool:
+    return event is not None and event - DAWN_DUSK_HALF_WINDOW <= moment < event + DAWN_DUSK_HALF_WINDOW
+
+
+def period_at(moment: datetime, sun: SunDay, previous: Optional[SunDay] = None, following: Optional[SunDay] = None) -> str:
+    """Time-of-day period for a naive local datetime on the SunDay's date.
+
+    `previous`/`following` are the neighbouring days: a sunset after midnight
+    belongs to the previous day, a sunrise just before midnight to the next.
+    """
+    if _in_window(moment, sun.sunrise) or (following is not None and _in_window(moment, following.sunrise)):
+        return "dawn"
+    if _in_window(moment, sun.sunset) or (previous is not None and _in_window(moment, previous.sunset)):
+        return "dusk"
     if sun.always_down:
         return "night"
     if sun.always_up or sun.sunrise is None or sun.sunset is None:
         return "morning" if moment < sun.solar_noon else "afternoon"
-
-    dawn_start, dawn_end = sun.sunrise - DAWN_DUSK_HALF_WINDOW, sun.sunrise + DAWN_DUSK_HALF_WINDOW
-    dusk_start, dusk_end = sun.sunset - DAWN_DUSK_HALF_WINDOW, sun.sunset + DAWN_DUSK_HALF_WINDOW
-    if dawn_start <= moment < dawn_end:
-        return "dawn"
-    if dusk_start <= moment < dusk_end:
-        return "dusk"
-    if dawn_end <= moment < sun.solar_noon:
+    if sun.sunrise + DAWN_DUSK_HALF_WINDOW <= moment < sun.solar_noon:
         return "morning"
-    if sun.solar_noon <= moment < dusk_start:
+    if sun.solar_noon <= moment < sun.sunset - DAWN_DUSK_HALF_WINDOW:
         return "afternoon"
     return "night"
 
 
-def segment_sun(start: datetime, end: datetime, latitude: float, longitude: float, tz_name: str) -> Optional[dict]:
+def segment_sun(start: datetime, end: datetime, latitude: float, longitude: float, tz: ZoneInfo) -> dict:
     """Period and that day's sunrise/sunset for a segment (naive local start/end).
 
-    The period is taken at the segment's midpoint. Returns None if the
-    timezone is unknown.
+    The period is taken at the segment's midpoint. `noon_offset_hours` (solar
+    noon minus 12:00 on the local clock) is for sanity checks and is not
+    published: more than about 3.5 hours almost always means a wrong timezone.
     """
-    try:
-        tz = ZoneInfo(tz_name)
-    except Exception:
-        return None
     middle = start + (end - start) / 2 if end > start else start
-    sun = sun_day(middle.date(), latitude, longitude, tz)
+    day = middle.date()
+    sun = sun_day(day, latitude, longitude, tz)
+    previous = sun_day(day - timedelta(days=1), latitude, longitude, tz)
+    following = sun_day(day + timedelta(days=1), latitude, longitude, tz)
+    clock_noon = datetime(day.year, day.month, day.day, 12)
     return {
-        "period": period_at(middle, sun),
+        "period": period_at(middle, sun, previous, following),
         "sunrise": sun.sunrise.strftime("%H:%M") if sun.sunrise else "",
         "sunset": sun.sunset.strftime("%H:%M") if sun.sunset else "",
+        "noon_offset_hours": (sun.solar_noon - clock_noon).total_seconds() / 3600,
     }

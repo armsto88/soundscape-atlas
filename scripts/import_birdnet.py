@@ -51,6 +51,8 @@ NON_BIRD_CLASSES = {
     "power tools", "siren", "fireworks", "noise", "environmental",
 }
 HUMAN_VOICE_CLASSES = {"human vocal", "human whistle"}
+# BirdNET writes a "nocall" placeholder row for files with no detections.
+NO_DETECTION_CLASSES = {"nocall", "no call"}
 
 # Column name aliases, compared lower-case without surrounding spaces.
 COLUMNS = {
@@ -217,12 +219,19 @@ def main() -> int:
     by_segment: Dict[str, Dict[Tuple[str, int], Detection]] = defaultdict(dict)
 
     parsed: List[Detection] = []
+    # Every segment that appears in the results counts as analysed, even when
+    # none of its detections survive the filters: its old detections are replaced.
+    analysed: set = set()
     for path in files:
         detections, problem = parse_results(path)
         if problem:
             unsupported.append((path, problem))
             continue
         stats["files"] += 1
+        file_segment = segment_id_from_path(path.name)
+        if file_segment in segments:
+            analysed.add(file_segment)
+        analysed.update(det.segment_id for det in detections if det.segment_id in segments)
         parsed.extend(detections)
 
     # Raven tables carry no scientific names: fill them from any result or
@@ -243,6 +252,9 @@ def main() -> int:
         for det in parsed:
             stats["read"] += 1
             name = det.common.strip().lower()
+            if name in NO_DETECTION_CLASSES:
+                stats["nocall"] += 1
+                continue
             if name in HUMAN_VOICE_CLASSES and det.confidence >= args.min_confidence:
                 human_voice[det.segment_id] = max(human_voice.get(det.segment_id, 0), det.confidence)
             if det.segment_id not in segments:
@@ -284,7 +296,7 @@ def main() -> int:
             if name.strip():
                 kept_review.setdefault((row.get("segment_id", ""), name.strip().lower(), tenths), kept)
 
-    imported_segments = set(by_segment)
+    imported_segments = analysed
     new_rows: List[Dict[str, str]] = []
     species_totals: Counter = Counter()
     for segment_id, detections in by_segment.items():
@@ -314,9 +326,11 @@ def main() -> int:
 
     mode = "DRY RUN - nothing written" if args.dry_run else "Imported"
     print(f"{mode}: {stats['files']} result file(s), {stats['read']} detection(s) read.")
-    print(f"  kept {len(new_rows)} for {len(imported_segments)} segment(s), replacing {len(replaced)} existing row(s)")
+    print(f"  {len(imported_segments)} segment(s) analysed; kept {len(new_rows)} detection(s) in {len(by_segment)} of them, "
+          f"replacing {len(replaced)} existing row(s)")
     print(f"  dropped: {stats['below_threshold']} below {args.min_confidence:.0%} confidence, "
-          f"{stats['non_bird']} non-bird, {stats['duplicates']} duplicate, {stats['out_of_range']} outside the segment")
+          f"{stats['non_bird']} non-bird, {stats['duplicates']} duplicate, {stats['out_of_range']} outside the segment, "
+          f"{stats['nocall']} 'nocall' placeholder")
     if species_totals:
         top = ", ".join(f"{name} ({count})" for name, count in species_totals.most_common(8))
         print(f"  most detected: {top}")

@@ -12,7 +12,8 @@
 #        wrangler d1 execute soundscape-comments --remote --file schema/d1_migrate_passwords.sql
 #        wrangler d1 execute soundscape-comments --remote --file schema/d1_sessions.sql
 #      An existing database that already has the first three only needs
-#      d1_sessions.sql (d1_migrate_passwords.sql fails if run twice).
+#      d1_sessions.sql (d1_migrate_passwords.sql fails if run twice). The
+#      functions also create the sessions table on first use if it is missing.
 #   4. Set admin password-reset secret:
 #        wrangler pages secret put ADMIN_RESET_KEY --project-name soundscape-atlas
 

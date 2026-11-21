@@ -21,6 +21,7 @@ import {
 } from "../_lib/auth.js";
 
 const NAME_PATTERN = /^[^\u0000-\u001f\u007f]{1,40}$/;
+const MAX_EXISTING_NAME = 100;
 const MIN_NEW_PASSWORD = 8;
 const MAX_PASSWORD = 200;
 
@@ -34,7 +35,8 @@ export const onRequestPost = handle(async ({ request, env }) => {
   const password = typeof body.password === "string" ? body.password : "";
   const mode = body.mode === "register" ? "register" : "signin";
 
-  if (!NAME_PATTERN.test(name)) {
+  // New names are 1-40 characters; existing accounts (up to 100) can still sign in.
+  if (mode === "register" ? !NAME_PATTERN.test(name) : !name || name.length > MAX_EXISTING_NAME) {
     return jsonResponse({ error: "Usernames are 1 to 40 characters." }, 400);
   }
   if (!password || password.length > MAX_PASSWORD) {
@@ -54,9 +56,23 @@ export const onRequestPost = handle(async ({ request, env }) => {
     const salt = generateSalt();
     const hash = await hashPassword(password, salt);
     const createdAt = new Date().toISOString();
-    await env.DB.prepare(
-      "INSERT INTO users (name, created_at, password_hash, password_salt) VALUES (?, ?, ?, ?)"
-    ).bind(name, createdAt, hash, salt).run();
+    // Check and insert in one statement, so two simultaneous registrations of
+    // the same name (in any capitalisation) cannot both succeed.
+    let inserted = 0;
+    try {
+      const result = await env.DB.prepare(
+        "INSERT INTO users (name, created_at, password_hash, password_salt) " +
+          "SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE name = ? COLLATE NOCASE)"
+      ).bind(name, createdAt, hash, salt, name).run();
+      inserted = Number(result?.meta?.changes ?? 0);
+    } catch (error) {
+      if (!/UNIQUE|constraint/i.test(String(error?.message || error))) {
+        throw error;
+      }
+    }
+    if (!inserted) {
+      return jsonResponse({ error: "That username is taken." }, 409);
+    }
     const cookie = await createSession(env, name);
     return jsonResponse({ name, created_at: createdAt }, 201, { "Set-Cookie": cookie });
   }

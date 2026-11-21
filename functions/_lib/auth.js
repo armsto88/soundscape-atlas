@@ -108,8 +108,26 @@ export function clearedSessionCookie() {
   return sessionCookie("", 0);
 }
 
+// The sessions table is created on first use (as in schema/d1_sessions.sql), so
+// deploying this code before running that migration does not break sign-in.
+let sessionsTableReady = false;
+
+async function ensureSessionsTable(env) {
+  if (sessionsTableReady) {
+    return;
+  }
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_name TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL, expires_at TEXT NOT NULL)"
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_user_name ON sessions (user_name)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)").run();
+  sessionsTableReady = true;
+}
+
 /** Create a session for `userName`; returns the Set-Cookie header value. */
 export async function createSession(env, userName) {
+  await ensureSessionsTable(env);
   const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -126,6 +144,7 @@ export async function getSessionUser(request, env) {
   if (!/^[0-9a-f]{64}$/.test(token)) {
     return null;
   }
+  await ensureSessionsTable(env);
   const row = await env.DB.prepare(
     "SELECT user_name, expires_at FROM sessions WHERE token_hash = ?"
   ).bind(await sha256Hex(token)).first();
@@ -138,11 +157,13 @@ export async function getSessionUser(request, env) {
 export async function endSession(request, env) {
   const token = readCookie(request, SESSION_COOKIE);
   if (/^[0-9a-f]{64}$/.test(token)) {
+    await ensureSessionsTable(env);
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256Hex(token)).run();
   }
 }
 
 export async function endAllSessionsFor(env, userName) {
+  await ensureSessionsTable(env);
   await env.DB.prepare("DELETE FROM sessions WHERE user_name = ?").bind(userName).run();
 }
 

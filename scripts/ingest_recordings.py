@@ -389,10 +389,18 @@ def cmd_scan(args: argparse.Namespace) -> int:
     by_key = {row.get("source_key", ""): row for row in existing_rows}
 
     seen_keys = set()
+    scanned_rows: List[Dict[str, str]] = []
     new_count = moved_count = 0
     for group in sessions:
         detected = describe_session(group, raw_dir)
         key = detected["source_key"]
+        if key in seen_keys:
+            # Two recordings share a BWF reference (a recorder that does not
+            # make them unique): tell them apart by start time instead of
+            # letting the second overwrite the first.
+            key = f"{key}@{group[0].start:%Y%m%dT%H%M%S}"
+            detected["source_key"] = key
+            print(f"warning: {group[0].path.name} repeats another recording's BWF reference; keyed as {key}")
         seen_keys.add(key)
         row = by_key.get(key)
         if row is None:
@@ -410,6 +418,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
             if row.get("status", "").startswith("not found"):
                 row["status"] = "found again"
         row.update(detected)
+        scanned_rows.append(row)
 
     # Rows whose files lived under this raw dir but were not seen this time.
     missing_count = 0
@@ -427,13 +436,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     print()
     print(f"{'start (recorder clock)':<21} {'hours':>6} {'files':>5} {'ch':>3}  {'timing':<10} {'site_id':<18} folder")
-    for group in sessions:
-        row = by_key[group[0].key]
+    for row in scanned_rows:
         print(
             f"{row['recorder_start_local']:<21} {row['duration_hours']:>6} {row['file_count']:>5} "
             f"{row['source_channels']:>3}  {row['timing']:<10} {row['site_id'] or '-':<18} {row['folder']}"
         )
-    total_hours = sum(float(by_key[g[0].key]["duration_hours"]) for g in sessions)
+    total_hours = sum(float(row["duration_hours"]) for row in scanned_rows)
     print()
     print(
         f"{len(probed)} file(s) -> {len(sessions)} recording(s), {total_hours:.1f} h total. "

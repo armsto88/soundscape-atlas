@@ -757,14 +757,16 @@ function wireEvents() {
     }
 
     if (dom.rightSidebar && !dom.rightSidebar.classList.contains("collapsed")) {
-      const clickedInsideSidebar = event.target.closest("#rightSidebar") || event.target.closest("#libraryToggleBtn");
+      const path = event.composedPath();
+      const clickedInsideSidebar = path.includes(dom.rightSidebar) || path.includes(dom.libraryToggleBtn);
       if (!clickedInsideSidebar) {
         closeLibrarySidebar();
       }
     }
 
     if (document.body.classList.contains("mobile-panels-open") && isSmallPhoneViewport()) {
-      const clickedInsidePanels = event.target.closest(".sidebar") || event.target.closest("#mobileFiltersBtn");
+      const path = event.composedPath();
+      const clickedInsidePanels = path.some((node) => node instanceof Element && node.matches(".sidebar, #mobileFiltersBtn"));
       if (!clickedInsidePanels) {
         setMobilePanelsOpen(false);
       }
@@ -1383,15 +1385,21 @@ function resetSignedInState() {
 
 async function signOutUser() {
   closeSettingsMenu();
+  // The session cookie is HttpOnly: only the server can end it. If that fails,
+  // stay signed in rather than claim otherwise (the next visitor would inherit it).
+  let ended = false;
   try {
-    await fetch("/api/auth/logout", { method: "POST" });
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    ended = response.ok || response.status === 401 || response.status === 404;
   } catch {
-    // The cookie expires on its own; the page forgets the user either way.
+    ended = false;
+  }
+  if (!ended) {
+    setStatus("Could not sign out. Check your connection and try again.");
+    return;
   }
   resetSignedInState();
-  if (dom.timelineHint) {
-    setStatus("Signed out.");
-  }
+  setStatus("Signed out.");
 }
 
 // Called when the server answers 401: the session expired or was revoked.
@@ -1970,6 +1978,10 @@ function recallLibraryItem(segmentId, commentId, sec) {
 
   const seekTo = Number.isFinite(sec) ? Math.max(0, sec) : 0;
   const setTime = () => {
+    // With preload="none" this can fire much later, after another segment was chosen.
+    if (state.activeSegmentId !== segmentId) {
+      return;
+    }
     dom.audioPlayer.currentTime = seekTo;
     updateAudioTimelineProgress();
   };
@@ -2473,6 +2485,9 @@ function selectSegment(segmentId, options = {}) {
     state.focusedSiteId = segment.site_id;
   }
 
+  if (state.activeSegmentId !== segment.segment_id) {
+    closeTimelineActionMenu();
+  }
   state.activeSegmentId = segment.segment_id;
   state.activeSegment = segment;
   updateSegmentShareUrl(segment.segment_id);
@@ -2497,9 +2512,9 @@ function selectSegment(segmentId, options = {}) {
     });
   }
 
-  const audioSrc = segment.public_url && segment.public_url.trim() !== ""
-    ? segment.public_url
-    : segment.listening_opus_path;
+  // listening_opus_path is an archive path the website does not serve; audio is
+  // playable once upload_to_r2.py has set public_url.
+  const audioSrc = String(segment.public_url || "").trim();
 
   dom.nowPlaying.textContent = segment.site_name || segment.site_id;
   dom.nowPlaying.title = segment.segment_id;
@@ -2722,7 +2737,6 @@ function renderDetectionTimeline(segment) {
   if (dom.timelineLabels) dom.timelineLabels.innerHTML = "";
   if (dom.timelineLanes) dom.timelineLanes.innerHTML = "";
   hideTimelineTooltip();
-  closeTimelineActionMenu();
 
   if (!segment) {
     if (dom.timelineAxis) dom.timelineAxis.innerHTML = "";
@@ -3069,6 +3083,7 @@ function clearActiveSegmentState() {
   dom.audioPlayer.load();
   state.selectedTimelineComment = null;
   updateDeleteTimelineCommentButton();
+  closeTimelineActionMenu();
   renderDetectionTimeline(null);
   if (dom.playPauseBtn) {
     dom.playPauseBtn.disabled = true;
