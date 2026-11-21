@@ -9,7 +9,24 @@ import json
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, NamedTuple, Tuple
+
+# Decimal places published per sites.csv public_location_precision value.
+# 2 dp is about 1.1 km north-south, 1 dp about 11 km (less east-west away from
+# the equator). None publishes the coordinates as entered.
+LOCATION_DECIMALS = {"exact": None, "rounded": 2, "coarse": 1}
+PRECISION_NAMES = {None: "exact", 2: "rounded", 1: "coarse"}
+DEFAULT_PRECISION = "rounded"
+SENSITIVE_DECIMALS = 1  # sensitive sites are never more precise than "coarse"
+SENSITIVE_ELEVATION_STEP_M = 100
+
+
+class PublicLocation(NamedTuple):
+    latitude: str
+    longitude: str
+    elevation_m: str
+    precision: str
+    is_sensitive: bool
 
 
 def read_csv(path: Path) -> List[dict]:
@@ -36,6 +53,53 @@ def split_published(segments: List[dict]) -> Tuple[List[dict], List[dict], List[
     return published, unpublished, unrecognised
 
 
+def public_location(site: dict) -> Tuple[PublicLocation, List[str]]:
+    """Coordinates and elevation as they may be published for a site.
+
+    Unrecognised values fall back to the more private option and are reported.
+    """
+    warnings: List[str] = []
+
+    precision = str(site.get("public_location_precision") or "").strip().lower() or DEFAULT_PRECISION
+    if precision not in LOCATION_DECIMALS:
+        warnings.append(
+            f"public_location_precision={precision!r} is not exact/rounded/coarse; publishing as coarse"
+        )
+        precision = "coarse"
+
+    sensitive_raw = str(site.get("is_sensitive") or "").strip().lower()
+    if sensitive_raw not in ("true", "false", ""):
+        warnings.append(f"is_sensitive={sensitive_raw!r} is not true/false; treating the site as sensitive")
+    is_sensitive = sensitive_raw not in ("false", "")
+
+    decimals = LOCATION_DECIMALS[precision]
+    if is_sensitive:
+        decimals = SENSITIVE_DECIMALS if decimals is None else min(decimals, SENSITIVE_DECIMALS)
+
+    def coordinate(name: str) -> str:
+        raw = str(site.get(name) or "").strip()
+        try:
+            value = float(raw)
+        except ValueError:
+            warnings.append(f"{name}={raw!r} is not a number; site will not appear on the map")
+            return ""
+        return raw if decimals is None else f"{round(value, decimals):.{decimals}f}"
+
+    latitude = coordinate("latitude")
+    longitude = coordinate("longitude")
+
+    elevation = str(site.get("elevation_m") or "").strip()
+    if is_sensitive and elevation:
+        try:
+            step = SENSITIVE_ELEVATION_STEP_M
+            elevation = str(int(round(float(elevation) / step) * step))
+        except ValueError:
+            elevation = ""
+
+    location = PublicLocation(latitude, longitude, elevation, PRECISION_NAMES[decimals], is_sensitive)
+    return location, warnings
+
+
 def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
     sites = read_csv(metadata_dir / "sites.csv")
     sessions = read_csv(metadata_dir / "sessions.csv")
@@ -43,6 +107,14 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
 
     sessions_by_id = {s["session_id"]: s for s in sessions}
     sites_by_id = {s["site_id"]: s for s in sites}
+
+    locations: Dict[str, PublicLocation] = {}
+    for site in sites:
+        location, warnings = public_location(site)
+        locations[site["site_id"]] = location
+        for warning in warnings:
+            print(f"warning: sites.csv {site['site_id']}: {warning}", file=sys.stderr)
+    no_location = PublicLocation("", "", "", "coarse", True)
 
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
     species_count_by_segment: Dict[str, Counter] = defaultdict(Counter)
@@ -57,6 +129,7 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
         segment_id = segment["segment_id"]
         session = sessions_by_id.get(segment.get("session_id", ""), {})
         site = sites_by_id.get(segment.get("site_id", ""), {})
+        location = locations.get(segment.get("site_id", ""), no_location)
 
         top_species = [
             {"name": name, "count": count}
@@ -104,8 +177,8 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
                 "session_id": segment.get("session_id"),
                 "site_id": segment.get("site_id"),
                 "site_name": site.get("site_name"),
-                "latitude": site.get("latitude"),
-                "longitude": site.get("longitude"),
+                "latitude": location.latitude,
+                "longitude": location.longitude,
                 "segment_start_local": segment.get("segment_start_local"),
                 "segment_end_local": segment.get("segment_end_local"),
                 "local_date": segment.get("local_date"),
@@ -139,12 +212,12 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
                     "country_code": site.get("country_code"),
                     "region_code": site.get("region_code"),
                     "locality": site.get("locality"),
-                    "elevation_m": site.get("elevation_m"),
+                    "elevation_m": location.elevation_m,
                     "habitat": site.get("habitat"),
                     "biome": site.get("biome"),
-                    "public_location_precision": site.get("public_location_precision"),
+                    "public_location_precision": location.precision,
                     "description": site.get("description"),
-                    "is_sensitive": to_bool(site.get("is_sensitive", "false")),
+                    "is_sensitive": location.is_sensitive,
                 },
                 "detection_count": len(detections_by_segment[segment_id]),
                 "top_species": top_species,
