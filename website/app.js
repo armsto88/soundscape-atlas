@@ -117,6 +117,16 @@ const dom = {
   librarySidebarResizeHandle: document.getElementById("librarySidebarResizeHandle"),
   audioTimeLabel: document.getElementById("audioTimeLabel"),
   timelineHint: document.getElementById("timelineHint"),
+  nowPlayingMeta: document.getElementById("nowPlayingMeta"),
+  timelineLabels: document.getElementById("timelineLabels"),
+  timelineLanes: document.getElementById("timelineLanes"),
+  timelinePlayhead: document.getElementById("timelinePlayhead"),
+  timelineEmpty: document.getElementById("timelineEmpty"),
+  timelineAxis: document.getElementById("timelineAxis"),
+  timelineTooltip: document.getElementById("timelineTooltip"),
+  timelineActionLabel: document.getElementById("timelineActionLabel"),
+  confidenceFilter: document.getElementById("confidenceFilter"),
+  addCommentBtn: document.getElementById("addCommentBtn"),
   audioTimelinePanel: document.getElementById("audioTimelinePanel"),
   mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
   mobileClosePanelsBtn: document.getElementById("mobileClosePanelsBtn"),
@@ -200,6 +210,10 @@ const LocateControl = L.Control.extend({
 });
 
 new LocateControl().addTo(map);
+
+// Credits bottom-left keeps them clear of the phone "Panels" button.
+map.attributionControl.setPosition("bottomleft");
+map.attributionControl.setPrefix(false);
 
 async function init() {
   try {
@@ -435,16 +449,62 @@ function wireEvents() {
   }
 
   if (dom.audioTimeline) {
-    dom.audioTimeline.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+    dom.audioTimeline.addEventListener("click", seekFromTimelineClick);
+    dom.audioTimeline.addEventListener("pointermove", handleTimelinePointer);
+    dom.audioTimeline.addEventListener("pointerleave", hideTimelineTooltip);
+    dom.audioTimeline.addEventListener("focusin", (event) => {
+      if (event.target instanceof Element && event.target.dataset.tooltip) {
+        showTimelineTooltip(event.target.dataset.tooltip, event.target.getBoundingClientRect());
+      }
+    });
+    dom.audioTimeline.addEventListener("focusout", hideTimelineTooltip);
+    dom.audioTimeline.addEventListener("keydown", (event) => {
+      if (!state.activeSegment) {
         return;
       }
-      if (event.target.closest(".detection-dot, .comment-marker, #timelineActionMenu")) {
-        return;
+      const current = Number(dom.audioPlayer.currentTime) || 0;
+      const moves = { ArrowLeft: current - 10, ArrowRight: current + 10, Home: 0, End: Infinity };
+      if (event.key in moves) {
+        event.preventDefault();
+        event.stopPropagation();
+        seekTo(moves[event.key], false);
       }
-      openTimelineActionMenuAtClick(event);
     });
   }
+
+  dom.addCommentBtn?.addEventListener("click", openCommentMenu);
+
+  if (dom.confidenceFilter) {
+    restoreMinConfidence();
+    dom.confidenceFilter.addEventListener("change", () => {
+      try {
+        localStorage.setItem(STORAGE_CONFIDENCE_KEY, dom.confidenceFilter.value);
+      } catch {
+        // Ignore storage failures.
+      }
+      renderDetectionTimeline(state.activeSegment);
+    });
+  }
+
+  // Keyboard: space plays/pauses, arrows skip 10 s (when not typing or on a control).
+  document.addEventListener("keydown", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
+      (dom.authDialog && !dom.authDialog.hidden) ||
+      (target && target.closest("input, select, textarea, button, [contenteditable], .leaflet-container"))
+    ) {
+      return;
+    }
+    if (event.key === " " && dom.audioPlayer.getAttribute("src")) {
+      event.preventDefault();
+      dom.playPauseBtn?.click();
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      const delta = event.key === "ArrowLeft" ? -10 : 10;
+      seekTo((Number(dom.audioPlayer.currentTime) || 0) + delta, false);
+    }
+  });
 
   if (dom.timelineActionApplyBtn) {
     dom.timelineActionApplyBtn.addEventListener("click", () => {
@@ -674,7 +734,7 @@ function wireEvents() {
     if (!dom.timelineActionMenu || dom.timelineActionMenu.hidden) {
       return;
     }
-    if (event.target.closest("#timelineActionMenu") || event.target.closest("#audioTimeline")) {
+    if (event.target.closest("#timelineActionMenu, #addCommentBtn")) {
       return;
     }
     closeTimelineActionMenu();
@@ -959,7 +1019,7 @@ function handleViewportChange() {
 function findUserLocation() {
   if (!navigator.geolocation) {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Location is not available in this browser.";
+      setStatus("Location is not available in this browser.");
     }
     return;
   }
@@ -977,12 +1037,12 @@ function findUserLocation() {
 
       if (dom.timelineHint) {
         const accuracyText = Number.isFinite(accuracy) ? ` Accuracy about ${Math.round(accuracy)} m.` : "";
-        dom.timelineHint.textContent = `Centered on your location.${accuracyText}`;
+        setStatus(`Centered on your location.${accuracyText}`);
       }
     },
     () => {
       if (dom.timelineHint) {
-        dom.timelineHint.textContent = "Could not access your location.";
+        setStatus("Could not access your location.");
       }
     },
     {
@@ -1250,7 +1310,7 @@ async function submitAuthForm(event) {
     closeAuthDialog();
     await completeSignIn(data.name);
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = registering ? `Welcome, ${data.name}.` : `Signed in as ${data.name}.`;
+      setStatus(registering ? `Welcome, ${data.name}.` : `Signed in as ${data.name}.`);
     }
   } catch {
     setAuthMessage("Network error. Check your connection and try again.", true);
@@ -1286,7 +1346,7 @@ async function signOutUser() {
   }
   resetSignedInState();
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = "Signed out.";
+    setStatus("Signed out.");
   }
 }
 
@@ -1415,7 +1475,7 @@ async function copyCurrentSegmentShareLink() {
   const segmentId = state.activeSegment?.segment_id;
   if (!segmentId) {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Select a segment before sharing.";
+      setStatus("Select a segment before sharing.");
     }
     showShareButtonFeedback(false);
     return;
@@ -1426,7 +1486,7 @@ async function copyCurrentSegmentShareLink() {
     await navigator.clipboard.writeText(shareUrl);
     showShareButtonFeedback(true);
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Share link copied.";
+      setStatus("Share link copied.");
     }
   } catch {
     const fallback = document.createElement("input");
@@ -1441,12 +1501,12 @@ async function copyCurrentSegmentShareLink() {
     if (copied) {
       showShareButtonFeedback(true);
       if (dom.timelineHint) {
-        dom.timelineHint.textContent = "Share link copied.";
+        setStatus("Share link copied.");
       }
     } else {
       showShareButtonFeedback(false);
       if (dom.timelineHint) {
-        dom.timelineHint.textContent = "Could not copy link automatically.";
+        setStatus("Could not copy link automatically.");
       }
     }
   }
@@ -1512,13 +1572,13 @@ async function toggleLikeForSegment(segmentId) {
       refreshLikeViews();
     }
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Could not update your library. Try again.";
+      setStatus("Could not update your library. Try again.");
     }
     return;
   }
 
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = isLiked ? "Removed from your library." : "Saved to your library.";
+    setStatus(isLiked ? "Removed from your library." : "Saved to your library.");
   }
 }
 
@@ -1601,7 +1661,7 @@ async function addTimelineComment(annotation) {
   const segmentId = state.activeSegment?.segment_id;
   if (!segmentId) {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Select a segment before adding a comment.";
+      setStatus("Select a segment before adding a comment.");
     }
     return;
   }
@@ -1613,7 +1673,7 @@ async function addTimelineComment(annotation) {
   const text = String(annotation?.text || "").trim();
   if (!text) {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Enter comment text before adding.";
+      setStatus("Enter comment text before adding.");
     }
     return;
   }
@@ -1624,7 +1684,7 @@ async function addTimelineComment(annotation) {
     : Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
 
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = "Saving comment…";
+    setStatus("Saving comment…");
   }
 
   try {
@@ -1641,7 +1701,7 @@ async function addTimelineComment(annotation) {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (dom.timelineHint) {
-        dom.timelineHint.textContent = `Could not save comment: ${err.error || response.status}`;
+        setStatus(`Could not save comment: ${err.error || response.status}`);
       }
       return;
     }
@@ -1666,41 +1726,13 @@ async function addTimelineComment(annotation) {
     renderDetectionTimeline(state.activeSegment);
 
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = `Comment added at ${formatTime(atSec)}.`;
+      setStatus(`Comment added at ${formatTime(atSec)}.`);
     }
   } catch {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Network error. Could not save comment.";
+      setStatus("Network error. Could not save comment.");
     }
   }
-}
-
-function openTimelineActionMenuAtClick(event) {
-  if (!dom.audioTimeline || !dom.timelineActionMenu || !state.activeSegment) {
-    return;
-  }
-
-  const duration = getDurationForTimeline(state.activeSegment);
-  const rect = dom.audioTimeline.getBoundingClientRect();
-  const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-  const ratio = rect.width > 0 ? x / rect.width : 0;
-  state.timelineActionSec = Math.max(0, ratio * duration);
-
-  dom.timelineActionMenu.hidden = false;
-  if (dom.timelineActionText) {
-    dom.timelineActionText.value = "";
-    dom.timelineActionText.hidden = false;
-    dom.timelineActionText.focus();
-  }
-
-  const menuRect = dom.timelineActionMenu.getBoundingClientRect();
-  const menuWidth = menuRect.width || 220;
-  const menuHeight = menuRect.height || 120;
-  const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, event.clientX - menuWidth / 2));
-  const top = Math.max(8, Math.min(window.innerHeight - menuHeight - 8, event.clientY - menuHeight - 10));
-
-  dom.timelineActionMenu.style.left = `${left}px`;
-  dom.timelineActionMenu.style.top = `${top}px`;
 }
 
 function closeTimelineActionMenu() {
@@ -1713,7 +1745,7 @@ function closeTimelineActionMenu() {
 
 function addTimelineAnnotationFromMenu() {
   const text = String(dom.timelineActionText?.value || "").trim();
-  const sec = Number(state.timelineActionSec);
+  const sec = state.timelineActionSec ?? Number(dom.audioPlayer.currentTime);
 
   addTimelineComment({ text, sec });
   closeTimelineActionMenu();
@@ -1912,7 +1944,7 @@ function recallLibraryItem(segmentId, commentId, sec) {
   updateDeleteTimelineCommentButton();
 
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = `Recalled ${formatTime(seekTo)} from your library.`;
+    setStatus(`Recalled ${formatTime(seekTo)} from your library.`);
   }
 }
 
@@ -2347,13 +2379,15 @@ function selectSegment(segmentId, options = {}) {
     ? segment.public_url
     : segment.listening_opus_path;
 
+  dom.nowPlaying.textContent = segment.site_name || segment.site_id;
+  dom.nowPlaying.title = segment.segment_id;
+  if (dom.nowPlayingMeta) {
+    dom.nowPlayingMeta.textContent = describeSegmentTime(segment);
+  }
+
   if (audioSrc) {
     dom.audioPlayer.src = audioSrc;
-    dom.nowPlaying.textContent = `${segment.site_name || segment.site_id} - ${segment.segment_id}`;
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = false;
-    if (dom.seekBar) dom.seekBar.value = "0";
-    if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
-    if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
     if (options.autoplay) {
       dom.audioPlayer.play().catch(() => {
         // Browser autoplay restrictions are expected until a user gesture.
@@ -2362,7 +2396,7 @@ function selectSegment(segmentId, options = {}) {
   } else {
     dom.audioPlayer.removeAttribute("src");
     dom.audioPlayer.load();
-    dom.nowPlaying.textContent = "No audio URL available for this segment.";
+    if (dom.nowPlayingMeta) dom.nowPlayingMeta.textContent = "Audio for this segment is not available yet.";
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = true;
   }
 
@@ -2432,96 +2466,213 @@ function renderMetadata(segment) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Timeline: one row per frequently detected species (the rest share an
+// "Other species" row), an optional comments row on top, a time axis, and a
+// playhead. Clicking the track seeks; clicking a detection jumps just before it.
+// ---------------------------------------------------------------------------
+
+const TIMELINE_MAX_LANES = 5;
+const STORAGE_CONFIDENCE_KEY = "soundscapeAtlas.minConfidence";
+let statusTimer = null;
+
+function setStatus(text) {
+  const toast = dom.timelineHint;
+  if (!toast || !text) {
+    return;
+  }
+  toast.textContent = text;
+  // Sit just above the player dock, whatever its current height.
+  const dockHeight = dom.audioTimelinePanel ? dom.audioTimelinePanel.getBoundingClientRect().height : 0;
+  toast.style.bottom = `${Math.round(dockHeight + 16)}px`;
+  toast.hidden = false;
+  toast.classList.remove("toast-leaving");
+  window.clearTimeout(statusTimer);
+  statusTimer = window.setTimeout(() => {
+    toast.classList.add("toast-leaving");
+    statusTimer = window.setTimeout(() => {
+      toast.hidden = true;
+      toast.classList.remove("toast-leaving");
+    }, 250);
+  }, 3200);
+}
+
+function getMinConfidence() {
+  const value = Number(dom.confidenceFilter?.value);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function restoreMinConfidence() {
+  if (!dom.confidenceFilter) {
+    return;
+  }
+  try {
+    const saved = localStorage.getItem(STORAGE_CONFIDENCE_KEY);
+    if (saved !== null && [...dom.confidenceFilter.options].some((option) => option.value === saved)) {
+      dom.confidenceFilter.value = saved;
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function setTimelineEmpty(text) {
+  if (!dom.timelineEmpty) {
+    return;
+  }
+  dom.timelineEmpty.textContent = text;
+  dom.timelineEmpty.hidden = !text;
+}
+
+function setTimelineRows(count) {
+  if (dom.audioTimeline) {
+    dom.audioTimeline.style.setProperty("--rows", String(Math.max(1, count)));
+  }
+  if (dom.timelineLabels) {
+    dom.timelineLabels.style.setProperty("--rows", String(Math.max(1, count)));
+  }
+}
+
+function addTimelineRow(label, count, className) {
+  if (dom.timelineLabels) {
+    const item = document.createElement("div");
+    item.className = `timeline-label ${className || ""}`;
+    item.title = count ? `${label}: ${count}` : label;
+    const name = document.createElement("span");
+    name.className = "timeline-label-name";
+    name.textContent = label;
+    item.append(name);
+    if (count) {
+      const number = document.createElement("span");
+      number.className = "timeline-label-count";
+      number.textContent = count;
+      item.append(number);
+    }
+    dom.timelineLabels.append(item);
+  }
+  if (dom.timelineLanes) {
+    const lane = document.createElement("div");
+    lane.className = `timeline-lane ${className || ""}`;
+    dom.timelineLanes.append(lane);
+  }
+}
+
+function renderTimelineAxis(duration) {
+  if (!dom.timelineAxis) {
+    return;
+  }
+  dom.timelineAxis.innerHTML = "";
+  const step = duration > 2400 ? 600 : duration > 900 ? 300 : duration > 240 ? 60 : 30;
+  const ticks = [];
+  for (let t = 0; t < duration - step * 0.35; t += step) {
+    ticks.push(t);
+  }
+  ticks.push(duration);
+  for (const t of ticks) {
+    const tick = document.createElement("span");
+    tick.className = "timeline-tick";
+    tick.style.left = `${(t / duration) * 100}%`;
+    tick.textContent = formatTime(t);
+    dom.timelineAxis.append(tick);
+  }
+}
+
 function renderDetectionTimeline(segment) {
   dom.detectionMarkers.innerHTML = "";
-  if (dom.commentMarkers) {
-    dom.commentMarkers.innerHTML = "";
-  }
+  if (dom.commentMarkers) dom.commentMarkers.innerHTML = "";
+  if (dom.timelineLabels) dom.timelineLabels.innerHTML = "";
+  if (dom.timelineLanes) dom.timelineLanes.innerHTML = "";
+  hideTimelineTooltip();
   closeTimelineActionMenu();
 
   if (!segment) {
-    dom.timelineHint.textContent = "Select a segment to view detections.";
+    if (dom.timelineAxis) dom.timelineAxis.innerHTML = "";
+    setTimelineRows(1);
+    setTimelineEmpty("Choose a site on the map to start listening.");
     return;
   }
 
-  const detections = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
-
-  let defaultHint = "Click a detection to jump \u00b7 click track to comment";
-  if (detectionsPending(segment)) {
-    defaultHint = segment.detectionsError
-      ? "Could not load detections for this segment \u00b7 click track to comment"
-      : "Loading detections\u2026";
-  } else if (detections.length === 0) {
-    defaultHint = "No detections recorded for this segment \u00b7 click track to comment";
-  }
-  dom.timelineHint.textContent = defaultHint;
-  state.selectedTimelineComment = null;
-  updateDeleteTimelineCommentButton();
-
-  // Comments are drawn below even when there are no detections (or they are loading).
   const duration = getDurationForTimeline(segment);
+  renderTimelineAxis(duration);
+
+  const minConfidence = getMinConfidence();
+  const all = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
+  const detections = all.filter((detection) => getDetectionConfidence(detection) >= minConfidence);
+
+  const counts = new Map();
   for (const detection of detections) {
-    const startSec = Number(detection.start_sec);
-    const ratio = Math.max(0, Math.min(1, startSec / duration));
-    const confidence = getDetectionConfidence(detection);
-    const confidenceRatio = Math.max(0, Math.min(1, confidence));
-    const yPercent = 84 - confidenceRatio * 66;
+    const name = detection.common_name || "Unknown";
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const namedCount = ranked.length > TIMELINE_MAX_LANES ? TIMELINE_MAX_LANES - 1 : ranked.length;
+  const named = ranked.slice(0, namedCount);
+  const laneOf = new Map(named.map(([name], index) => [name, index]));
+  const otherSpecies = ranked.length - named.length;
+  const otherCount = detections.length - named.reduce((sum, [, count]) => sum + count, 0);
 
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "detection-dot";
-    dot.style.left = `${ratio * 100}%`;
-    dot.style.top = `${yPercent}%`;
-    dot.setAttribute(
-      "aria-label",
-      `${detection.common_name || "Unknown"}, ${formatTime(startSec)}, confidence ${Math.round(confidenceRatio * 100)} percent`
-    );
+  const showComments = state.showTimelineComments;
+  const offset = showComments ? 1 : 0;
+  const laneCount = named.length + (otherCount > 0 ? 1 : 0);
+  setTimelineRows(laneCount + offset);
 
-    dot.addEventListener("mouseenter", () => {
-      const species = detection.common_name || "Unknown";
-      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
-      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel})`;
-    });
-
-    dot.addEventListener("mouseleave", () => {
-      dom.timelineHint.textContent = defaultHint;
-    });
-
-    dot.addEventListener("focus", () => {
-      const species = detection.common_name || "Unknown";
-      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
-      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel})`;
-    });
-
-    dot.addEventListener("blur", () => {
-      dom.timelineHint.textContent = defaultHint;
-    });
-
-    dot.addEventListener("click", () => {
-      const species = detection.common_name || "Unknown";
-      const confidenceLabel = `${Math.round(confidenceRatio * 100)}%`;
-      dom.timelineHint.textContent = `${species} at ${formatTime(startSec)} (confidence ${confidenceLabel}). Jumped to 5s before detection.`;
-      const seekTarget = Math.max(0, startSec - 5);
-      dom.audioPlayer.currentTime = seekTarget;
-      dom.audioPlayer.play().catch(() => {});
-      updateAudioTimelineProgress();
-    });
-
-    dom.detectionMarkers.append(dot);
+  if (showComments) {
+    addTimelineRow("Comments", "", "comments-row");
+  }
+  for (const [name, count] of named) {
+    addTimelineRow(name, String(count), "");
+  }
+  if (otherCount > 0) {
+    addTimelineRow(`${otherSpecies} other species`, String(otherCount), "other-row");
   }
 
-  renderTimelineComments(segment, duration, defaultHint);
+  if (detectionsPending(segment)) {
+    setTimelineEmpty(segment.detectionsError ? "Could not load detections for this segment." : "Loading detections…");
+  } else if (all.length === 0) {
+    setTimelineEmpty(showComments ? "" : "No detections for this segment.");
+  } else if (detections.length === 0) {
+    setTimelineEmpty(
+      `No detections at ${Math.round(minConfidence * 100)}% confidence or more (${all.length} below). Lower the confidence filter to see them.`
+    );
+  } else {
+    setTimelineEmpty("");
+  }
+
+  for (const detection of detections) {
+    const start = Number(detection.start_sec);
+    const end = Number(detection.end_sec);
+    const name = detection.common_name || "Unknown";
+    const lane = laneOf.has(name) ? laneOf.get(name) : named.length;
+    const confidence = getDetectionConfidence(detection);
+    const percent = Math.round(confidence * 100);
+
+    const mark = document.createElement("button");
+    mark.type = "button";
+    mark.className = "detection-mark";
+    mark.style.left = `${Math.max(0, Math.min(1, start / duration)) * 100}%`;
+    const width = Number.isFinite(end) && end > start ? ((end - start) / duration) * 100 : 0;
+    mark.style.width = `max(3px, ${width}%)`;
+    mark.style.setProperty("--row", String(lane + offset));
+    mark.style.opacity = String(0.35 + 0.65 * confidence);
+    mark.dataset.tooltip = `${name} · ${formatTime(start)} · ${percent}%`;
+    mark.setAttribute("aria-label", `${name} at ${formatTime(start)}, ${percent} percent confidence`);
+    mark.tabIndex = -1;
+    mark.addEventListener("click", (event) => {
+      event.stopPropagation();
+      seekTo(Math.max(0, start - 3), true);
+    });
+    dom.detectionMarkers.append(mark);
+  }
+
+  if (showComments) {
+    renderTimelineComments(segment, duration);
+  }
 }
 
-function renderTimelineComments(segment, duration, defaultHint) {
+function renderTimelineComments(segment, duration) {
   if (!dom.commentMarkers || !segment) {
     return;
   }
-
-  if (!state.showTimelineComments) {
-    return;
-  }
-
   const comments = Array.isArray(state.commentsBySegmentId[segment.segment_id])
     ? state.commentsBySegmentId[segment.segment_id]
     : [];
@@ -2531,46 +2682,108 @@ function renderTimelineComments(segment, duration, defaultHint) {
     if (!Number.isFinite(sec) || sec < 0) {
       continue;
     }
+    const selected =
+      state.selectedTimelineComment &&
+      state.selectedTimelineComment.segmentId === segment.segment_id &&
+      state.selectedTimelineComment.commentId === comment.id;
 
-    const ratio = Math.max(0, Math.min(1, sec / duration));
     const marker = document.createElement("button");
     marker.type = "button";
-    marker.className = "comment-marker";
-    marker.style.left = `${ratio * 100}%`;
-    marker.setAttribute(
-      "aria-label",
-      `Comment by ${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`
-    );
-
-    marker.addEventListener("mouseenter", () => {
-      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
-      dom.timelineHint.textContent = label;
-    });
-
-    marker.addEventListener("mouseleave", () => {
-      dom.timelineHint.textContent = defaultHint;
-    });
-
-    marker.addEventListener("focus", () => {
-      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
-      dom.timelineHint.textContent = label;
-    });
-
-    marker.addEventListener("blur", () => {
-      dom.timelineHint.textContent = defaultHint;
-    });
-
-    marker.addEventListener("click", () => {
-      dom.audioPlayer.currentTime = Math.max(0, sec);
-      updateAudioTimelineProgress();
+    marker.className = `comment-marker${selected ? " selected" : ""}`;
+    marker.style.left = `${Math.max(0, Math.min(1, sec / duration)) * 100}%`;
+    marker.dataset.tooltip = `${comment.user || "Someone"} · ${formatTime(sec)}: ${comment.text || ""}`;
+    marker.setAttribute("aria-label", `Comment by ${comment.user || "someone"} at ${formatTime(sec)}: ${comment.text || ""}`);
+    marker.addEventListener("click", (event) => {
+      event.stopPropagation();
+      seekTo(sec, false);
       state.selectedTimelineComment = { segmentId: segment.segment_id, commentId: comment.id };
       updateDeleteTimelineCommentButton();
-      const label = `${comment.user || "Unknown"} at ${formatTime(sec)}: ${comment.text || ""}`;
-      dom.timelineHint.textContent = label;
+      renderDetectionTimeline(state.activeSegment);
     });
-
     dom.commentMarkers.append(marker);
   }
+}
+
+function showTimelineTooltip(text, anchorRect, x) {
+  const tip = dom.timelineTooltip;
+  if (!tip) {
+    return;
+  }
+  tip.textContent = text;
+  tip.hidden = false;
+  const width = tip.offsetWidth;
+  const centre = Number.isFinite(x) ? x : anchorRect.left + anchorRect.width / 2;
+  const left = Math.max(8, Math.min(window.innerWidth - width - 8, centre - width / 2));
+  tip.style.left = `${left}px`;
+  tip.style.top = `${Math.max(8, anchorRect.top - tip.offsetHeight - 8)}px`;
+}
+
+function hideTimelineTooltip() {
+  if (dom.timelineTooltip) {
+    dom.timelineTooltip.hidden = true;
+  }
+}
+
+function handleTimelinePointer(event) {
+  if (!state.activeSegment || !dom.audioTimeline) {
+    return;
+  }
+  const target = event.target instanceof Element ? event.target.closest("[data-tooltip]") : null;
+  if (target) {
+    showTimelineTooltip(target.dataset.tooltip, target.getBoundingClientRect());
+    return;
+  }
+  const rect = dom.audioTimeline.getBoundingClientRect();
+  const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) : 0;
+  showTimelineTooltip(formatTime(ratio * getDurationForTimeline(state.activeSegment)), rect, event.clientX);
+}
+
+function seekTo(seconds, play) {
+  if (!state.activeSegment || !dom.audioPlayer.getAttribute("src")) {
+    return;
+  }
+  const duration = getDurationForTimeline(state.activeSegment);
+  dom.audioPlayer.currentTime = Math.max(0, Math.min(duration, seconds));
+  if (play && dom.audioPlayer.paused) {
+    dom.audioPlayer.play().catch(() => {});
+  }
+  updateAudioTimelineProgress();
+}
+
+function seekFromTimelineClick(event) {
+  if (!state.activeSegment || !(event.target instanceof Element)) {
+    return;
+  }
+  if (event.target.closest(".detection-mark, .comment-marker")) {
+    return;
+  }
+  const rect = dom.audioTimeline.getBoundingClientRect();
+  const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) : 0;
+  seekTo(ratio * getDurationForTimeline(state.activeSegment), false);
+}
+
+function openCommentMenu() {
+  if (!state.activeSegment || !dom.timelineActionMenu) {
+    return;
+  }
+  if (!requireSignIn("Sign in to leave comments on the timeline.")) {
+    return;
+  }
+  state.timelineActionSec = Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
+  if (dom.timelineActionLabel) {
+    dom.timelineActionLabel.textContent = `Comment at ${formatTime(state.timelineActionSec)}`;
+  }
+  dom.timelineActionMenu.hidden = false;
+  if (dom.timelineActionText) {
+    dom.timelineActionText.value = "";
+    dom.timelineActionText.focus();
+  }
+  const anchor = (dom.addCommentBtn || dom.audioTimeline).getBoundingClientRect();
+  const menu = dom.timelineActionMenu.getBoundingClientRect();
+  const left = Math.max(8, Math.min(window.innerWidth - menu.width - 8, anchor.left));
+  const top = Math.max(8, anchor.top - menu.height - 8);
+  dom.timelineActionMenu.style.left = `${left}px`;
+  dom.timelineActionMenu.style.top = `${top}px`;
 }
 
 function updateDeleteTimelineCommentButton() {
@@ -2629,7 +2842,7 @@ async function deleteCommentById(segmentId, commentId) {
   const comment = list[index];
   if (!state.signedInUser || comment.user !== state.signedInUser) {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "You can only delete your own comments while signed in.";
+      setStatus("You can only delete your own comments while signed in.");
     }
     return;
   }
@@ -2645,7 +2858,7 @@ async function deleteCommentById(segmentId, commentId) {
     }
     if (!response.ok) {
       if (dom.timelineHint) {
-        dom.timelineHint.textContent = "Could not delete comment.";
+        setStatus("Could not delete comment.");
       }
       return;
     }
@@ -2659,35 +2872,34 @@ async function deleteCommentById(segmentId, commentId) {
     renderDetectionTimeline(state.activeSegment);
 
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Comment deleted.";
+      setStatus("Comment deleted.");
     }
   } catch {
     if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Network error. Could not delete comment.";
+      setStatus("Network error. Could not delete comment.");
     }
   }
 }
 
 function updateAudioTimelineProgress() {
-  const duration = Number(dom.audioPlayer.duration);
-  const current = Number(dom.audioPlayer.currentTime);
+  const segment = state.activeSegment;
+  const current = Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
+  // Before the audio loads, the segment's own length stands in for the duration.
+  const duration = segment ? getDurationForTimeline(segment) : 0;
+  const percent = duration > 0 ? Math.max(0, Math.min(100, (current / duration) * 100)) : 0;
 
-  if (Number.isFinite(duration) && duration > 0) {
-    const percent = Math.max(0, Math.min(100, (current / duration) * 100));
-    dom.audioProgress.style.width = `${percent}%`;
-    dom.audioTimeLabel.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
-    if (dom.seekBar && !dom.seekBar.matches(":active")) {
-      dom.seekBar.value = String(current / duration);
-    }
-    if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = formatTime(current);
-    if (dom.seekDuration) dom.seekDuration.textContent = formatTime(duration);
-    return;
+  dom.audioProgress.style.width = `${percent}%`;
+  if (dom.timelinePlayhead) {
+    dom.timelinePlayhead.style.left = `${percent}%`;
+    dom.timelinePlayhead.hidden = !segment;
   }
-
-  dom.audioProgress.style.width = "0%";
-  dom.audioTimeLabel.textContent = "00:00 / 00:00";
-  if (dom.seekBar) dom.seekBar.value = "0";
-  if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
+  dom.audioTimeline?.setAttribute("aria-valuenow", String(Math.round(percent)));
+  dom.audioTimeline?.setAttribute("aria-valuetext", `${formatTime(current)} of ${formatTime(duration)}`);
+  dom.audioTimeLabel.textContent = segment ? `${formatTime(current)} / ${formatTime(duration)}` : "";
+  if (dom.addCommentBtn) {
+    dom.addCommentBtn.disabled = !segment;
+    dom.addCommentBtn.textContent = segment ? `+ Comment at ${formatTime(current)}` : "+ Comment";
+  }
 }
 
 function getDurationForTimeline(segment) {
@@ -2709,27 +2921,20 @@ function clearActiveSegmentState() {
   state.activeSegmentId = null;
   state.activeSegment = null;
   setMobilePanelsOpen(false);
-  dom.nowPlaying.textContent = "No segment selected.";
+  dom.nowPlaying.textContent = state.segments.length > 0 ? "No segments match the filters" : "Choose a site on the map";
+  if (dom.nowPlayingMeta) dom.nowPlayingMeta.textContent = "";
   dom.metadataGrid.innerHTML = "";
   dom.speciesList.innerHTML = "";
   clearSegmentImage();
   dom.audioPlayer.removeAttribute("src");
   dom.audioPlayer.load();
-  dom.detectionMarkers.innerHTML = "";
-  if (dom.commentMarkers) {
-    dom.commentMarkers.innerHTML = "";
-  }
-  closeTimelineActionMenu();
   state.selectedTimelineComment = null;
   updateDeleteTimelineCommentButton();
-  dom.timelineHint.textContent = "Select a segment to view detections.";
+  renderDetectionTimeline(null);
   if (dom.playPauseBtn) {
     dom.playPauseBtn.disabled = true;
   }
   setPlayButtonState(false);
-  if (dom.seekBar) dom.seekBar.value = "0";
-  if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
-  if (dom.seekDuration) dom.seekDuration.textContent = "0:00";
   state.isAudioPlaying = false;
   updateActiveSegmentLikeButton();
   updateAudioTimelineProgress();
@@ -3000,6 +3205,40 @@ function getActivityBand(detectionCount) {
     return { level: "medium", count };
   }
   return { level: "low", count };
+}
+
+// "Sat 13 Apr 2024". Dates are local to the recording, so format them as-is (UTC).
+function formatDayLabel(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (!isoDate || Number.isNaN(date.getTime())) {
+    return isoDate || "";
+  }
+  return date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// "17:15" from "2024-04-13T17:15:28".
+function formatClock(isoDateTime) {
+  const match = /T(\d{2}):(\d{2})/.exec(isoDateTime || "");
+  return match ? `${match[1]}:${match[2]}` : "";
+}
+
+// "Sat 13 Apr 2024 · 17:15–18:00 · 42 detections"
+function describeSegmentTime(segment) {
+  const parts = [formatDayLabel(segment.local_date)];
+  const start = formatClock(segment.segment_start_local);
+  const end = formatClock(segment.segment_end_local);
+  if (start) {
+    parts.push(end ? `${start}–${end}` : start);
+  }
+  const count = Number(segment.detection_count) || 0;
+  parts.push(count === 1 ? "1 detection" : `${count} detections`);
+  return parts.filter(Boolean).join(" · ");
 }
 
 function formatHour(hour) {

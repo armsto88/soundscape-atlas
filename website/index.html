@@ -126,48 +126,6 @@
           <ul id="segmentList" class="segment-list"></ul>
         </details>
 
-        <section class="panel player-panel" id="playerPanel">
-          <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
-          <div class="now-playing-row">
-            <p id="nowPlaying" class="now-playing">Select a sound point on the map.</p>
-            <div class="now-playing-actions">
-              <button id="shareSegmentBtn" class="segment-share-btn" type="button" aria-label="Copy share link" title="Copy share link">Share</button>
-              <button id="toggleSegmentLikeBtn" class="segment-like-btn" type="button" aria-label="Save segment to library" title="Save segment">
-                <span aria-hidden="true">♡</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="transport">
-            <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Skip back 10 seconds">← 10s</button>
-            <button id="playPauseBtn" class="transport-btn t-play" type="button" aria-label="Play" disabled>
-              <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-              <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            </button>
-            <button id="skipFwdBtn" class="transport-btn t-skip" type="button" aria-label="Skip forward 10 seconds">10s →</button>
-          </div>
-
-          <div class="seek-wrap">
-            <span id="seekCurrentTime" class="time-stamp">0:00</span>
-            <input id="seekBar" type="range" min="0" max="1" step="0.001" value="0" class="seek-bar" aria-label="Seek" />
-            <span id="seekDuration" class="time-stamp">0:00</span>
-          </div>
-
-          <div class="extra-controls">
-            <label class="vol-label">
-              <span class="subtle">Vol</span>
-              <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" class="vol-slider" aria-label="Volume" />
-            </label>
-            <div class="spectrogram-ctrl">
-              <select id="spectrogramMode">
-                <option value="live" selected>Live</option>
-                <option value="image">Image</option>
-              </select>
-              <button id="toggleSpectrogramBtn" type="button">Spectrogram</button>
-            </div>
-          </div>
-        </section>
-
         <details class="panel picture-panel" id="picturePanel" hidden>
           <summary class="panel-summary"><h2>Picture</h2></summary>
           <div class="picture-body">
@@ -237,10 +195,6 @@
         </div>
         <button id="mobileFiltersBtn" class="mobile-filters-btn" type="button">Panels</button>
         <div id="map" aria-label="Soundscape map"></div>
-        <section id="mobileMiniPlayer" class="mobile-mini-player" hidden>
-          <p id="mobileMiniNowPlaying" class="mobile-mini-title">No segment selected.</p>
-          <button id="mobileMiniPlayPause" type="button" class="mobile-mini-play" aria-label="Play" disabled>Play</button>
-        </section>
         <section id="spectrogramDock" class="panel spectrogram-dock" hidden>
           <header id="spectrogramDockHandle" class="spectrogram-dock-header">
             <h3>Spectrogram</h3>
@@ -256,34 +210,94 @@
           <button id="closeMapImageBtn" class="map-image-close" type="button" aria-label="Close image preview">Close</button>
           <img id="mapImagePreview" alt="Expanded segment visual" />
         </div>
-        <section class="panel audio-timeline-panel" id="audioTimelinePanel">
-          <div class="timeline-header">
-            <h2>Detection Timeline</h2>
-            <div class="timeline-head-right">
-              <label class="inline-check comments-toggle" for="showCommentsToggle">
-                <input id="showCommentsToggle" type="checkbox" />
-                Show comments
+        <section class="player-dock" id="audioTimelinePanel" aria-label="Player">
+          <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
+
+          <div class="dock-top">
+            <div class="transport">
+              <button id="skipBackBtn" class="transport-btn t-skip" type="button" aria-label="Back 10 seconds" title="Back 10 s (←)">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+              </button>
+              <button id="playPauseBtn" class="transport-btn t-play" type="button" aria-label="Play" title="Play / pause (space)" disabled>
+                <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              </button>
+              <button id="skipFwdBtn" class="transport-btn t-skip" type="button" aria-label="Forward 10 seconds" title="Forward 10 s (→)">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="now-playing-block">
+              <p id="nowPlaying" class="now-playing">Choose a site on the map</p>
+              <p id="nowPlayingMeta" class="now-playing-meta"></p>
+            </div>
+
+            <div class="dock-actions">
+              <span id="audioTimeLabel" class="time-stamp">0:00 / 0:00</span>
+              <label class="vol-label" title="Volume">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+                <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" class="vol-slider" aria-label="Volume" />
               </label>
-              <p id="audioTimeLabel" class="subtle">00:00 / 00:00</p>
+              <button id="toggleSegmentLikeBtn" class="icon-btn segment-like-btn" type="button" aria-label="Save to library" title="Save to library" disabled>
+                <span aria-hidden="true">♡</span>
+              </button>
+              <button id="shareSegmentBtn" class="icon-btn segment-share-btn" type="button" aria-label="Copy share link" title="Copy share link">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>
+              </button>
             </div>
           </div>
-          <div id="audioTimeline" class="audio-timeline" aria-label="Audio detection timeline">
-            <div id="audioProgress" class="audio-progress"></div>
-            <div id="detectionMarkers" class="detection-markers"></div>
-            <div id="commentMarkers" class="comment-markers"></div>
-            <div id="timelineActionMenu" class="timeline-action-menu" hidden>
-              <input id="timelineActionText" type="text" maxlength="180" placeholder="Comment text" />
-              <div class="timeline-action-row">
-                <button id="timelineActionApplyBtn" type="button">Add</button>
-                <button id="timelineActionCancelBtn" type="button">Cancel</button>
-              </div>
+
+          <div class="timeline-grid">
+            <div id="timelineLabels" class="timeline-labels" aria-hidden="true"></div>
+            <div id="audioTimeline" class="audio-timeline" role="slider" tabindex="0" aria-label="Position in recording" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="audioProgress" class="audio-progress"></div>
+              <div id="timelineLanes" class="timeline-lanes"></div>
+              <div id="detectionMarkers" class="detection-markers"></div>
+              <div id="commentMarkers" class="comment-markers"></div>
+              <div id="timelinePlayhead" class="timeline-playhead"></div>
+              <p id="timelineEmpty" class="timeline-empty" hidden></p>
+            </div>
+            <div aria-hidden="true"></div>
+            <div id="timelineAxis" class="timeline-axis" aria-hidden="true"></div>
+          </div>
+
+          <div class="dock-footer">
+            <label class="dock-field" for="confidenceFilter">
+              Confidence
+              <select id="confidenceFilter">
+                <option value="0">All</option>
+                <option value="0.5" selected>50% +</option>
+                <option value="0.75">75% +</option>
+                <option value="0.9">90% +</option>
+              </select>
+            </label>
+            <label class="inline-check comments-toggle" for="showCommentsToggle">
+              <input id="showCommentsToggle" type="checkbox" />
+              Comments
+            </label>
+            <button id="addCommentBtn" class="dock-btn" type="button" disabled>+ Comment</button>
+            <button id="deleteTimelineCommentBtn" class="dock-btn danger" type="button" hidden>Delete comment</button>
+            <span class="dock-spacer"></span>
+            <div class="spectrogram-ctrl">
+              <select id="spectrogramMode" aria-label="Spectrogram source">
+                <option value="live" selected>Live</option>
+                <option value="image">Image</option>
+              </select>
+              <button id="toggleSpectrogramBtn" class="dock-btn" type="button">Spectrogram</button>
             </div>
           </div>
-          <div class="timeline-hint-row">
-            <p id="timelineHint" class="subtle">Click a detection to jump · click track to comment</p>
-            <button id="deleteTimelineCommentBtn" type="button" hidden>Delete comment</button>
+
+          <div id="timelineActionMenu" class="timeline-action-menu" hidden>
+            <label for="timelineActionText" id="timelineActionLabel">Comment</label>
+            <input id="timelineActionText" type="text" maxlength="180" placeholder="What can you hear?" />
+            <div class="timeline-action-row">
+              <button id="timelineActionCancelBtn" type="button">Cancel</button>
+              <button id="timelineActionApplyBtn" class="primary-btn" type="button">Add</button>
+            </div>
           </div>
         </section>
+        <div id="timelineTooltip" class="timeline-tooltip" role="tooltip" hidden></div>
+        <p id="timelineHint" class="toast" role="status" aria-live="polite" hidden></p>
       </main>
       <aside class="right-sidebar collapsed" id="rightSidebar" aria-label="My Library">
         <div class="right-sidebar-resize-handle" id="librarySidebarResizeHandle" aria-hidden="true"></div>
