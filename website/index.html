@@ -29,19 +29,27 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="landingOverlay" class="landing-overlay" hidden>
-      <section class="landing-card" aria-label="Sign in">
+    <div id="authDialog" class="auth-overlay" hidden>
+      <section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button id="authCloseBtn" class="auth-close" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+        </button>
         <p class="kicker">Soundscape Atlas</p>
-        <h1>Sign In To Enter</h1>
-        <p class="subtle">Use your name to start listening, annotate timelines, and keep your comment library.</p>
-        <div class="landing-form-col">
-          <input id="landingSignInName" type="text" placeholder="Username" maxlength="40" autocomplete="username" />
-          <input id="landingSignInPassword" type="password" placeholder="Password" maxlength="200" autocomplete="current-password" />
-          <button id="landingSignInBtn" type="button">Enter Atlas</button>
+        <h1 id="authTitle">Sign in</h1>
+        <p id="authReason" class="subtle">Save segments to your library and leave comments on the timeline.</p>
+        <div class="auth-tabs" role="tablist" aria-label="Account">
+          <button id="authModeSignin" class="auth-tab active" type="button" role="tab" aria-selected="true">Sign in</button>
+          <button id="authModeRegister" class="auth-tab" type="button" role="tab" aria-selected="false">Create account</button>
         </div>
-        <p id="landingSignInHint" class="subtle">New username? Your password is set on first entry.</p>
-        <hr style="border:none;border-top:1px solid color-mix(in srgb, var(--line) 45%, transparent);margin:0.15rem 0 0.1rem;" />
-        <p class="subtle" style="margin-top:0.4rem;text-align:center"><button id="guestEnterBtn" type="button" style="background:none;border:none;padding:0;font:inherit;font-size:0.82rem;color:var(--muted);text-decoration:underline;cursor:pointer;">Continue as Guest</button></p>
+        <form id="authForm" class="auth-form" novalidate>
+          <label for="authName">Username</label>
+          <input id="authName" type="text" maxlength="40" autocomplete="username" spellcheck="false" />
+          <label for="authPassword">Password</label>
+          <input id="authPassword" type="password" maxlength="200" autocomplete="current-password" />
+          <p id="authPasswordHint" class="subtle auth-hint" hidden>At least 8 characters.</p>
+          <button id="authSubmitBtn" class="primary-btn" type="submit">Sign in</button>
+          <p id="authMessage" class="auth-message" role="status"></p>
+        </form>
       </section>
     </div>
 
@@ -62,7 +70,6 @@
           </div>
           <div class="header-meta">
             <p id="datasetSummary" class="subtle"></p>
-            <p id="authStatus" class="subtle" hidden></p>
           </div>
         </header>
 
@@ -185,7 +192,8 @@
 
       <main class="map-wrap">
         <div class="topbar-controls topbar-cluster">
-          <span id="signedInBadge" class="signed-in-badge">Guest</span>
+          <button id="signInBtn" class="sign-in-btn" type="button">Sign in</button>
+          <span id="signedInBadge" class="signed-in-badge" hidden></span>
           <button id="libraryToggleBtn" type="button" class="library-toggle-btn" aria-label="Open My Library" title="My Library" aria-expanded="false">
             <svg class="library-toggle-mobile-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M6 4h11a2 2 0 0 1 2 2v13H8.5A2.5 2.5 0 0 0 6 21.5V4z" fill="currentColor"/>
@@ -285,7 +293,10 @@
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
           </button>
         </div>
-        <p id="userLibraryEmpty" class="subtle">Sign in to view your comments.</p>
+        <div id="userLibraryEmpty" class="library-empty">
+          <p id="userLibraryEmptyText" class="subtle">Sign in to keep a library of saved segments and your comments.</p>
+          <button id="librarySignInBtn" class="primary-btn" type="button">Sign in</button>
+        </div>
         <div id="userLibraryList" class="user-library-sections"></div>
       </aside>
     </div>

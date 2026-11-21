@@ -1,81 +1,67 @@
 /**
- * GET  /api/comments?segment_id=X  — list all comments for a segment
- * GET  /api/comments?user=X        — list all comments by a user (for My Library)
- * POST /api/comments               — create a new comment
+ * GET  /api/comments?segment_id=X — public: all comments on a segment
+ * GET  /api/comments?mine=1        — the signed-in user's comments (for My Library)
+ * POST /api/comments               — { segment_id, text, sec } as the signed-in user
  */
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import { getSessionUser, handle, jsonResponse, notSignedIn, readJson } from "../_lib/auth.js";
 
-export async function onRequestGet(context) {
-  const { request, env } = context;
+const SEGMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}$/;
+const MAX_TEXT = 2000;
+const COLUMNS = "id, segment_id, user, text, sec, created_at";
+
+export const onRequestGet = handle(async ({ request, env }) => {
   const url = new URL(request.url);
   const segmentId = url.searchParams.get("segment_id");
-  const user = url.searchParams.get("user");
 
-  if (!segmentId && !user) {
-    return jsonResponse({ error: "segment_id or user query parameter required" }, 400);
-  }
-
-  let stmt;
   if (segmentId) {
-    stmt = env.DB.prepare(
-      "SELECT id, segment_id, user, text, sec, created_at FROM comments WHERE segment_id = ? ORDER BY sec ASC"
-    ).bind(segmentId);
-  } else {
-    stmt = env.DB.prepare(
-      "SELECT id, segment_id, user, text, sec, created_at FROM comments WHERE user = ? ORDER BY created_at DESC"
-    ).bind(user);
+    const { results } = await env.DB.prepare(
+      `SELECT ${COLUMNS} FROM comments WHERE segment_id = ? ORDER BY sec ASC`
+    ).bind(segmentId).all();
+    return jsonResponse(results);
   }
 
-  const { results } = await stmt.all();
-  return jsonResponse(results);
-}
+  if (url.searchParams.get("mine")) {
+    const user = await getSessionUser(request, env);
+    if (!user) {
+      return notSignedIn();
+    }
+    const { results } = await env.DB.prepare(
+      `SELECT ${COLUMNS} FROM comments WHERE user = ? ORDER BY created_at DESC`
+    ).bind(user).all();
+    return jsonResponse(results);
+  }
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
+  return jsonResponse({ error: "segment_id or mine=1 is required" }, 400);
+});
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
+export const onRequestPost = handle(async ({ request, env }) => {
+  const user = await getSessionUser(request, env);
+  if (!user) {
+    return notSignedIn();
+  }
+
+  const body = await readJson(request);
+  if (!body) {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
+  const { segment_id: segmentId, text, sec } = body;
 
-  const { segment_id, user, text, sec } = body ?? {};
-
-  if (!segment_id || typeof segment_id !== "string" || segment_id.length > 200) {
-    return jsonResponse({ error: "segment_id is required (string, max 200 chars)" }, 400);
+  if (typeof segmentId !== "string" || !SEGMENT_ID_PATTERN.test(segmentId)) {
+    return jsonResponse({ error: "segment_id is required" }, 400);
   }
-  if (!user || typeof user !== "string" || user.length > 100) {
-    return jsonResponse({ error: "user is required (string, max 100 chars)" }, 400);
-  }
-  if (!text || typeof text !== "string" || text.trim().length === 0) {
-    return jsonResponse({ error: "text is required and must not be empty" }, 400);
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return jsonResponse({ error: "Comment text is required" }, 400);
   }
 
-  const cleanText = text.trim().slice(0, 2000);
+  const cleanText = text.trim().slice(0, MAX_TEXT);
   const secNum = Number.isFinite(Number(sec)) ? Math.max(0, Number(sec)) : 0;
-  const id = `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-  const created_at = new Date().toISOString();
+  const id = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  const createdAt = new Date().toISOString();
 
   await env.DB.prepare(
     "INSERT INTO comments (id, segment_id, user, text, sec, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-  ).bind(id, String(segment_id), String(user), cleanText, secNum, created_at).run();
+  ).bind(id, segmentId, user, cleanText, secNum, createdAt).run();
 
-  return jsonResponse({ id, segment_id, user, text: cleanText, sec: secNum, created_at }, 201);
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
-}
+  return jsonResponse({ id, segment_id: segmentId, user, text: cleanText, sec: secNum, created_at: createdAt }, 201);
+});

@@ -1,103 +1,92 @@
 /**
- * POST /api/users  — register or sign in
+ * POST /api/users — sign in or create an account; starts a session cookie.
  *
- * Body: { "name": "Alice", "password": "secret" }
+ * Body: { "name": "Alice", "password": "secret", "mode": "signin" | "register" }
  *
- * - Username not found  → register: hash password, store, return 201
- * - Username found, no password stored yet (legacy) → adopt password, return 200
- * - Username found, password matches → return 200
- * - Username found, password wrong → return 401
+ * signin:   200 on success, 401 wrong password, 404 no such user,
+ *           409 account has no password yet (admin reset needed)
+ * register: 201 on success, 409 name taken (case-insensitive)
  *
  * Passwords are hashed with PBKDF2-SHA-256 via the Web Crypto API.
  */
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import {
+  createSession,
+  generateSalt,
+  handle,
+  hashPassword,
+  jsonResponse,
+  readJson,
+  safeEqual,
+} from "../_lib/auth.js";
 
-function generateSalt() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+const NAME_PATTERN = /^[^\u0000-\u001f\u007f]{1,40}$/;
+const MIN_NEW_PASSWORD = 8;
+const MAX_PASSWORD = 200;
 
-function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-async function hashPassword(password, saltHex) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits"]
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: hexToBytes(saltHex), iterations: 100000, hash: "SHA-256" },
-    keyMaterial,
-    256
-  );
-  return Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export async function onRequestPost(context) {
-  const { request, env } = context;
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
+export const onRequestPost = handle(async ({ request, env }) => {
+  const body = await readJson(request);
+  if (!body) {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const password = typeof body?.password === "string" ? body.password : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  const mode = body.mode === "register" ? "register" : "signin";
 
-  if (!name || name.length > 100) {
-    return jsonResponse({ error: "name is required (string, max 100 chars)" }, 400);
+  if (!NAME_PATTERN.test(name)) {
+    return jsonResponse({ error: "Usernames are 1 to 40 characters." }, 400);
   }
-  if (!password || password.length < 6 || password.length > 200) {
-    return jsonResponse({ error: "password is required (6–200 chars)" }, 400);
+  if (!password || password.length > MAX_PASSWORD) {
+    return jsonResponse({ error: "Enter your password." }, 400);
   }
 
-  const existing = await env.DB.prepare(
-    "SELECT name, created_at, password_hash, password_salt FROM users WHERE name = ?"
-  ).bind(name).first();
-
-  if (!existing) {
-    // New user — register.
+  if (mode === "register") {
+    if (password.length < MIN_NEW_PASSWORD) {
+      return jsonResponse({ error: `Passwords need at least ${MIN_NEW_PASSWORD} characters.` }, 400);
+    }
+    const taken = await env.DB.prepare("SELECT name FROM users WHERE name = ? COLLATE NOCASE")
+      .bind(name)
+      .first();
+    if (taken) {
+      return jsonResponse({ error: "That username is taken." }, 409);
+    }
     const salt = generateSalt();
     const hash = await hashPassword(password, salt);
-    const created_at = new Date().toISOString();
+    const createdAt = new Date().toISOString();
     await env.DB.prepare(
       "INSERT INTO users (name, created_at, password_hash, password_salt) VALUES (?, ?, ?, ?)"
-    ).bind(name, created_at, hash, salt).run();
-    return jsonResponse({ name, created_at, is_new: true }, 201);
+    ).bind(name, createdAt, hash, salt).run();
+    const cookie = await createSession(env, name);
+    return jsonResponse({ name, created_at: createdAt }, 201, { "Set-Cookie": cookie });
   }
 
-  if (!existing.password_hash || !existing.password_salt) {
-    // Legacy user with no password — adopt the supplied password.
-    const salt = generateSalt();
-    const hash = await hashPassword(password, salt);
-    await env.DB.prepare(
-      "UPDATE users SET password_hash = ?, password_salt = ? WHERE name = ?"
-    ).bind(hash, salt, name).run();
-    return jsonResponse({ name, created_at: existing.created_at, is_new: false });
+  // Sign in: exact name first, then a unique case-insensitive match.
+  let user = await env.DB.prepare(
+    "SELECT name, created_at, password_hash, password_salt FROM users WHERE name = ?"
+  ).bind(name).first();
+  if (!user) {
+    const { results } = await env.DB.prepare(
+      "SELECT name, created_at, password_hash, password_salt FROM users WHERE name = ? COLLATE NOCASE"
+    ).bind(name).all();
+    if (results.length === 1) {
+      user = results[0];
+    }
   }
 
-  // Existing user — verify password.
-  const hash = await hashPassword(password, existing.password_salt);
-  if (hash !== existing.password_hash) {
-    return jsonResponse({ error: "Incorrect password" }, 401);
+  if (!user) {
+    return jsonResponse({ error: "No account with that username." }, 404);
+  }
+  if (!user.password_hash || !user.password_salt) {
+    // Accounts from before passwords existed used to be claimable by anyone.
+    return jsonResponse({ error: "This account has no password yet. Ask the site owner to set one." }, 409);
   }
 
-  return jsonResponse({ name, created_at: existing.created_at, is_new: false });
-}
+  const hash = await hashPassword(password, user.password_salt);
+  if (!safeEqual(hash, user.password_hash)) {
+    return jsonResponse({ error: "Wrong password." }, 401);
+  }
+
+  const cookie = await createSession(env, user.name);
+  return jsonResponse({ name: user.name, created_at: user.created_at }, 200, { "Set-Cookie": cookie });
+});

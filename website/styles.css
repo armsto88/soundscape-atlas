@@ -101,7 +101,8 @@ body {
   grid-template-columns: minmax(300px, 380px) 1fr;
 }
 
-.landing-overlay {
+/* Sign-in dialog: opened on demand, never blocks browsing. */
+.auth-overlay {
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -112,37 +113,144 @@ body {
   backdrop-filter: blur(6px);
 }
 
-.landing-card {
-  width: min(560px, 100%);
+.auth-card {
+  position: relative;
+  width: min(400px, 100%);
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   background:
-    radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 44%),
+    radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 44%),
     linear-gradient(180deg, color-mix(in srgb, var(--panel-2) 80%, var(--panel-blend)), color-mix(in srgb, var(--panel) 88%, var(--panel-blend)));
-  padding: 1.1rem;
+  padding: 1.25rem 1.25rem 1rem;
   display: grid;
-  gap: 0.75rem;
-  box-shadow: 0 16px 34px rgba(var(--shadow-rgb), 0.24);
+  gap: 0.7rem;
+  box-shadow: 0 18px 40px rgba(var(--shadow-rgb), 0.3);
 }
 
-.landing-card h1 {
+.auth-card h1 {
   margin: 0;
-  font-size: 1.55rem;
+  font-size: 1.4rem;
 }
 
-.landing-form-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+.auth-card .kicker,
+.auth-card .subtle {
+  margin: 0;
 }
 
-.landing-form-col input {
-  min-width: 0;
-  width: 100%;
+.auth-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
 }
 
-.landing-form-col button {
-  align-self: stretch;
+.auth-close:hover {
+  color: var(--text);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--line) 30%, transparent);
+}
+
+.auth-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.45rem;
+}
+
+.auth-tab.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(var(--shadow-rgb), 0.2);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.auth-form label {
+  margin-top: 0.3rem;
+}
+
+.auth-form .primary-btn {
+  margin-top: 0.7rem;
+}
+
+.auth-hint {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.auth-message {
+  min-height: 1.2em;
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.auth-message.error {
+  color: var(--danger);
+}
+
+.primary-btn {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--button-on-accent);
+  font-weight: 600;
+  padding: 0.55rem 0.9rem;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, #ffffff);
+  border-color: transparent;
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.sign-in-btn {
+  height: 36px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--button-on-accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0 0.9rem;
+}
+
+.sign-in-btn:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #ffffff);
+  border-color: transparent;
+}
+
+.library-empty {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  margin-top: 0.4rem;
+}
+
+.library-empty p {
+  margin: 0;
 }
 
 .topbar-controls {
@@ -652,6 +760,33 @@ button {
   color: var(--text);
   font-family: inherit;
   padding: 0.45rem 0.6rem;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="search"] {
+  width: 100%;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.55rem 0.65rem;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 #speciesFilter {
@@ -1744,10 +1879,6 @@ body[data-mode="chill"] .spectrogram-dock {
     height: calc(100vh - 56px);
     height: calc(100dvh - 56px);
     width: min(320px, 88vw);
-  }
-
-  .landing-form-col {
-    width: 100%;
   }
 
   .mobile-filters-btn {

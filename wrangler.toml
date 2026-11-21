@@ -5,11 +5,15 @@
 #   1. Create the database:
 #        wrangler d1 create soundscape-comments
 #   2. Copy the printed database_id into this file.
-#   3. Apply the schema:
-#        wrangler d1 execute soundscape-comments --file schema/d1_comments.sql
-#   4. For local dev with wrangler pages dev:
-#        wrangler d1 execute soundscape-comments --local --file schema/d1_comments.sql
-#   5. Set admin password-reset secret:
+#   3. Apply the schema files, in this order (use --local instead of --remote
+#      for wrangler pages dev):
+#        wrangler d1 execute soundscape-comments --remote --file schema/d1_comments.sql
+#        wrangler d1 execute soundscape-comments --remote --file schema/d1_users.sql
+#        wrangler d1 execute soundscape-comments --remote --file schema/d1_migrate_passwords.sql
+#        wrangler d1 execute soundscape-comments --remote --file schema/d1_sessions.sql
+#      An existing database that already has the first three only needs
+#      d1_sessions.sql (d1_migrate_passwords.sql fails if run twice).
+#   4. Set admin password-reset secret:
 #        wrangler pages secret put ADMIN_RESET_KEY --project-name soundscape-atlas
 
 name                  = "soundscape-atlas"

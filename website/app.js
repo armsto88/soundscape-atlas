@@ -24,6 +24,7 @@ const state = {
   uiMode: "full",
   theme: "dark",
   signedInUser: null,
+  authMode: "signin",
   likedSegmentsByUser: {},
   commentsBySegmentId: {},
   showTimelineComments: false,
@@ -43,19 +44,27 @@ const dom = {
   datasetSummary: document.getElementById("datasetSummary"),
   brandLogo: document.getElementById("brandLogo"),
   brandLogoFallback: document.getElementById("brandLogoFallback"),
-  landingOverlay: document.getElementById("landingOverlay"),
-  landingSignInName: document.getElementById("landingSignInName"),
-  landingSignInPassword: document.getElementById("landingSignInPassword"),
-  landingSignInBtn: document.getElementById("landingSignInBtn"),
-  landingSignInHint: document.getElementById("landingSignInHint"),
-  guestEnterBtn: document.getElementById("guestEnterBtn"),
+  authDialog: document.getElementById("authDialog"),
+  authCloseBtn: document.getElementById("authCloseBtn"),
+  authTitle: document.getElementById("authTitle"),
+  authReason: document.getElementById("authReason"),
+  authModeSignin: document.getElementById("authModeSignin"),
+  authModeRegister: document.getElementById("authModeRegister"),
+  authForm: document.getElementById("authForm"),
+  authName: document.getElementById("authName"),
+  authPassword: document.getElementById("authPassword"),
+  authPasswordHint: document.getElementById("authPasswordHint"),
+  authSubmitBtn: document.getElementById("authSubmitBtn"),
+  authMessage: document.getElementById("authMessage"),
+  signInBtn: document.getElementById("signInBtn"),
+  librarySignInBtn: document.getElementById("librarySignInBtn"),
+  userLibraryEmptyText: document.getElementById("userLibraryEmptyText"),
   signedInBadge: document.getElementById("signedInBadge"),
   settingsToggleBtn: document.getElementById("settingsToggleBtn"),
   settingsMenu: document.getElementById("settingsMenu"),
   modeSelect: document.getElementById("modeSelect"),
   themeSelect: document.getElementById("themeSelect"),
   settingsSignOutBtn: document.getElementById("settingsSignOutBtn"),
-  authStatus: document.getElementById("authStatus"),
   clusterToggle: document.getElementById("clusterToggle"),
   dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
   seasonFilter: document.getElementById("seasonFilter"),
@@ -217,7 +226,7 @@ async function init() {
 
     buildFilterOptions(state.segments);
     wireEvents();
-    restoreSignedInUser();
+    restoreSession();
     state.commentsBySegmentId = {};
     renderUserLibrary();
     applyTheme(loadStoredTheme());
@@ -357,33 +366,17 @@ function setupBrandLogo() {
 }
 
 function wireEvents() {
-  if (dom.landingSignInBtn) {
-    dom.landingSignInBtn.addEventListener("click", () => {
-      signInFromInput();
-    });
-  }
-
-  if (dom.guestEnterBtn) {
-    dom.guestEnterBtn.addEventListener("click", () => {
-      enterAsGuest();
-    });
-  }
-
-  if (dom.landingSignInName) {
-    dom.landingSignInName.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        signInFromInput();
-      }
-    });
-  }
-
-  if (dom.landingSignInPassword) {
-    dom.landingSignInPassword.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        signInFromInput();
-      }
-    });
-  }
+  dom.authForm?.addEventListener("submit", submitAuthForm);
+  dom.authModeSignin?.addEventListener("click", () => setAuthMode("signin"));
+  dom.authModeRegister?.addEventListener("click", () => setAuthMode("register"));
+  dom.authCloseBtn?.addEventListener("click", closeAuthDialog);
+  dom.authDialog?.addEventListener("click", (event) => {
+    if (event.target === dom.authDialog) {
+      closeAuthDialog();
+    }
+  });
+  dom.signInBtn?.addEventListener("click", () => openAuthDialog());
+  dom.librarySignInBtn?.addEventListener("click", () => openAuthDialog());
 
   if (dom.settingsSignOutBtn) {
     dom.settingsSignOutBtn.addEventListener("click", () => {
@@ -640,6 +633,10 @@ function wireEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (dom.authDialog && !dom.authDialog.hidden) {
+        closeAuthDialog();
+        return;
+      }
       closeMapImageLightbox();
       closeTimelineActionMenu();
       closeSettingsMenu();
@@ -1147,150 +1144,200 @@ function applyUIMode(mode) {
   handleViewportChange();
 }
 
-async function signInFromInput() {
-  if (!dom.landingSignInName) {
+// ---------------------------------------------------------------------------
+// Accounts. The server keeps the session in an HttpOnly cookie; the page only
+// learns who is signed in from /api/auth/me. Browsing never requires an account.
+// ---------------------------------------------------------------------------
+
+const AUTH_DEFAULT_REASON = "Save segments to your library and leave comments on the timeline.";
+
+function openAuthDialog(reason = "", mode = "signin") {
+  if (!dom.authDialog) {
     return;
   }
+  closeSettingsMenu();
+  setAuthMode(mode);
+  if (dom.authReason) {
+    dom.authReason.textContent = reason || AUTH_DEFAULT_REASON;
+  }
+  setAuthMessage("");
+  dom.authDialog.hidden = false;
+  window.setTimeout(() => {
+    (dom.authName && !dom.authName.value ? dom.authName : dom.authPassword)?.focus();
+  }, 0);
+}
 
-  const name = dom.landingSignInName.value.trim();
-  const password = dom.landingSignInPassword ? dom.landingSignInPassword.value : "";
+function closeAuthDialog() {
+  if (!dom.authDialog || dom.authDialog.hidden) {
+    return;
+  }
+  dom.authDialog.hidden = true;
+  if (dom.authPassword) {
+    dom.authPassword.value = "";
+  }
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode === "register" ? "register" : "signin";
+  const registering = state.authMode === "register";
+  dom.authModeSignin?.classList.toggle("active", !registering);
+  dom.authModeSignin?.setAttribute("aria-selected", String(!registering));
+  dom.authModeRegister?.classList.toggle("active", registering);
+  dom.authModeRegister?.setAttribute("aria-selected", String(registering));
+  if (dom.authTitle) dom.authTitle.textContent = registering ? "Create account" : "Sign in";
+  if (dom.authSubmitBtn) dom.authSubmitBtn.textContent = registering ? "Create account" : "Sign in";
+  if (dom.authPassword) dom.authPassword.autocomplete = registering ? "new-password" : "current-password";
+  if (dom.authPasswordHint) dom.authPasswordHint.hidden = !registering;
+  setAuthMessage("");
+}
+
+function setAuthMessage(text, isError = false) {
+  if (!dom.authMessage) {
+    return;
+  }
+  dom.authMessage.textContent = text;
+  dom.authMessage.classList.toggle("error", isError);
+}
+
+async function submitAuthForm(event) {
+  event?.preventDefault();
+  const name = (dom.authName?.value || "").trim();
+  const password = dom.authPassword?.value || "";
+  const registering = state.authMode === "register";
 
   if (!name) {
-    if (dom.landingSignInHint) {
-      dom.landingSignInHint.textContent = "Enter a username to continue.";
-    }
+    setAuthMessage("Enter a username.", true);
+    dom.authName?.focus();
+    return;
+  }
+  if (!password) {
+    setAuthMessage("Enter a password.", true);
+    dom.authPassword?.focus();
+    return;
+  }
+  if (registering && password.length < 8) {
+    setAuthMessage("Passwords need at least 8 characters.", true);
+    dom.authPassword?.focus();
     return;
   }
 
-  if (!password || password.length < 6) {
-    if (dom.landingSignInHint) {
-      dom.landingSignInHint.textContent = "Password must be at least 6 characters.";
-    }
-    return;
-  }
-
-  if (dom.landingSignInHint) {
-    dom.landingSignInHint.textContent = "Signing in\u2026";
-  }
-  if (dom.landingSignInBtn) {
-    dom.landingSignInBtn.disabled = true;
-  }
+  setAuthMessage(registering ? "Creating account…" : "Signing in…");
+  if (dom.authSubmitBtn) dom.authSubmitBtn.disabled = true;
 
   try {
     const response = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, password }),
+      body: JSON.stringify({ name, password, mode: state.authMode }),
     });
+    const data = await response.json().catch(() => null);
 
-    if (response.status === 401) {
-      if (dom.landingSignInHint) {
-        dom.landingSignInHint.textContent = "Incorrect password. Try again.";
+    if (!response.ok || !data || !data.name) {
+      if (response.status === 404 && data && data.error) {
+        setAuthMessage("No account with that username. Check the spelling, or create an account.", true);
+      } else if (data && data.error) {
+        setAuthMessage(data.error, true);
+      } else {
+        setAuthMessage("Accounts are not available right now.", true);
       }
-      if (dom.landingSignInPassword) {
-        dom.landingSignInPassword.value = "";
-        dom.landingSignInPassword.focus();
-      }
-      return;
-    }
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      if (response.status === 404 || response.status === 405 || response.status === 501) {
-        enterAsGuest();
-        return;
-      }
-      if (dom.landingSignInHint) {
-        dom.landingSignInHint.textContent = err.error || "Sign-in failed. Try again.";
+      if (response.status === 401 && dom.authPassword) {
+        dom.authPassword.value = "";
+        dom.authPassword.focus();
       }
       return;
     }
 
-    const data = await response.json();
-    state.signedInUser = data.name;
-    try {
-      localStorage.setItem(STORAGE_USER_KEY, data.name);
-    } catch {
-      // Ignore storage failures.
+    closeAuthDialog();
+    await completeSignIn(data.name);
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = registering ? `Welcome, ${data.name}.` : `Signed in as ${data.name}.`;
     }
-
-    if (dom.landingSignInHint) {
-      dom.landingSignInHint.textContent = data.is_new ? "Account created. Welcome!" : "Signed in.";
-    }
-    if (dom.landingSignInPassword) {
-      dom.landingSignInPassword.value = "";
-    }
-
-    updateAuthUI();
-    await fetchLikesForUser(data.name);
-    renderUserLibrary();
-    fetchAllCommentsForUser(data.name);
   } catch {
-    if (dom.landingSignInHint) {
-      dom.landingSignInHint.textContent = "Network error. Check your connection.";
-    }
+    setAuthMessage("Network error. Check your connection and try again.", true);
   } finally {
-    if (dom.landingSignInBtn) {
-      dom.landingSignInBtn.disabled = false;
-    }
+    if (dom.authSubmitBtn) dom.authSubmitBtn.disabled = false;
   }
 }
 
-function signOutUser() {
+async function completeSignIn(name) {
+  state.signedInUser = name;
+  updateAuthUI();
+  await fetchMyLikes();
+  renderUserLibrary();
+  fetchMyComments();
+}
+
+function resetSignedInState() {
+  if (state.signedInUser) {
+    delete state.likedSegmentsByUser[state.signedInUser];
+  }
   state.signedInUser = null;
+  state.selectedTimelineComment = null;
+  updateAuthUI();
+  renderUserLibrary();
+}
+
+async function signOutUser() {
+  closeSettingsMenu();
   try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // The cookie expires on its own; the page forgets the user either way.
+  }
+  resetSignedInState();
+  if (dom.timelineHint) {
+    dom.timelineHint.textContent = "Signed out.";
+  }
+}
+
+// Called when the server answers 401: the session expired or was revoked.
+function handleSessionEnded() {
+  resetSignedInState();
+  openAuthDialog("Your session has ended. Sign in again to continue.");
+}
+
+function requireSignIn(reason) {
+  if (state.signedInUser) {
+    return true;
+  }
+  openAuthDialog(reason);
+  return false;
+}
+
+async function restoreSession() {
+  try {
+    // Older versions kept the username in localStorage; it is no longer trusted.
     localStorage.removeItem(STORAGE_USER_KEY);
   } catch {
     // Ignore storage failures.
   }
 
-  closeSettingsMenu();
-  if (dom.landingSignInName) {
-    dom.landingSignInName.value = "";
-  }
-  if (dom.landingSignInPassword) {
-    dom.landingSignInPassword.value = "";
-  }
-
   updateAuthUI();
   renderUserLibrary();
-}
-
-function enterAsGuest() {
-  state.signedInUser = null;
-  if (dom.landingOverlay) {
-    dom.landingOverlay.hidden = true;
-  }
-  if (dom.authStatus) {
-    dom.authStatus.hidden = false;
-    dom.authStatus.textContent = "Browsing as guest — sign in for likes & comments.";
-  }
-  if (dom.signedInBadge) {
-    dom.signedInBadge.textContent = "Guest";
-  }
-  renderUserLibrary();
-}
-
-function restoreSignedInUser() {
   try {
-    const saved = localStorage.getItem(STORAGE_USER_KEY);
-    state.signedInUser = saved && saved.trim() !== "" ? saved.trim() : null;
+    const response = await fetch("/api/auth/me", { cache: "no-store" });
+    if (!response.ok) {
+      return;
+    }
+    const data = await response.json();
+    if (data && data.name) {
+      await completeSignIn(data.name);
+    }
   } catch {
-    state.signedInUser = null;
-  }
-
-  updateAuthUI();
-  if (state.signedInUser) {
-    fetchLikesForUser(state.signedInUser).then(() => renderUserLibrary());
-    fetchAllCommentsForUser(state.signedInUser);
-  } else {
-    renderUserLibrary();
+    // No accounts backend (e.g. a static preview): browse as a guest.
   }
 }
 
-async function fetchLikesForUser(userName) {
+async function fetchMyLikes() {
+  if (!state.signedInUser) {
+    return;
+  }
   try {
-    const response = await fetch(`/api/likes?user=${encodeURIComponent(userName)}`);
+    const response = await fetch("/api/likes", { cache: "no-store" });
+    if (response.status === 401) {
+      handleSessionEnded();
+      return;
+    }
     if (!response.ok) {
       return;
     }
@@ -1298,15 +1345,15 @@ async function fetchLikesForUser(userName) {
     if (!Array.isArray(rows)) {
       return;
     }
-    const map = {};
+    const likes = {};
     for (const row of rows) {
-      map[row.segment_id] = row.created_at;
+      likes[row.segment_id] = row.created_at;
     }
-    state.likedSegmentsByUser[userName] = map;
+    state.likedSegmentsByUser[state.signedInUser] = likes;
     updateActiveSegmentLikeButton();
     renderSegmentList(state.filteredSegments);
   } catch {
-    // Silently ignored — likes just won't show until next load.
+    // Likes show up again on the next load.
   }
 }
 
@@ -1425,59 +1472,60 @@ function isSegmentLikedForSignedInUser(segmentId) {
 }
 
 async function toggleLikeForSegment(segmentId) {
-  if (!segmentId) {
+  if (!segmentId || !requireSignIn("Sign in to save segments to your library.")) {
     return;
   }
 
-  if (!state.signedInUser) {
-    if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Sign in to save segments to your library.";
-    }
-    return;
-  }
-
+  const user = state.signedInUser;
   const current = getSignedInUserLikesMap();
   const isLiked = Boolean(current[segmentId]);
 
-  // Optimistic update so the UI responds instantly.
+  // Optimistic update so the UI responds instantly; reverted if the server says no.
   const next = { ...current };
   if (isLiked) {
     delete next[segmentId];
   } else {
     next[segmentId] = new Date().toISOString();
   }
-  state.likedSegmentsByUser[state.signedInUser] = next;
-  updateActiveSegmentLikeButton();
-  renderSegmentList(state.filteredSegments);
-  renderUserLibrary();
+  state.likedSegmentsByUser[user] = next;
+  refreshLikeViews();
 
+  let saved = false;
   try {
-    if (isLiked) {
-      await fetch("/api/likes", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_name: state.signedInUser, segment_id: segmentId }),
-      });
-    } else {
-      await fetch("/api/likes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_name: state.signedInUser, segment_id: segmentId }),
-      });
+    const response = await fetch("/api/likes", {
+      method: isLiked ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segment_id: segmentId }),
+    });
+    if (response.status === 401) {
+      handleSessionEnded();
+      return;
     }
+    saved = response.ok;
   } catch {
-    // Revert optimistic update on network failure.
-    state.likedSegmentsByUser[state.signedInUser] = current;
-    updateActiveSegmentLikeButton();
-    renderSegmentList(state.filteredSegments);
-    renderUserLibrary();
+    saved = false;
+  }
+
+  if (!saved) {
+    if (state.signedInUser === user) {
+      state.likedSegmentsByUser[user] = current;
+      refreshLikeViews();
+    }
+    if (dom.timelineHint) {
+      dom.timelineHint.textContent = "Could not update your library. Try again.";
+    }
+    return;
   }
 
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = isLiked
-      ? "Removed segment from your library."
-      : "Saved segment to your library.";
+    dom.timelineHint.textContent = isLiked ? "Removed from your library." : "Saved to your library.";
   }
+}
+
+function refreshLikeViews() {
+  updateActiveSegmentLikeButton();
+  renderSegmentList(state.filteredSegments);
+  renderUserLibrary();
 }
 
 function updateActiveSegmentLikeButton() {
@@ -1486,21 +1534,15 @@ function updateActiveSegmentLikeButton() {
   }
 
   const segmentId = state.activeSegment?.segment_id;
-  if (!segmentId || !state.signedInUser) {
-    dom.toggleSegmentLikeBtn.disabled = true;
-    dom.toggleSegmentLikeBtn.classList.remove("active");
-    dom.toggleSegmentLikeBtn.innerHTML = '<span aria-hidden="true">♡</span>';
-    return;
-  }
-
   const liked = isSegmentLikedForSignedInUser(segmentId);
-  dom.toggleSegmentLikeBtn.disabled = false;
+  // Guests can press it too: it opens the sign-in dialog.
+  dom.toggleSegmentLikeBtn.disabled = !segmentId;
   dom.toggleSegmentLikeBtn.classList.toggle("active", liked);
   dom.toggleSegmentLikeBtn.innerHTML = liked
     ? '<span aria-hidden="true">♥</span>'
     : '<span aria-hidden="true">♡</span>';
-  dom.toggleSegmentLikeBtn.setAttribute("aria-label", liked ? "Remove segment from library" : "Save segment to library");
-  dom.toggleSegmentLikeBtn.title = liked ? "Saved" : "Save segment";
+  dom.toggleSegmentLikeBtn.setAttribute("aria-label", liked ? "Remove from library" : "Save to library");
+  dom.toggleSegmentLikeBtn.title = liked ? "Saved to your library" : "Save to library";
 }
 
 async function fetchCommentsForSegment(segmentId) {
@@ -1520,9 +1562,16 @@ async function fetchCommentsForSegment(segmentId) {
   }
 }
 
-async function fetchAllCommentsForUser(user) {
+async function fetchMyComments() {
+  if (!state.signedInUser) {
+    return;
+  }
   try {
-    const response = await fetch(`/api/comments?user=${encodeURIComponent(user)}`);
+    const response = await fetch("/api/comments?mine=1", { cache: "no-store" });
+    if (response.status === 401) {
+      handleSessionEnded();
+      return;
+    }
     if (!response.ok) {
       return;
     }
@@ -1557,10 +1606,7 @@ async function addTimelineComment(annotation) {
     return;
   }
 
-  if (!state.signedInUser) {
-    if (dom.timelineHint) {
-      dom.timelineHint.textContent = "Sign in to add timeline comments.";
-    }
+  if (!requireSignIn("Sign in to leave comments on the timeline.")) {
     return;
   }
 
@@ -1578,21 +1624,20 @@ async function addTimelineComment(annotation) {
     : Math.max(0, Number(dom.audioPlayer.currentTime) || 0);
 
   if (dom.timelineHint) {
-    dom.timelineHint.textContent = "Saving comment\u2026";
+    dom.timelineHint.textContent = "Saving comment…";
   }
 
   try {
     const response = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        segment_id: segmentId,
-        user: state.signedInUser,
-        text,
-        sec: atSec,
-      }),
+      body: JSON.stringify({ segment_id: segmentId, text, sec: atSec }),
     });
 
+    if (response.status === 401) {
+      handleSessionEnded();
+      return;
+    }
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (dom.timelineHint) {
@@ -1677,33 +1722,16 @@ function addTimelineAnnotationFromMenu() {
 function updateAuthUI() {
   const signedIn = Boolean(state.signedInUser);
 
-  if (dom.landingOverlay) {
-    dom.landingOverlay.hidden = signedIn;
+  if (dom.signInBtn) {
+    dom.signInBtn.hidden = signedIn;
   }
-
-  if (dom.authStatus) {
-    dom.authStatus.textContent = signedIn
-      ? `Signed in as ${state.signedInUser}.`
-      : "Not signed in.";
-  }
-
   if (dom.signedInBadge) {
-    dom.signedInBadge.textContent = signedIn ? state.signedInUser : "Guest";
+    dom.signedInBadge.hidden = !signedIn;
+    dom.signedInBadge.textContent = signedIn ? state.signedInUser : "";
+    dom.signedInBadge.title = signedIn ? `Signed in as ${state.signedInUser}` : "";
   }
-
   if (dom.settingsSignOutBtn) {
-    dom.settingsSignOutBtn.disabled = !signedIn;
-  }
-
-  if (dom.settingsToggleBtn) {
-    dom.settingsToggleBtn.disabled = false;
-  }
-
-  if (!signedIn) {
-    closeSettingsMenu();
-    if (dom.landingSignInName) {
-      dom.landingSignInName.focus();
-    }
+    dom.settingsSignOutBtn.hidden = !signedIn;
   }
 
   renderSegmentList(state.filteredSegments);
@@ -1766,16 +1794,20 @@ function renderUserLibrary() {
 
   dom.userLibraryList.innerHTML = "";
 
-  if (!state.signedInUser) {
+  const showEmpty = (text, offerSignIn) => {
     dom.userLibraryEmpty.hidden = false;
-    dom.userLibraryEmpty.textContent = "Sign in to view your saved segments and comments.";
+    if (dom.userLibraryEmptyText) dom.userLibraryEmptyText.textContent = text;
+    if (dom.librarySignInBtn) dom.librarySignInBtn.hidden = !offerSignIn;
+  };
+
+  if (!state.signedInUser) {
+    showEmpty("Sign in to keep a library of saved segments and your comments.", true);
     return;
   }
 
   const items = getSignedInUserLibraryItems();
   if (items.length === 0) {
-    dom.userLibraryEmpty.hidden = false;
-    dom.userLibraryEmpty.textContent = "No saved items yet.";
+    showEmpty("Nothing saved yet. Press ♡ on a segment to keep it here; your timeline comments appear here too.", false);
     return;
   }
 
@@ -1830,7 +1862,7 @@ function renderUserLibrary() {
           >Open segment</button>
           ${isCommentSection
             ? `<button type="button" class="library-delete-btn" data-segment-id="${escapeHtml(item.segmentId)}" data-comment-id="${escapeHtml(item.commentId)}">Delete</button>`
-            : `<button type="button" class="library-dislike-btn" data-segment-id="${escapeHtml(item.segmentId)}">Dislike</button>`}
+            : `<button type="button" class="library-dislike-btn" data-segment-id="${escapeHtml(item.segmentId)}">Remove</button>`}
         </div>
       `;
 
@@ -1989,6 +2021,10 @@ function applyFilters(options = {}) {
   }
 
   if (!state.filteredSegments.find((segment) => segment.segment_id === state.activeSegmentId)) {
+    // Filters change what is listed, not what is playing.
+    if (state.activeSegment && !dom.audioPlayer.paused) {
+      return;
+    }
     const fallback =
       (state.focusedSiteId && pickSiteSegment(state.focusedSiteId)) || state.filteredSegments[0];
     if (fallback) {
@@ -2601,10 +2637,12 @@ async function deleteCommentById(segmentId, commentId) {
   try {
     const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: state.signedInUser }),
     });
 
+    if (response.status === 401) {
+      handleSessionEnded();
+      return;
+    }
     if (!response.ok) {
       if (dom.timelineHint) {
         dom.timelineHint.textContent = "Could not delete comment.";
