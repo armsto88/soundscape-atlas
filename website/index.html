@@ -81,19 +81,22 @@
               <option value="all">All seasons</option>
             </select>
 
-            <label for="hourRangeMin">Hour range</label>
+            <span class="field-label" id="timeOfDayLabel">Time of day</span>
+            <div class="time-blocks" role="group" aria-labelledby="timeOfDayLabel">
+              <button type="button" class="time-chip" data-time-block="dawn" aria-pressed="false">Dawn</button>
+              <button type="button" class="time-chip" data-time-block="morning" aria-pressed="false">Morning</button>
+              <button type="button" class="time-chip" data-time-block="afternoon" aria-pressed="false">Afternoon</button>
+              <button type="button" class="time-chip" data-time-block="dusk" aria-pressed="false">Dusk</button>
+              <button type="button" class="time-chip" data-time-block="night" aria-pressed="false">Night</button>
+            </div>
+            <p class="subtle field-note">Follows each site's sunrise and sunset; dawn and dusk are the two hours around them.</p>
+
+            <label for="hourRangeMin">Clock hours</label>
             <div class="range-row">
-              <input id="hourRangeMin" type="range" min="0" max="23" value="0" step="1" />
-              <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" />
+              <input id="hourRangeMin" type="range" min="0" max="23" value="0" step="1" aria-label="From hour" />
+              <input id="hourRangeMax" type="range" min="0" max="23" value="23" step="1" aria-label="To hour" />
             </div>
             <p id="hourRangeLabel" class="subtle">00:00 to 23:00</p>
-            <div class="time-blocks" aria-label="Ecological time shortcuts">
-              <button type="button" class="time-chip" data-time-block="night">Night</button>
-              <button type="button" class="time-chip" data-time-block="dawn">Dawn</button>
-              <button type="button" class="time-chip" data-time-block="morning">Morning</button>
-              <button type="button" class="time-chip" data-time-block="afternoon">Afternoon</button>
-              <button type="button" class="time-chip" data-time-block="dusk">Dusk</button>
-            </div>
 
             <details class="advanced-filters" id="advancedFilters">
               <summary>Advanced filters</summary>
@@ -107,11 +110,6 @@
                 <label class="inline-check" for="clusterToggle">
                   <input id="clusterToggle" type="checkbox" checked />
                   Cluster nearby sites
-                </label>
-
-                <label class="inline-check" for="dawnDuskOnlyToggle">
-                  <input id="dawnDuskOnlyToggle" type="checkbox" />
-                  Dawn/dusk only
                 </label>
               </div>
             </details>

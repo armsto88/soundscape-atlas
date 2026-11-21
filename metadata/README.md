@@ -36,3 +36,8 @@ Rules:
 - Unrecognised values fall back to the more private option and print a warning.
 - Free text (`site_name`, `locality`, `description`, notes) is published as
   written, so keep exact place names out of it for sensitive sites.
+- Each segment gets a time of day (`period`: dawn, morning, afternoon, dusk or
+  night) and that day's `sunrise`/`sunset`. These come from `scripts/solar.py`,
+  using the site's *published* coordinates, the date and the session's
+  `timezone`. Dawn and dusk are the two hours centred on sunrise and sunset. A
+  wrong timezone shows up as a build warning (sunrise after sunset).

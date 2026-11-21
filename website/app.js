@@ -7,6 +7,7 @@ const state = {
   sitesById: new Map(),
   focusedSiteId: null,
   selectedSpecies: new Set(),
+  periodFilter: new Set(),
   speciesIndex: [],
   hasFittedBounds: false,
   markerLayer: null,
@@ -69,7 +70,6 @@ const dom = {
   themeSelect: document.getElementById("themeSelect"),
   settingsSignOutBtn: document.getElementById("settingsSignOutBtn"),
   clusterToggle: document.getElementById("clusterToggle"),
-  dawnDuskOnlyToggle: document.getElementById("dawnDuskOnlyToggle"),
   seasonFilter: document.getElementById("seasonFilter"),
   speciesSearch: document.getElementById("speciesSearch"),
   speciesOptions: document.getElementById("speciesOptions"),
@@ -784,7 +784,6 @@ function wireEvents() {
     renderMarkers(state.filteredSegments);
   });
 
-  dom.dawnDuskOnlyToggle.addEventListener("change", applyFilters);
   dom.seasonFilter.addEventListener("change", applyFilters);
   dom.speciesSearch?.addEventListener("input", renderSpeciesFilter);
   dom.speciesOptions?.addEventListener("change", (event) => {
@@ -804,7 +803,6 @@ function wireEvents() {
       dom.hourRangeMax.value = dom.hourRangeMin.value;
     }
     updateHourRangeLabel();
-    updateTimeBlockButtons();
     applyFilters();
   });
 
@@ -813,21 +811,17 @@ function wireEvents() {
       dom.hourRangeMin.value = dom.hourRangeMax.value;
     }
     updateHourRangeLabel();
-    updateTimeBlockButtons();
     applyFilters();
   });
 
   for (const button of dom.timeBlockButtons) {
     button.addEventListener("click", () => {
-      const block = button.dataset.timeBlock || "";
-      const range = getTimeBlockRange(block);
-      if (!range) {
-        return;
+      const period = button.dataset.timeBlock || "";
+      if (state.periodFilter.has(period)) {
+        state.periodFilter.delete(period);
+      } else {
+        state.periodFilter.add(period);
       }
-
-      dom.hourRangeMin.value = String(range.min);
-      dom.hourRangeMax.value = String(range.max);
-      updateHourRangeLabel();
       updateTimeBlockButtons();
       applyFilters();
     });
@@ -843,7 +837,7 @@ function wireEvents() {
     state.focusedSiteId = null;
     dom.seasonFilter.value = "all";
     dom.clusterToggle.checked = true;
-    dom.dawnDuskOnlyToggle.checked = false;
+    state.periodFilter.clear();
     dom.hourRangeMin.value = "0";
     dom.hourRangeMax.value = "23";
     state.selectedSpecies.clear();
@@ -2104,30 +2098,11 @@ function updateHourRangeLabel() {
   dom.hourRangeLabel.textContent = `${formatHour(startHour)} to ${formatHour(endHour)}`;
 }
 
-function getTimeBlockRange(block) {
-  const ranges = {
-    night: { min: 20, max: 4 },
-    dawn: { min: 5, max: 7 },
-    morning: { min: 8, max: 11 },
-    afternoon: { min: 12, max: 16 },
-    dusk: { min: 17, max: 19 },
-  };
-
-  return ranges[block] || null;
-}
-
 function updateTimeBlockButtons() {
-  const startHour = Number(dom.hourRangeMin.value);
-  const endHour = Number(dom.hourRangeMax.value);
-
   for (const button of dom.timeBlockButtons) {
-    const range = getTimeBlockRange(button.dataset.timeBlock || "");
-    if (!range) {
-      continue;
-    }
-
-    const isActive = range.min === startHour && range.max === endHour;
-    button.classList.toggle("active", isActive);
+    const active = state.periodFilter.has(button.dataset.timeBlock || "");
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
 }
 
@@ -2141,16 +2116,12 @@ function applyFilters(options = {}) {
   const hourMax = Number(dom.hourRangeMax.value);
   const selectedSpecies = getSelectedSpecies();
   const selectedSpeciesSet = new Set(selectedSpecies);
-  const dawnDuskOnly = dom.dawnDuskOnlyToggle.checked;
 
   state.filteredSegments = state.segments.filter((segment) => {
     const segmentHour = Number(segment.local_hour);
     const seasonMatch = season === "all" || segment.season === season;
-    const inRange = hourMin <= hourMax
-      ? segmentHour >= hourMin && segmentHour <= hourMax
-      : segmentHour >= hourMin || segmentHour <= hourMax; // wraps past midnight
-    const hourMatch = Number.isFinite(segmentHour) && inRange;
-    const dawnDuskMatch = !dawnDuskOnly || isDawnDusk(segmentHour);
+    const hourMatch = Number.isFinite(segmentHour) && segmentHour >= hourMin && segmentHour <= hourMax;
+    const periodMatch = state.periodFilter.size === 0 || state.periodFilter.has(getSegmentPeriod(segment));
 
     let speciesMatch = true;
     if (selectedSpeciesSet.size > 0) {
@@ -2158,7 +2129,7 @@ function applyFilters(options = {}) {
       speciesMatch = [...selectedSpeciesSet].some((species) => names.has(species));
     }
 
-    return seasonMatch && hourMatch && dawnDuskMatch && speciesMatch;
+    return seasonMatch && hourMatch && periodMatch && speciesMatch;
   });
 
   renderMarkers(state.filteredSegments);
@@ -2461,7 +2432,7 @@ function renderSegmentList(segments) {
     const siteName = segment.site_name || segment.site_id;
 
     const item = document.createElement("li");
-    item.className = `segment-item time-${getTimeBand(Number(segment.local_hour))}${active ? " active" : ""}`;
+    item.className = `segment-item time-${getSegmentPeriod(segment)}${active ? " active" : ""}`;
     item.tabIndex = 0;
     item.dataset.segmentId = segment.segment_id;
     item.title = segment.segment_id;
@@ -2579,6 +2550,7 @@ function renderMetadata(segment) {
 
   const metadataRows = [
     ["Recorded", describeSegmentTime(segment)],
+    ["Time of day", describeSun(segment)],
     ["Season", humanize(segment.season)],
     ["Site", segment.site_name || segment.site_id],
     ["Place", place],
@@ -3407,13 +3379,15 @@ function stopSpectrogram() {
   }
 }
 
-function isDawnDusk(hour) {
-  if (!Number.isFinite(hour)) {
-    return false;
-  }
-  return (hour >= 5 && hour <= 7) || (hour >= 17 && hour <= 19);
+const SEGMENT_PERIODS = ["night", "dawn", "morning", "afternoon", "dusk"];
+
+// Time of day from the sun (computed at build time from the site's position),
+// falling back to clock hours for data built without it.
+function getSegmentPeriod(segment) {
+  return SEGMENT_PERIODS.includes(segment?.period) ? segment.period : getTimeBand(Number(segment?.local_hour));
 }
 
+// Clock-hour approximation, used only when a segment has no sun-based period.
 function getTimeBand(hour) {
   if (!Number.isFinite(hour)) {
     return "unknown";
@@ -3466,6 +3440,15 @@ function describeDataset(payload) {
   ].join(" · ");
 }
 
+// "Dawn · sunrise 06:28, sunset 17:27"
+function describeSun(segment) {
+  const sun = [
+    segment.sunrise ? `sunrise ${segment.sunrise}` : "",
+    segment.sunset ? `sunset ${segment.sunset}` : "",
+  ].filter(Boolean).join(", ");
+  return [humanize(getSegmentPeriod(segment)), sun].filter(Boolean).join(" · ");
+}
+
 // "riparian_forest" -> "Riparian forest"
 function humanize(value) {
   const text = String(value ?? "").trim().replace(/_/g, " ");
@@ -3501,6 +3484,7 @@ function describeSegmentTime(segment) {
   if (start) {
     parts.push(end ? `${start}–${end}` : start);
   }
+  parts.push(humanize(getSegmentPeriod(segment)));
   const count = Number(segment.detection_count) || 0;
   parts.push(count === 1 ? "1 detection" : `${count} detections`);
   return parts.filter(Boolean).join(" · ");

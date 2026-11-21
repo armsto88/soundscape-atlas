@@ -22,7 +22,10 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Tuple
+from datetime import datetime
+from typing import Dict, List, NamedTuple, Optional, Tuple
+
+from solar import segment_sun
 
 # Decimal places published per sites.csv public_location_precision value.
 # 2 dp is about 1.1 km north-south, 1 dp about 11 km (less east-west away from
@@ -132,6 +135,25 @@ def parse_seconds(value) -> float | None:
         return None
 
 
+def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Optional[dict]:
+    """Time-of-day period and that day's sunrise/sunset for a segment.
+
+    Uses the *published* coordinates, so these values reveal nothing more
+    precise about a site than the map already shows.
+    """
+    try:
+        start = datetime.fromisoformat(str(segment.get("segment_start_local") or ""))
+        end = datetime.fromisoformat(str(segment.get("segment_end_local") or ""))
+        latitude = float(location.latitude)
+        longitude = float(location.longitude)
+    except ValueError:
+        return None
+    timezone_name = str(session.get("timezone") or "").strip()
+    if not timezone_name:
+        return None
+    return segment_sun(start, end, latitude, longitude, timezone_name)
+
+
 def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[str, dict]]:
     """Return (index payload, {relative detections path: detections payload})."""
     sites = read_csv(metadata_dir / "sites.csv")
@@ -171,6 +193,7 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
     index_segments: List[dict] = []
     detection_files: Dict[str, dict] = {}
 
+    suspect_sites = set()
     for segment in segments:
         segment_id = segment["segment_id"]
         site_id = segment.get("site_id", "")
@@ -209,6 +232,17 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "copyright_owner": session.get("copyright_owner"),
                 "license": session.get("license"),
             }
+
+        sun = segment_sun_info(segment, locations.get(site_id, no_location), sessions_by_id.get(session_id, {}))
+        if sun and sun["sunrise"] and sun["sunset"] and sun["sunrise"] > sun["sunset"] and site_id not in suspect_sites:
+            # Outside the polar regions sunrise is always before sunset in local
+            # time; otherwise the sessions' timezone is almost certainly wrong.
+            suspect_sites.add(site_id)
+            print(
+                f"warning: {site_id} (e.g. session {session_id}): sunrise {sun['sunrise']} after sunset "
+                f"{sun['sunset']} in {sessions_by_id.get(session_id, {}).get('timezone')!r}; check the timezone",
+                file=sys.stderr,
+            )
 
         rows = detections_by_segment[segment_id]
         counts = Counter((row.get("common_name") or "Unknown").strip() for row in rows)
@@ -271,6 +305,9 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "top_species": top_species,
                 "species_ids": sorted(species_index[name] for name in counts),
                 "detections_url": detections_url,
+                "period": sun["period"] if sun else "",
+                "sunrise": sun["sunrise"] if sun else "",
+                "sunset": sun["sunset"] if sun else "",
             }
         )
 
