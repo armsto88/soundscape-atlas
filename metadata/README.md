@@ -21,6 +21,8 @@ Rules:
 
 - Only segments with `published=true` are included, along with their detections.
   New segments from the ingest script start as `false`.
+- `public_url` is managed by `scripts/upload_to_r2.py`. It is set once a
+  published segment's audio is confirmed to be in the R2 bucket.
 - Site coordinates follow `public_location_precision`:
 
   | value | published as |

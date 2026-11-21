@@ -108,7 +108,7 @@ metadata_schema.md
 
 scripts/
 ingest_recordings.py
-upload_to_r2.sh
+upload_to_r2.py
 
 website/
 map/

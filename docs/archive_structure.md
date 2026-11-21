@@ -58,6 +58,53 @@ uses the same pattern for the recording's start.
 4. Run `scripts/validate_metadata.py` (process does this automatically) and
    `scripts/build_web_metadata.py`.
 
+## Publishing audio to R2
+
+1. Mark the segments to publish: set `published=true` in `metadata/segments.csv`.
+2. Upload them (dry run first):
+
+   ```
+   python3 scripts/upload_to_r2.py --archive-root <archive-root> \
+       --remote r2:<bucket> --public-base-url https://<bucket public URL> --dry-run
+   ```
+
+   Only published segments are uploaded, each to the same path as its
+   `listening_opus_path`. The script then checks the bucket and sets
+   `public_url` for exactly the published segments it holds. It clears
+   `public_url` for the rest, but leaves hand-entered URLs that point elsewhere
+   alone. Objects for segments that are no longer published are listed;
+   `--prune` deletes them after asking. `R2_REMOTE` and `R2_PUBLIC_BASE_URL`
+   can replace the two flags.
+3. Rebuild with `scripts/build_web_metadata.py`.
+
+### One-time R2 setup
+
+- Create the bucket and give it public access, through a custom domain or the
+  r2.dev URL. That public URL is `--public-base-url`.
+- Create an R2 API token with **Object Read & Write** on that bucket, then
+  `sudo apt install rclone` and run `rclone config`: new remote `r2`, storage
+  `s3`, provider `Cloudflare`, the token's access key and secret, and endpoint
+  `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The keys stay in rclone's
+  config, never in this repository.
+- Add a CORS rule to the bucket. The player loads audio with
+  `crossorigin="anonymous"`, so without one the audio does not play at all:
+
+  ```json
+  [
+    {
+      "AllowedOrigins": ["https://<your site>", "http://localhost:8788"],
+      "AllowedMethods": ["GET", "HEAD"],
+      "AllowedHeaders": ["Range"],
+      "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges"],
+      "MaxAgeSeconds": 86400
+    }
+  ]
+  ```
+
+- After the first upload, open a segment and check that the player shows its
+  length. A blank or infinite duration means range requests are not being
+  served, and seeking will not work.
+
 ## Reorganising the drive
 
 Recordings are identified by the BWF originator reference inside each file, not
