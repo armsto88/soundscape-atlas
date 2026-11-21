@@ -2,351 +2,69 @@
 
 ## Overview
 
-Soundscape Atlas is a long-term ecological archive and interactive listening platform for exploring environmental soundscape recordings.
+Soundscape Atlas is a long-term ecological archive and listening platform for
+long-form environmental recordings. Listeners explore sites on a map, play
+hour-long soundscapes, and see BirdNET species detections on a timeline.
 
-The project focuses on:
+Priorities: simplicity, long-term maintainability, low infrastructure cost,
+reproducibility, transparent metadata, data integrity, and privacy for
+sensitive sites. Design rule: audio first, data second.
 
-- multi-year field recordings
-- long-form natural soundscapes
-- interactive exploration via maps
-- low-cost infrastructure
-- reproducible data workflows
+## Architecture
 
-The platform will allow users to explore soundscapes across time and geography while preserving a high-quality master archive of recordings.
+### Local archive (master storage, external drive)
 
----
+- **Raw**: original recorder files (Sound Devices MixPre-6 II, BWF WAV, 48 kHz / 24-bit,
+  1–3 channels, split at ~4 GB). Never uploaded.
+- **Working**: 48 kHz stereo WAV per clock-aligned hour, for analysis (BirdNET).
+- **Listening**: Opus 128k (~58 MB/h) per hour, uploaded to R2.
 
-# Core Design Principles
+Layout and workflow: `docs/archive_structure.md`.
 
-Development decisions should prioritize:
+### Cloud
 
-- simplicity
-- long-term maintainability
-- low infrastructure cost
-- reproducibility
-- transparent metadata
-- data integrity
+- **Cloudflare Pages** serves `website/` and runs `functions/` (the API).
+- **Cloudflare D1** stores accounts, sessions, likes and comments.
+- **Cloudflare R2** serves the published listening copies (zero egress fees).
 
-Avoid unnecessary frameworks or complex infrastructure.
+### Website
 
----
+Static HTML/CSS/JS with Leaflet, no build step:
 
-# System Architecture
+- one marker per site; clicking a site plays a recording and lists its segments
+- bottom player dock with a species-row detection timeline and comments
+- filters: season, time of day (from each site's sunrise/sunset), clock hours, species
+- optional accounts (cookie sessions) for a personal library and timeline comments
 
-The system consists of three layers.
+## Data flow
 
-## 1. Local Archive (Master Storage)
+```
+raw WAVs ─ ingest_recordings.py ─> segments + working WAVs + Opus
+working WAVs ─ BirdNET-Analyzer ─ import_birdnet.py ─> birdnet_detections.csv
+published Opus ─ upload_to_r2.py ─> R2 (sets public_url)
+metadata/*.csv ─ build_web_metadata.py ─> website/api/data.json + detections/
+```
 
-All original recordings are stored locally on external storage.
+Only segments with `published=true` reach the website; coordinates are rounded
+according to `public_location_precision` / `is_sensitive`.
 
-Archive tiers:
+## Metadata
 
-### Raw recordings
-- 96 kHz stereo WAV
-- original field recordings
-- never uploaded to cloud storage
+`metadata/sites.csv`, `sessions.csv`, `segments.csv`, `birdnet_detections.csv`,
+documented column by column in `schema/metadata_schema.md`.
 
-### Working recordings
-- converted to 48 kHz stereo WAV
-- split into 1-hour chunks
-- used for analysis and processing
+IDs follow `SITEID_YYYYMMDD_HHMM` on the recorder's local clock, e.g.
+`AU_NSW_IMBOTA_20240413_1715`; site IDs look like `AU_NSW_IMBOTA` or `DE_BW_DREISAM`.
 
-### Listening copies
-- compressed stereo Opus (~128 kbps)
-- approximately 58 MB per hour
-- uploaded to cloud storage
+## Development guidelines
 
----
+Prefer simple scripts, minimal dependencies, portable formats and reproducible
+pipelines. Avoid storing audio in git, large frameworks and unnecessary
+infrastructure. Python for processing, plain JavaScript for the website,
+FFmpeg for audio, rclone for R2.
 
-## 2. Cloud Infrastructure
+## Long-term vision
 
-Public listening copies are stored in:
-
-Cloudflare R2
-
-Characteristics:
-
-- S3-compatible object storage
-- zero egress fees
-- optimized for public audio streaming
-- only compressed listening copies stored
-
-Website hosting:
-
-Cloudflare Pages
-
-The website loads metadata and audio URLs from R2.
-
----
-
-## 3. Website Layer
-
-The website provides:
-
-- an interactive map interface
-- streaming playback of long soundscapes
-- browsing by location
-- browsing by time
-- species detection overlays
-- associated photographs
-
-The website should remain static-first with minimal backend logic.
-
----
-
-# Repository Structure
-soundscape-atlas/
-
-metadata/
-sites.csv
-sessions.csv
-segments.csv
-birdnet_detections.csv
-
-schema/
-metadata_schema.md
-
-scripts/
-ingest_recordings.py
-import_birdnet.py
-solar.py
-upload_to_r2.py
-
-website/
-map/
-player/
-api/
-
-docs/
-archive_structure.md
-copilot_context.md
-
-README.md
-
-
----
-
-# Metadata System
-
-Metadata is stored as CSV files.
-
-Advantages:
-
-- human readable
-- version controlled
-- portable
-- easily migrated to SQL later
-- simple to edit
-
----
-
-# Metadata Tables
-
-## sites.csv
-
-Defines recording locations.
-
-Fields:
-site_id
-site_name
-country_code
-region_code
-latitude
-longitude
-habitat
-description
-
-
-Example site IDs:
-AU_NSW_IMBOTA
-DE_BW_DREISAM
-
-
----
-
-## sessions.csv
-
-One row per recording session.
-
-Fields:
-session_id
-site_id
-start_datetime_local
-end_datetime_local
-recorder
-microphones
-sample_rate_hz
-bit_depth
-channels
-
-
-Example session ID:
-AU_NSW_IMBOTA_20240814_0530
-
-
----
-
-## segments.csv
-
-One row per 1-hour audio segment.
-
-Segment ID example:
-AU_NSW_IMBOTA_20240814_0600
-
-Fields:
-segment_id
-session_id
-site_id
-segment_start_local
-segment_end_local
-local_hour
-listening_opus_path
-public_url
-published
-notes
-
-
-Segments are the primary unit used by the website.
-
----
-
-## birdnet_detections.csv
-
-Stores species detections produced by BirdNET.
-
-Fields:
-detection_id
-segment_id
-common_name
-scientific_name
-start_sec
-end_sec
-confidence
-model
-review_status
-
-One segment may contain many detections.
-
----
-
-# Audio File Naming Convention
-
-Audio files must follow this naming structure:
-
-SITEID_YYYYMMDD_HHMM.ext
-
-Examples:
-
-Raw recording:
-
-AU_NSW_IMBOTA_20240814_0530.wav
-
-Hourly listening segment:
-
-AU_NSW_IMBOTA_20240814_0600.opus
-
-This ensures filenames can be parsed automatically.
-
----
-
-# Audio Pipeline
-
-The audio processing workflow is:
-
-Raw recording (96kHz WAV)
-        ↓
-Convert to 48kHz WAV
-        ↓
-Split into 1-hour segments
-        ↓
-Convert to Opus listening copies
-        ↓
-Upload to Cloudflare R2
-
-Tools used:
-
-- FFmpeg
-- Python or Bash scripts
-- rclone for R2 uploads
-
----
-
-# Website Goals
-
-The Soundscape Atlas website should allow users to:
-
-- explore recordings on a map
-- listen to full one-hour soundscapes
-- compare the same location across years
-- explore recordings by time of day
-- view associated photos
-- see species detections within recordings
-
-User experience should emphasize:
-
-- immersive listening
-- calm, minimal design
-- intuitive navigation
-- fast audio streaming
-
----
-
-# Development Guidelines
-
-When generating code:
-
-Prefer:
-
-- simple scripts
-- minimal dependencies
-- portable formats
-- reproducible pipelines
-
-Avoid:
-
-- storing audio files in Git
-- large frameworks early
-- unnecessary infrastructure complexity
-
----
-
-# Tools and Languages
-
-Expected development tools:
-
-- Python
-- Bash
-- JavaScript / TypeScript
-- Leaflet or Mapbox
-- FFmpeg
-- rclone
-
----
-
-# Priority Development Tasks
-
-1. audio processing pipeline
-2. metadata validation scripts
-3. automated R2 upload workflow
-4. interactive map UI
-5. long-form audio player
-6. species detection integration
-
----
-
-# Long-Term Vision
-
-Soundscape Atlas is intended to become a global listening archive of natural environments.
-
-The system should remain capable of scaling to:
-
-- thousands of recordings
-- hundreds of locations
-- many years of observations
-
-while remaining simple and affordable to maintain.
-
-Design decisions should prioritize longevity and clarity over rapid feature growth.
-
-
-
+A global listening archive of natural environments: thousands of recordings,
+hundreds of sites and many years of observations, while staying simple and
+affordable to maintain. Ideas for later: `docs/soundscape_future_ideas.md`.

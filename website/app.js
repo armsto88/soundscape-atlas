@@ -137,9 +137,6 @@ const dom = {
   audioTimelinePanel: document.getElementById("audioTimelinePanel"),
   mobileFiltersBtn: document.getElementById("mobileFiltersBtn"),
   mobileClosePanelsBtn: document.getElementById("mobileClosePanelsBtn"),
-  mobileMiniPlayer: document.getElementById("mobileMiniPlayer"),
-  mobileMiniNowPlaying: document.getElementById("mobileMiniNowPlaying"),
-  mobileMiniPlayPause: document.getElementById("mobileMiniPlayPause"),
   controlsPanel: document.getElementById("controlsPanel"),
   segmentPanel: document.getElementById("segmentPanel"),
   metadataPanel: document.getElementById("metadataPanel"),
@@ -149,9 +146,6 @@ const dom = {
   iconPause: document.getElementById("iconPause"),
   skipBackBtn: document.getElementById("skipBackBtn"),
   skipFwdBtn: document.getElementById("skipFwdBtn"),
-  seekBar: document.getElementById("seekBar"),
-  seekCurrentTime: document.getElementById("seekCurrentTime"),
-  seekDuration: document.getElementById("seekDuration"),
   volumeSlider: document.getElementById("volumeSlider"),
   timeBlockButtons: document.querySelectorAll("[data-time-block]"),
 };
@@ -646,19 +640,6 @@ function wireEvents() {
     });
   }
 
-  if (dom.mobileMiniPlayPause) {
-    dom.mobileMiniPlayPause.addEventListener("click", () => {
-      if (!dom.audioPlayer.src) {
-        return;
-      }
-      if (dom.audioPlayer.paused) {
-        dom.audioPlayer.play().catch(() => {});
-      } else {
-        dom.audioPlayer.pause();
-      }
-    });
-  }
-
   window.addEventListener("resize", handleViewportChange);
   window.addEventListener("orientationchange", handleViewportChange);
 
@@ -673,31 +654,12 @@ function wireEvents() {
     });
   }
 
-  if (dom.skipBackBtn) {
-    dom.skipBackBtn.addEventListener("click", () => {
-      dom.audioPlayer.currentTime = Math.max(0, dom.audioPlayer.currentTime - 10);
-      if (!dom.audioPlayer.paused) return;
-      if (dom.audioPlayer.src) dom.audioPlayer.play().catch(() => {});
-    });
-  }
-
-  if (dom.skipFwdBtn) {
-    dom.skipFwdBtn.addEventListener("click", () => {
-      const dur = dom.audioPlayer.duration;
-      dom.audioPlayer.currentTime = Number.isFinite(dur)
-        ? Math.min(dur, dom.audioPlayer.currentTime + 10)
-        : dom.audioPlayer.currentTime + 10;
-    });
-  }
-
-  if (dom.seekBar) {
-    dom.seekBar.addEventListener("input", () => {
-      const duration = dom.audioPlayer.duration;
-      if (Number.isFinite(duration) && duration > 0) {
-        dom.audioPlayer.currentTime = Number(dom.seekBar.value) * duration;
-      }
-    });
-  }
+  dom.skipBackBtn?.addEventListener("click", () => {
+    seekTo((Number(dom.audioPlayer.currentTime) || 0) - 10, false);
+  });
+  dom.skipFwdBtn?.addEventListener("click", () => {
+    seekTo((Number(dom.audioPlayer.currentTime) || 0) + 10, false);
+  });
 
   if (dom.volumeSlider) {
     dom.volumeSlider.addEventListener("input", () => {
@@ -954,13 +916,8 @@ function wireEvents() {
 
   dom.audioPlayer.addEventListener("loadedmetadata", () => {
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = false;
-    const dur = dom.audioPlayer.duration;
-    if (dom.seekDuration && Number.isFinite(dur)) {
-      dom.seekDuration.textContent = formatTime(dur);
-    }
     updateAudioTimelineProgress();
     renderDetectionTimeline(state.activeSegment);
-    updateMobileMiniPlayer();
   });
 
   dom.audioPlayer.addEventListener("timeupdate", () => {
@@ -971,7 +928,6 @@ function wireEvents() {
     state.isAudioPlaying = true;
     refreshMarkerIcons();
     setPlayButtonState(true);
-    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       ensureAudioGraph();
       startSpectrogram();
@@ -982,7 +938,6 @@ function wireEvents() {
     state.isAudioPlaying = false;
     refreshMarkerIcons();
     setPlayButtonState(false);
-    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
     }
@@ -992,7 +947,6 @@ function wireEvents() {
     state.isAudioPlaying = false;
     refreshMarkerIcons();
     setPlayButtonState(false);
-    updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
     }
@@ -1031,32 +985,10 @@ function toggleMobilePanels() {
   setMobilePanelsOpen(!isOpen);
 }
 
-function updateMobileMiniPlayer() {
-  if (!dom.mobileMiniPlayer || !dom.mobileMiniNowPlaying || !dom.mobileMiniPlayPause) {
-    return;
-  }
-
-  const hasSegment = Boolean(state.activeSegment);
-  const shouldShow = isSmallPhoneViewport() && hasSegment;
-  dom.mobileMiniPlayer.hidden = !shouldShow;
-  if (!shouldShow) {
-    return;
-  }
-
-  dom.mobileMiniNowPlaying.textContent = hasSegment
-    ? `${state.activeSegment.site_name || state.activeSegment.site_id} - ${state.activeSegment.segment_id}`
-    : "No segment selected.";
-  dom.mobileMiniPlayPause.disabled = !Boolean(dom.audioPlayer.src);
-  const isPaused = dom.audioPlayer.paused;
-  dom.mobileMiniPlayPause.textContent = isPaused ? "Play" : "Pause";
-  dom.mobileMiniPlayPause.setAttribute("aria-label", isPaused ? "Play" : "Pause");
-}
-
 function handleViewportChange() {
   if (!isSmallPhoneViewport()) {
     setMobilePanelsOpen(false);
   }
-  updateMobileMiniPlayer();
   window.setTimeout(() => {
     map.invalidateSize();
   }, 120);
@@ -2537,7 +2469,6 @@ function selectSegment(segmentId, options = {}) {
     if (dom.playPauseBtn) dom.playPauseBtn.disabled = true;
   }
 
-  updateMobileMiniPlayer();
   updateAudioTimelineProgress();
 
   if (state.spectrogram.enabled) {
@@ -3092,7 +3023,6 @@ function clearActiveSegmentState() {
   state.isAudioPlaying = false;
   updateActiveSegmentLikeButton();
   updateAudioTimelineProgress();
-  updateMobileMiniPlayer();
   refreshMarkerIcons();
 }
 
@@ -3423,20 +3353,6 @@ function getTimeBand(hour) {
     return "dusk";
   }
   return "night";
-}
-
-function getActivityBand(detectionCount) {
-  const count = Number(detectionCount);
-  if (!Number.isFinite(count) || count <= 0) {
-    return { level: "low", count: 0 };
-  }
-  if (count >= 20) {
-    return { level: "high", count };
-  }
-  if (count >= 8) {
-    return { level: "medium", count };
-  }
-  return { level: "low", count };
 }
 
 // "3 sites · 1,440 segments · 115,160 detections"

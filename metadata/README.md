@@ -5,6 +5,8 @@
 - `segments.csv` — one row per 1-hour listening segment
 - `birdnet_detections.csv` — one row per species detection within a segment
 
+Every column is described in [schema/metadata_schema.md](../schema/metadata_schema.md).
+
 ## What gets published
 
 `scripts/build_web_metadata.py` builds the public files in `website/api/`:
