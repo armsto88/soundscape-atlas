@@ -107,8 +107,7 @@ schema/
 metadata_schema.md
 
 scripts/
-chunk_audio.sh
-convert_to_opus.sh
+ingest_recordings.py
 upload_to_r2.sh
 
 website/
