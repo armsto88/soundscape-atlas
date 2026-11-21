@@ -108,6 +108,8 @@ metadata_schema.md
 
 scripts/
 ingest_recordings.py
+import_birdnet.py
+solar.py
 upload_to_r2.py
 
 website/

@@ -58,6 +58,31 @@ uses the same pattern for the recording's start.
 4. Run `scripts/validate_metadata.py` (process does this automatically) and
    `scripts/build_web_metadata.py`.
 
+## Species detections (BirdNET)
+
+1. Run BirdNET-Analyzer on `<archive-root>/audio/working_wav/<SITE_ID>/`,
+   one site at a time with that site's `--lat`/`--lon`, writing a Raven
+   selection table or CSV results (see the BirdNET-Analyzer documentation for
+   the exact command for your version). The working WAVs are named by segment
+   ID, so each result maps to its segment and times are relative to the
+   segment start.
+2. Import (dry run first):
+
+   ```
+   python3 scripts/import_birdnet.py --results <BirdNET output folder> \
+       --model "BirdNET 2.4" --dry-run
+   ```
+
+   - Detections below `--min-confidence` (default 0.25) are dropped. The
+     website also filters by confidence (50% and above by default).
+     A higher threshold keeps `birdnet_detections.csv` smaller in git.
+   - Non-bird classes (human voice, engine, dog, noise, ...) are dropped
+     unless `--keep-non-birds` is given. Segments with possible human voices
+     are listed so you can listen before publishing them.
+   - Re-importing a segment replaces its detections. Detection IDs stay the
+     same, and `review_status` values you set by hand are kept.
+3. Rebuild with `scripts/build_web_metadata.py`.
+
 ## Publishing audio to R2
 
 1. Mark the segments to publish: set `published=true` in `metadata/segments.csv`.
