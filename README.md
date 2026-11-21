@@ -16,6 +16,7 @@ metadata/   sites, sessions, segments, birdnet_detections (CSV)
 scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working WAVs
             import_birdnet.py      BirdNET-Analyzer results -> detections CSV
             upload_to_r2.py        published Opus copies -> R2, sets public_url
+            setup_r2_remote.sh     one-time rclone setup for the R2 bucket
             build_web_metadata.py  CSVs -> website/api/data.json + detections/
             validate_metadata.py   column and ID checks
             solar.py               sunrise/sunset and time of day

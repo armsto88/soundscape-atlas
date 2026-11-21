@@ -20,10 +20,9 @@ audio/listening_opus/ in the bucket is ever touched.
 
 One-time setup (credentials stay in rclone's config, never in this repo):
   sudo apt install rclone
-  rclone config
-    new remote, e.g. "r2"; Storage: s3; provider: Cloudflare;
-    access key + secret from an R2 API token with Object Read & Write on the bucket;
-    endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+  bash scripts/setup_r2_remote.sh
+    asks for the access key, secret and endpoint of an R2 API token with
+    Object Read & Write on the bucket, and creates the rclone remote "r2"
   The bucket needs public access (custom domain or r2.dev) and a CORS rule
   allowing GET from the website, because the player loads audio with
   crossorigin="anonymous".
@@ -173,6 +172,10 @@ def main() -> int:
                 "copy", str(archive_root), destination,
                 "--files-from", str(upload_list),
                 "--s3-no-check-bucket",
+                # After each upload rclone (1.60) HEADs the new object version
+                # (?versionId=...), which R2 answers with 501 Not Implemented:
+                # the upload succeeded but is reported as failed and retried.
+                "--s3-no-head",
                 "--transfers", str(max(1, args.transfers)),
                 "--stats-one-line", "--stats", "30s", "-v",
             ]

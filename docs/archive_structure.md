@@ -107,17 +107,20 @@ uses the same pattern for the recording's start.
 - Create the bucket and give it public access, through a custom domain or the
   r2.dev URL. That public URL is `--public-base-url`.
 - Create an R2 API token with **Object Read & Write** on that bucket, then
-  `sudo apt install rclone` and run `rclone config`: new remote `r2`, storage
-  `s3`, provider `Cloudflare`, the token's access key and secret, and endpoint
-  `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The keys stay in rclone's
-  config, never in this repository.
+  `sudo apt install rclone` and run `bash scripts/setup_r2_remote.sh`. It asks
+  for the access key, secret (hidden) and S3 endpoint, creates the rclone
+  remote `r2` and checks the connection. The keys stay in rclone's config,
+  never in this repository or your shell history.
+- Optionally add `export R2_REMOTE=r2:<bucket>` and
+  `export R2_PUBLIC_BASE_URL=<public URL>` to `~/.bashrc`, so `upload_to_r2.py`
+  needs no flags.
 - Add a CORS rule to the bucket. The player loads audio with
   `crossorigin="anonymous"`, so without one the audio does not play at all:
 
   ```json
   [
     {
-      "AllowedOrigins": ["https://<your site>", "http://localhost:8788"],
+      "AllowedOrigins": ["https://soundscape-atlas.pages.dev", "http://localhost:8787", "http://localhost:8788"],
       "AllowedMethods": ["GET", "HEAD"],
       "AllowedHeaders": ["Range"],
       "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges"],
