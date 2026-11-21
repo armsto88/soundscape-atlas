@@ -204,7 +204,10 @@
             <button id="closeSpectrogramDockBtn" type="button" aria-label="Close spectrogram">Hide</button>
           </header>
           <div class="spectrogram-dock-body">
-            <canvas id="spectrogramCanvas" width="760" height="180" hidden></canvas>
+            <div class="spectrogram-canvas-wrap">
+              <canvas id="spectrogramCanvas" width="760" height="200" hidden></canvas>
+              <div id="spectrogramAxis" class="spectrogram-axis" aria-hidden="true"></div>
+            </div>
             <img id="spectrogramImage" alt="Spectrogram" hidden />
             <p id="spectrogramHint" class="subtle" hidden>Live spectrogram view derived from audio playback.</p>
           </div>

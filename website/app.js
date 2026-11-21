@@ -10,6 +10,7 @@ const state = {
   speciesIndex: [],
   hasFittedBounds: false,
   markerLayer: null,
+  approximateArea: null,
   useClustering: true,
   isAudioPlaying: false,
   audioContext: null,
@@ -96,6 +97,7 @@ const dom = {
   spectrogramCanvas: document.getElementById("spectrogramCanvas"),
   spectrogramImage: document.getElementById("spectrogramImage"),
   spectrogramHint: document.getElementById("spectrogramHint"),
+  spectrogramAxis: document.getElementById("spectrogramAxis"),
   segmentImage: document.getElementById("segmentImage"),
   segmentImagePlaceholder: document.getElementById("segmentImagePlaceholder"),
   segmentImageCaption: document.getElementById("segmentImageCaption"),
@@ -2286,10 +2288,41 @@ function siteTooltipHtml(site) {
     const last = dates[dates.length - 1];
     range = first === last ? first : `${first} – ${last}`;
   }
-  return `<strong>${escapeHtml(site.name)}</strong><br>${count} segment${count === 1 ? "" : "s"}${range ? ` · ${escapeHtml(range)}` : ""}`;
+  const precision = site.segments[0]?.site?.public_location_precision;
+  const approximate = { rounded: "<br><em>Approximate location (about 1 km)</em>", coarse: "<br><em>Approximate location (about 10 km)</em>" }[precision] || "";
+  return `<strong>${escapeHtml(site.name)}</strong><br>${count} segment${count === 1 ? "" : "s"}${range ? ` · ${escapeHtml(range)}` : ""}${approximate}`;
+}
+
+// Published coordinates of rounded/coarse sites are deliberately imprecise;
+// show the active site's uncertainty as a dashed circle instead of a pinpoint.
+const APPROXIMATE_RADIUS_M = { rounded: 1000, coarse: 10000 };
+
+function updateApproximateArea() {
+  if (state.approximateArea) {
+    state.approximateArea.remove();
+    state.approximateArea = null;
+  }
+  const segment = state.activeSegment;
+  const radius = segment ? APPROXIMATE_RADIUS_M[segment.site?.public_location_precision] : 0;
+  const lat = Number(segment?.latitude);
+  const lng = Number(segment?.longitude);
+  if (!radius || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return;
+  }
+  const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#85d3ff";
+  state.approximateArea = L.circle([lat, lng], {
+    radius,
+    color: accent,
+    weight: 1.5,
+    dashArray: "5 6",
+    fillColor: accent,
+    fillOpacity: 0.07,
+    interactive: false,
+  }).addTo(map);
 }
 
 function refreshMarkerIcons() {
+  updateApproximateArea();
   for (const site of state.sitesById.values()) {
     const marker = state.markersBySiteId.get(site.siteId);
     if (marker) {
@@ -3194,6 +3227,38 @@ function closeMapImageLightbox() {
   }
 }
 
+// Live spectrogram: 0-12 kHz (where most birdsong is), a perceptual
+// dark-to-bright palette, kHz labels, and a canvas sized for the screen's
+// pixel density. Each frame scrolls left by one pixel and writes one column.
+const SPECTROGRAM_MAX_HZ = 12000;
+
+const SPECTROGRAM_PALETTE = (() => {
+  // Approximates the "inferno" colour map.
+  const stops = [
+    [0, [0, 0, 4]],
+    [0.2, [40, 11, 84]],
+    [0.4, [101, 21, 110]],
+    [0.6, [188, 55, 84]],
+    [0.8, [249, 142, 9]],
+    [1, [252, 255, 164]],
+  ];
+  const palette = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i += 1) {
+    const t = i / 255;
+    let k = 0;
+    while (k < stops.length - 2 && t > stops[k + 1][0]) {
+      k += 1;
+    }
+    const [t0, c0] = stops[k];
+    const [t1, c1] = stops[k + 1];
+    const f = (t - t0) / (t1 - t0);
+    for (let j = 0; j < 3; j += 1) {
+      palette[i * 3 + j] = Math.round(c0[j] + (c1[j] - c0[j]) * f);
+    }
+  }
+  return palette;
+})();
+
 function ensureAudioGraph() {
   if (state.audioContext && state.analyser) {
     return;
@@ -3208,11 +3273,46 @@ function ensureAudioGraph() {
   state.audioContext = new AudioCtx();
   const source = state.audioContext.createMediaElementSource(dom.audioPlayer);
   state.analyser = state.audioContext.createAnalyser();
-  state.analyser.fftSize = 1024;
-  state.analyser.smoothingTimeConstant = 0.1;
+  state.analyser.fftSize = 2048;
+  state.analyser.smoothingTimeConstant = 0;
+  state.analyser.minDecibels = -110;
+  state.analyser.maxDecibels = -35;
 
   source.connect(state.analyser);
   state.analyser.connect(state.audioContext.destination);
+}
+
+function sizeSpectrogramCanvas() {
+  const canvas = dom.spectrogramCanvas;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) {
+    return;
+  }
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.round(rect.width * ratio);
+  const height = Math.round(rect.height * ratio);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#000004";
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+}
+
+function renderSpectrogramAxis() {
+  if (!dom.spectrogramAxis) {
+    return;
+  }
+  dom.spectrogramAxis.innerHTML = "";
+  for (let khz = 2; khz < SPECTROGRAM_MAX_HZ / 1000; khz += 2) {
+    const label = document.createElement("span");
+    label.style.bottom = `${((khz * 1000) / SPECTROGRAM_MAX_HZ) * 100}%`;
+    label.textContent = `${khz} kHz`;
+    dom.spectrogramAxis.append(label);
+  }
 }
 
 function renderSpectrogramForCurrentSegment() {
@@ -3229,24 +3329,23 @@ function renderSpectrogramForCurrentSegment() {
     const imageUrl = state.activeSegment?.spectrogram_image_url || "";
     if (imageUrl) {
       dom.spectrogramImage.src = imageUrl;
-      dom.spectrogramHint.textContent = "Image fallback mode. Provide precomputed PNG files beside Opus segments.";
+      dom.spectrogramHint.textContent = "Pre-rendered spectrogram for the whole segment.";
     } else {
       dom.spectrogramImage.hidden = true;
-      dom.spectrogramHint.textContent = "No spectrogram image URL for this segment. Add PNGs to enable fallback mode.";
+      dom.spectrogramHint.textContent = "No pre-rendered spectrogram for this segment.";
     }
     return;
   }
 
   dom.spectrogramCanvas.hidden = false;
   dom.spectrogramImage.hidden = true;
-  dom.spectrogramHint.textContent = "Live spectrogram view derived from audio playback.";
+  dom.spectrogramHint.textContent = dom.audioPlayer.paused
+    ? "Press play to draw the live spectrogram (0–12 kHz)."
+    : "Live spectrogram, 0–12 kHz.";
 
   ensureAudioGraph();
-  const ctx = dom.spectrogramCanvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#03050a";
-    ctx.fillRect(0, 0, dom.spectrogramCanvas.width, dom.spectrogramCanvas.height);
-  }
+  sizeSpectrogramCanvas();
+  renderSpectrogramAxis();
 
   if (!dom.audioPlayer.paused) {
     startSpectrogram();
@@ -3267,23 +3366,33 @@ function startSpectrogram() {
   if (!ctx) {
     return;
   }
+  sizeSpectrogramCanvas();
+  dom.spectrogramHint.textContent = "Live spectrogram, 0–12 kHz.";
 
   const bins = state.analyser.frequencyBinCount;
   const data = new Uint8Array(bins);
+  const nyquist = state.audioContext.sampleRate / 2;
+  const topBin = Math.min(bins - 1, Math.round((SPECTROGRAM_MAX_HZ / nyquist) * bins));
+  let column = null;
 
   const draw = () => {
     state.spectrogram.rafId = requestAnimationFrame(draw);
+    const { width, height } = canvas;
+    if (!column || column.height !== height) {
+      column = ctx.createImageData(1, height);
+    }
     state.analyser.getByteFrequencyData(data);
     ctx.drawImage(canvas, -1, 0);
-
-    for (let y = 0; y < canvas.height; y += 1) {
-      const bin = Math.floor((1 - y / canvas.height) * (bins - 1));
-      const magnitude = data[bin] / 255;
-      const hue = 220 - magnitude * 220;
-      const light = 8 + magnitude * 58;
-      ctx.fillStyle = `hsl(${hue}, 95%, ${light}%)`;
-      ctx.fillRect(canvas.width - 1, y, 1, 1);
+    for (let y = 0; y < height; y += 1) {
+      const bin = Math.round((1 - y / Math.max(1, height - 1)) * topBin);
+      const value = data[bin];
+      const offset = y * 4;
+      column.data[offset] = SPECTROGRAM_PALETTE[value * 3];
+      column.data[offset + 1] = SPECTROGRAM_PALETTE[value * 3 + 1];
+      column.data[offset + 2] = SPECTROGRAM_PALETTE[value * 3 + 2];
+      column.data[offset + 3] = 255;
     }
+    ctx.putImageData(column, width - 1, 0);
   };
 
   if (!state.spectrogram.rafId) {
