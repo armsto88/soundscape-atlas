@@ -7,12 +7,12 @@ detections on a timeline and dawn and dusk following the local sunrise and sunse
 - **Website**: static HTML/JS (Leaflet) on Cloudflare Pages, in `website/`
 - **Accounts, likes, comments**: Cloudflare Pages Functions + D1, in `functions/`
 - **Audio**: Opus listening copies in a public Cloudflare R2 bucket
-- **Metadata**: CSV files in `metadata/`, built into `website/api/` for the site
+- **Metadata**: CSV files on the archive drive (never in this repo), built into `website/api/`
 
 ## Repository layout
 
 ```
-metadata/   sites, sessions, segments, birdnet_detections (CSV)
+metadata_template/  empty CSV templates; the real metadata lives on the archive drive
 scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working WAVs
             import_birdnet.py      BirdNET-Analyzer results -> detections CSV
             upload_to_r2.py        published Opus copies -> R2, sets public_url
@@ -31,6 +31,9 @@ docs/       archive_structure.md (archive layout and the full workflow)
 The full workflow is in [docs/archive_structure.md](docs/archive_structure.md).
 In short:
 
+0. Once: copy `metadata_template/*.csv` to a metadata folder on the archive
+   drive and set `SOUNDSCAPE_METADATA_DIR` to it (see
+   [metadata_template/README.md](metadata_template/README.md)).
 1. `ingest_recordings.py scan` a folder of raw recordings, fill `site_id` and
    `timezone` in the manifest, then `ingest_recordings.py process`.
 2. Run BirdNET-Analyzer on the working WAVs, then `import_birdnet.py`.
@@ -39,7 +42,7 @@ In short:
 5. `validate_metadata.py`, `build_web_metadata.py`, then commit and push.
 
 Only published segments reach the website, and site coordinates are rounded
-as configured. See [metadata/README.md](metadata/README.md).
+as configured. See [metadata_template/README.md](metadata_template/README.md).
 
 ## Local development
 

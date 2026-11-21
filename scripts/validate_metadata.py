@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Sequence, Set, Tuple
@@ -117,12 +118,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate Soundscape Atlas metadata CSVs")
     parser.add_argument(
         "--metadata-dir",
-        default="metadata",
-        help="Directory containing sites.csv, sessions.csv, segments.csv, birdnet_detections.csv",
+        default=os.environ.get("SOUNDSCAPE_METADATA_DIR", "").strip(),
+        help="Folder with sites.csv, sessions.csv, segments.csv, birdnet_detections.csv "
+        "(default: $SOUNDSCAPE_METADATA_DIR)",
     )
     args = parser.parse_args()
+    if not args.metadata_dir:
+        print(
+            "Set SOUNDSCAPE_METADATA_DIR (or pass --metadata-dir) to the metadata folder on the archive drive.",
+            file=sys.stderr,
+        )
+        return 2
 
-    metadata_dir = Path(args.metadata_dir)
+    metadata_dir = Path(args.metadata_dir).expanduser()
     errors: List[str] = []
 
     loaded_headers: Dict[str, List[str]] = {}

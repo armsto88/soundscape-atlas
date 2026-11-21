@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
 import shutil
 import sys
@@ -417,11 +418,18 @@ def replace_detections_dir(target: Path, files: Dict[str, dict]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the website's published data")
-    parser.add_argument("--metadata-dir", default="metadata")
+    parser.add_argument("--metadata-dir", default=os.environ.get("SOUNDSCAPE_METADATA_DIR", "").strip(),
+                        help="metadata folder on the archive drive (default: $SOUNDSCAPE_METADATA_DIR)")
     parser.add_argument("--output", default="website/api/data.json", help="index file; detections/ is written beside it")
     args = parser.parse_args()
+    if not args.metadata_dir:
+        print(
+            "Set SOUNDSCAPE_METADATA_DIR (or pass --metadata-dir) to the metadata folder on the archive drive.",
+            file=sys.stderr,
+        )
+        return 2
 
-    metadata_dir = Path(args.metadata_dir)
+    metadata_dir = Path(args.metadata_dir).expanduser()
     output_path = Path(args.output)
 
     published, unpublished, unrecognised = split_published(read_csv(metadata_dir / "segments.csv"))

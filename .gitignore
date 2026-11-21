@@ -21,3 +21,7 @@ ingest_manifest*.csv
 .DS_Store
 Thumbs.db
 *.swp
+
+# The master metadata lives on the archive drive (SOUNDSCAPE_METADATA_DIR),
+# never in this public repository. Only empty templates are tracked.
+/metadata/

@@ -42,7 +42,7 @@ Static HTML/CSS/JS with Leaflet, no build step:
 raw WAVs ─ ingest_recordings.py ─> segments + working WAVs + Opus
 working WAVs ─ BirdNET-Analyzer ─ import_birdnet.py ─> birdnet_detections.csv
 published Opus ─ upload_to_r2.py ─> R2 (sets public_url)
-metadata/*.csv ─ build_web_metadata.py ─> website/api/data.json + detections/
+metadata CSVs (archive drive) ─ build_web_metadata.py ─> website/api/data.json + detections/
 ```
 
 Only segments with `published=true` reach the website; coordinates are rounded
@@ -50,8 +50,9 @@ according to `public_location_precision` / `is_sensitive`.
 
 ## Metadata
 
-`metadata/sites.csv`, `sessions.csv`, `segments.csv`, `birdnet_detections.csv`,
-documented column by column in `schema/metadata_schema.md`.
+`sites.csv`, `sessions.csv`, `segments.csv`, `birdnet_detections.csv`, kept on the
+archive drive (`SOUNDSCAPE_METADATA_DIR`), never in the public repo; documented
+column by column in `schema/metadata_schema.md`.
 
 IDs follow `SITEID_YYYYMMDD_HHMM` on the recorder's local clock, e.g.
 `AU_NSW_IMBOTA_20240413_1715`; site IDs look like `AU_NSW_IMBOTA` or `DE_BW_DREISAM`.

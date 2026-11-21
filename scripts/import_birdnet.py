@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import BirdNET-Analyzer results into metadata/birdnet_detections.csv.
+"""Import BirdNET-Analyzer results into birdnet_detections.csv (metadata folder).
 
 Run BirdNET-Analyzer on the working WAVs written by ingest_recordings.py
 (<archive-root>/audio/working_wav/<SITE>/<SEGMENT_ID>.wav). Each file is one
@@ -40,7 +40,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Dict, Iterable, List, Optional, Tuple
 
 sys.dont_write_bytecode = True  # keep scripts/ free of __pycache__
-from ingest_recordings import DEFAULT_METADATA_DIR, read_csv, write_csv_atomic  # noqa: E402
+from ingest_recordings import default_metadata_dir, read_csv, require_metadata_dir, write_csv_atomic  # noqa: E402
 
 RESULT_SUFFIXES = (".txt", ".csv", ".tsv")
 DEFAULT_MIN_CONFIDENCE = 0.25
@@ -187,13 +187,14 @@ def detection_id(segment_id: str, start: float, key: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Import BirdNET-Analyzer results into metadata/birdnet_detections.csv.",
+        description="Import BirdNET-Analyzer results into birdnet_detections.csv.",
         epilog=__doc__.split("\n", 1)[1],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--results", action="append", required=True,
                         help="BirdNET result file or folder (searched recursively); repeatable")
-    parser.add_argument("--metadata-dir", default=str(DEFAULT_METADATA_DIR))
+    parser.add_argument("--metadata-dir", default=default_metadata_dir(),
+                        help="metadata folder (default: $SOUNDSCAPE_METADATA_DIR)")
     parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONFIDENCE,
                         help=f"drop detections below this (0-1, default {DEFAULT_MIN_CONFIDENCE})")
     parser.add_argument("--model", default="BirdNET", help='stored in the model column, e.g. "BirdNET 2.4"')
@@ -201,7 +202,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="report only; write nothing")
     args = parser.parse_args()
 
-    metadata_dir = Path(args.metadata_dir).expanduser()
+    metadata_dir = require_metadata_dir(args.metadata_dir)
     detections_path = metadata_dir / "birdnet_detections.csv"
     _, segment_rows = read_csv(metadata_dir / "segments.csv")
     header, existing_rows = read_csv(detections_path)

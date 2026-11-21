@@ -11,6 +11,22 @@
 `listening_opus_path` in `segments.csv` is the path relative to `<archive-root>`,
 so the R2 object key can mirror it.
 
+The metadata lives on the drive as well, never in the public repository:
+
+```
+<archive-root>/
+  metadata/             sites, sessions, segments, birdnet_detections (CSV)
+  ingest_manifest.csv   one row per raw recording
+  audio/                working_wav/, listening_opus/
+  birdnet/              BirdNET-Analyzer output
+```
+
+Start `metadata/` from the repository's `metadata_template/`, and set
+`SOUNDSCAPE_METADATA_DIR=<archive-root>/metadata` in `~/.profile`. Every
+script reads it, and refuses to run without it. Keep `metadata/` under its own
+version control (e.g. `git init` there, local or a private remote) and in the
+drive's backups.
+
 ## Segments
 
 Segments are clock-aligned. A recording from 17:15:28 to 08:03:00 becomes
@@ -34,7 +50,7 @@ uses the same pattern for the recording's start.
    ```
 
 2. **Edit the manifest** (spreadsheet or text editor):
-   - `site_id`: must exist in `metadata/sites.csv`. Leave blank to skip a row.
+   - `site_id`: must exist in `sites.csv`. Leave blank to skip a row.
    - `timezone`: IANA name of the site's timezone.
    - `channels`: which source channels form the stereo pair (`1,2`), or a single
      channel to duplicate (`3`).
@@ -85,7 +101,7 @@ uses the same pattern for the recording's start.
 
 ## Publishing audio to R2
 
-1. Mark the segments to publish: set `published=true` in `metadata/segments.csv`.
+1. Mark the segments to publish: set `published=true` in `segments.csv`.
 2. Upload them (dry run first):
 
    ```

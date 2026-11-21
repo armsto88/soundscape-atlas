@@ -24,8 +24,9 @@ recordings. See README.md and docs/archive_structure.md for the full picture.
 
 ## Metadata
 
-CSV files in `metadata/` (sites, sessions, segments, birdnet_detections), documented in
-`schema/metadata_schema.md`. Keep them human-readable; preserve each file's line endings.
+CSV files (sites, sessions, segments, birdnet_detections) on the archive drive, in the folder named by
+`SOUNDSCAPE_METADATA_DIR`, documented in `schema/metadata_schema.md`. Never commit real metadata to
+this public repo; only empty templates live in `metadata_template/`. Keep them human-readable; preserve each file's line endings.
 
 ## Scripts
 

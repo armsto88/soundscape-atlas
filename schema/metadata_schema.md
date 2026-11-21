@@ -1,9 +1,10 @@
 # Metadata schema
 
-The archive's metadata is four CSV files in `metadata/` (UTF-8, header row
-first). `scripts/validate_metadata.py` checks that the columns below exist and
+The archive's metadata is four CSV files (UTF-8, header row first) kept on the
+archive drive, in the folder named by `SOUNDSCAPE_METADATA_DIR`. Empty templates
+are in `metadata_template/`. `scripts/validate_metadata.py` checks that the columns below exist and
 that the IDs link up. What reaches the public website is described in
-[metadata/README.md](../metadata/README.md).
+[metadata_template/README.md](../metadata_template/README.md).
 
 IDs follow `SITEID_YYYYMMDD_HHMM`, the site ID plus a start time on the
 recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).

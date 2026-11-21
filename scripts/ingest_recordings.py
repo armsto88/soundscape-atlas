@@ -10,7 +10,7 @@ Two steps, with a human check in between:
   process  For every manifest row that has a site_id, cut clock-aligned hourly
            segments (05:30 start -> 05:30-06:00, 06:00-07:00, ...), write 48 kHz
            working WAVs and Opus listening copies, and append rows to
-           metadata/sessions.csv and metadata/segments.csv.
+           sessions.csv and segments.csv in the metadata folder.
 
 Recordings are identified by the BWF originator reference stored inside each
 file, not by their path. After moving or renaming files, re-run `scan`: paths
@@ -25,7 +25,7 @@ Example:
       --manifest /media/USER/archive/soundscape_atlas/ingest_manifest.csv \\
       --timezone Australia/Sydney
 
-  # Edit the manifest: fill site_id (sites must exist in metadata/sites.csv),
+  # Edit the manifest: fill site_id (sites must exist in sites.csv),
   # check timezone, channels and clock_offset_minutes.
 
   python3 scripts/ingest_recordings.py process \\
@@ -55,7 +55,28 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_METADATA_DIR = SCRIPT_DIR.parent / "metadata"
+# The master metadata lives on the archive drive, never in this public repo.
+METADATA_DIR_ENV = "SOUNDSCAPE_METADATA_DIR"
+
+
+def default_metadata_dir() -> str:
+    return os.environ.get(METADATA_DIR_ENV, "").strip()
+
+
+def require_metadata_dir(value: str) -> Path:
+    """The metadata folder to use, or exit with an explanation."""
+    if not value:
+        print(
+            f"Set {METADATA_DIR_ENV} (or pass --metadata-dir) to the metadata folder on the archive drive.\n"
+            "The repository only holds empty templates in metadata_template/.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    path = Path(value).expanduser()
+    if not (path / "segments.csv").exists():
+        print(f"No segments.csv in {path}. To start, copy the files from metadata_template/ there.", file=sys.stderr)
+        raise SystemExit(2)
+    return path
 
 # Columns you edit by hand. `scan` never overwrites them once a row exists.
 USER_COLUMNS = [
@@ -599,7 +620,7 @@ def load_session_files(row: Dict[str, str]) -> List[RawFile]:
 
 def cmd_process(args: argparse.Namespace) -> int:
     manifest_path = Path(args.manifest).expanduser()
-    metadata_dir = Path(args.metadata_dir).expanduser()
+    metadata_dir = require_metadata_dir(args.metadata_dir)
     archive_root = Path(args.archive_root).expanduser()
     if not manifest_path.exists():
         print(f"Manifest not found: {manifest_path} (run scan first)", file=sys.stderr)
@@ -833,7 +854,8 @@ def main() -> int:
     process = sub.add_parser("process", help="cut, encode and register manifest rows that have a site_id")
     process.add_argument("--manifest", required=True)
     process.add_argument("--archive-root", required=True, help="output root; audio is written under <root>/audio/")
-    process.add_argument("--metadata-dir", default=str(DEFAULT_METADATA_DIR))
+    process.add_argument("--metadata-dir", default=default_metadata_dir(),
+                         help=f"metadata folder on the archive drive (default: ${METADATA_DIR_ENV})")
     process.add_argument("--operator", default="", help="recordist name for sessions.csv")
     process.add_argument("--copyright-owner", default="", help="defaults to --operator")
     process.add_argument("--license", default="all_rights_reserved")

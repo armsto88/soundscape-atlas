@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Upload published listening copies to Cloudflare R2 with rclone.
 
-Only segments with published=true in metadata/segments.csv are uploaded. A
+Only segments with published=true in segments.csv are uploaded. A
 publicly served bucket makes every object reachable by anyone who guesses its
 name, and segment IDs are easy to guess.
 
@@ -47,7 +47,7 @@ from typing import Dict, List, Set
 from urllib.parse import quote
 
 sys.dont_write_bytecode = True  # keep scripts/ free of __pycache__
-from ingest_recordings import DEFAULT_METADATA_DIR, read_csv, write_csv_atomic  # noqa: E402
+from ingest_recordings import default_metadata_dir, read_csv, require_metadata_dir, write_csv_atomic  # noqa: E402
 
 AUDIO_PREFIX = "audio/listening_opus/"
 UPLOAD_HEADERS = [
@@ -108,7 +108,8 @@ def main() -> int:
                         help="rclone remote and bucket, e.g. r2:soundscape-audio (or set R2_REMOTE)")
     parser.add_argument("--public-base-url", default=os.environ.get("R2_PUBLIC_BASE_URL", ""),
                         help="public URL of the bucket, e.g. https://audio.example.org (or set R2_PUBLIC_BASE_URL)")
-    parser.add_argument("--metadata-dir", default=str(DEFAULT_METADATA_DIR))
+    parser.add_argument("--metadata-dir", default=default_metadata_dir(),
+                        help="metadata folder (default: $SOUNDSCAPE_METADATA_DIR)")
     parser.add_argument("--transfers", type=int, default=4, help="parallel uploads (default 4)")
     parser.add_argument("--prune", action="store_true", help="delete bucket objects for segments that are not published")
     parser.add_argument("--yes", action="store_true", help="do not ask before pruning")
@@ -116,7 +117,7 @@ def main() -> int:
     args = parser.parse_args()
 
     archive_root = Path(args.archive_root).expanduser()
-    segments_path = Path(args.metadata_dir).expanduser() / "segments.csv"
+    segments_path = require_metadata_dir(args.metadata_dir) / "segments.csv"
 
     remote_name, _, bucket = args.remote.partition(":")
     bucket = bucket.strip("/")
