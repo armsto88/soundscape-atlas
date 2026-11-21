@@ -799,9 +799,7 @@ function wireEvents() {
   dom.audioPlayer.addEventListener("play", () => {
     state.isAudioPlaying = true;
     refreshMarkerIcons();
-    if (dom.iconPlay) dom.iconPlay.hidden = true;
-    if (dom.iconPause) dom.iconPause.hidden = false;
-    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Pause");
+    setPlayButtonState(true);
     updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       ensureAudioGraph();
@@ -812,9 +810,7 @@ function wireEvents() {
   dom.audioPlayer.addEventListener("pause", () => {
     state.isAudioPlaying = false;
     refreshMarkerIcons();
-    if (dom.iconPlay) dom.iconPlay.hidden = false;
-    if (dom.iconPause) dom.iconPause.hidden = true;
-    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    setPlayButtonState(false);
     updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
@@ -824,9 +820,7 @@ function wireEvents() {
   dom.audioPlayer.addEventListener("ended", () => {
     state.isAudioPlaying = false;
     refreshMarkerIcons();
-    if (dom.iconPlay) dom.iconPlay.hidden = false;
-    if (dom.iconPause) dom.iconPause.hidden = true;
-    if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", "Play");
+    setPlayButtonState(false);
     updateMobileMiniPlayer();
     if (state.spectrogram.enabled && dom.spectrogramMode.value === "live") {
       stopSpectrogram();
@@ -838,6 +832,14 @@ function wireEvents() {
     dom.spectrogramHint.hidden = false;
     dom.spectrogramHint.textContent = "No precomputed spectrogram image found for this segment.";
   });
+}
+
+// The icons are SVG elements, which have no `hidden` property, so the
+// attribute must be set directly.
+function setPlayButtonState(isPlaying) {
+  if (dom.iconPlay) dom.iconPlay.toggleAttribute("hidden", isPlaying);
+  if (dom.iconPause) dom.iconPause.toggleAttribute("hidden", !isPlaying);
+  if (dom.playPauseBtn) dom.playPauseBtn.setAttribute("aria-label", isPlaying ? "Pause" : "Play");
 }
 
 function isSmallPhoneViewport() {
@@ -2606,10 +2608,8 @@ function clearActiveSegmentState() {
   dom.timelineHint.textContent = "Select a segment to view detections.";
   if (dom.playPauseBtn) {
     dom.playPauseBtn.disabled = true;
-    if (dom.iconPlay) dom.iconPlay.hidden = false;
-    if (dom.iconPause) dom.iconPause.hidden = true;
-    dom.playPauseBtn.setAttribute("aria-label", "Play");
   }
+  setPlayButtonState(false);
   if (dom.seekBar) dom.seekBar.value = "0";
   if (dom.seekCurrentTime) dom.seekCurrentTime.textContent = "0:00";
   if (dom.seekDuration) dom.seekDuration.textContent = "0:00";

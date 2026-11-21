@@ -75,6 +75,12 @@ body[data-theme="light"] {
   box-sizing: border-box;
 }
 
+/* The hidden attribute always wins over component display rules
+   (e.g. `.t-play svg { display: block }` showed play and pause icons together). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -104,10 +110,6 @@ body {
   padding: 1rem;
   background: var(--overlay-scrim);
   backdrop-filter: blur(6px);
-}
-
-.landing-overlay[hidden] {
-  display: none;
 }
 
 .landing-card {
@@ -273,10 +275,6 @@ body {
 #settingsSignOutBtn:hover {
   border-color: color-mix(in srgb, var(--danger) 60%, var(--line));
   color: var(--danger);
-}
-
-.settings-menu[hidden] {
-  display: none;
 }
 
 .settings-menu label {
@@ -956,10 +954,6 @@ button:hover {
   overflow: auto;
 }
 
-.spectrogram-dock[hidden] {
-  display: none;
-}
-
 .spectrogram-dock-header {
   display: flex;
   align-items: center;
@@ -1028,10 +1022,6 @@ button:hover {
   place-items: center;
   background: var(--overlay-scrim);
   backdrop-filter: blur(2px);
-}
-
-.map-image-lightbox[hidden] {
-  display: none;
 }
 
 #mapImagePreview {
@@ -1428,10 +1418,6 @@ body[data-mode="chill"] .spectrogram-dock {
   box-shadow: 0 8px 18px rgba(var(--shadow-rgb), 0.18);
 }
 
-.timeline-action-menu[hidden] {
-  display: none !important;
-  pointer-events: none;
-}
 
 .timeline-action-menu select,
 .timeline-action-menu input {
@@ -1625,10 +1611,6 @@ body[data-mode="chill"] .spectrogram-dock {
   border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
   font-size: 0.82rem;
-}
-
-.site-focus-bar[hidden] {
-  display: none;
 }
 
 .site-focus-label {
