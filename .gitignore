@@ -1,0 +1,23 @@
+# Local Cloudflare/Wrangler state: local D1 database (user records), caches, build output
+.wrangler/
+.dev.vars
+
+# Python
+__pycache__/
+*.pyc
+
+# Audio and other large media never go in git (see docs/archive_structure.md)
+*.wav
+*.WAV
+*.opus
+*.flac
+*.mp3
+*.m4a
+
+# Ingest manifests can contain private recording locations
+ingest_manifest*.csv
+
+# Editor / OS clutter
+.DS_Store
+Thumbs.db
+*.swp
