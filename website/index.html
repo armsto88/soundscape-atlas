@@ -96,7 +96,7 @@
 
                 <label class="inline-check" for="clusterToggle">
                   <input id="clusterToggle" type="checkbox" checked />
-                  Cluster nearby points
+                  Cluster nearby sites
                 </label>
 
                 <label class="inline-check" for="dawnDuskOnlyToggle">
@@ -112,6 +112,10 @@
 
         <details class="panel segment-panel" id="segmentPanel" open>
           <summary class="panel-summary"><h2>Segments</h2></summary>
+          <div id="siteFocusBar" class="site-focus-bar" hidden>
+            <span id="siteFocusLabel" class="site-focus-label"></span>
+            <button id="clearSiteFocusBtn" class="site-focus-clear" type="button">All sites</button>
+          </div>
           <ul id="segmentList" class="segment-list"></ul>
         </details>
 
@@ -221,7 +225,7 @@
         </div>
 
         <div class="map-overlay">
-          <p>Click a sound point to load a segment in the player.</p>
+          <p>Click a site to listen. Its recordings are listed under Segments.</p>
         </div>
         <button id="mobileFiltersBtn" class="mobile-filters-btn" type="button">Panels</button>
         <div id="map" aria-label="Soundscape map"></div>

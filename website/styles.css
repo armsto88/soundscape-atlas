@@ -1576,6 +1576,74 @@ body[data-mode="chill"] .spectrogram-dock {
   }
 }
 
+/* One marker per site: the dot plus a count of matching segments. */
+.site-marker {
+  background: none;
+  border: none;
+}
+
+.marker-count {
+  position: absolute;
+  top: -8px;
+  left: 15px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--menu-bg);
+  color: var(--text);
+  font: 600 10px/15px "IBM Plex Mono", monospace;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(var(--shadow-rgb), 0.3);
+}
+
+.leaflet-tooltip.site-tooltip {
+  background: var(--menu-bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(var(--shadow-rgb), 0.3);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.leaflet-tooltip-top.site-tooltip::before {
+  border-top-color: var(--line);
+}
+
+.site-focus-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
+  font-size: 0.82rem;
+}
+
+.site-focus-bar[hidden] {
+  display: none;
+}
+
+.site-focus-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-focus-clear {
+  flex: none;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+}
+
 .marker-cluster-small,
 .marker-cluster-medium,
 .marker-cluster-large {

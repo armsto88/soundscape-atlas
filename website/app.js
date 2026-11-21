@@ -3,7 +3,10 @@ const state = {
   filteredSegments: [],
   activeSegmentId: null,
   activeSegment: null,
-  markersBySegmentId: new Map(),
+  markersBySiteId: new Map(),
+  sitesById: new Map(),
+  focusedSiteId: null,
+  hasFittedBounds: false,
   markerLayer: null,
   useClustering: true,
   isAudioPlaying: false,
@@ -62,6 +65,9 @@ const dom = {
   hourRangeLabel: document.getElementById("hourRangeLabel"),
   clearFiltersBtn: document.getElementById("clearFiltersBtn"),
   segmentList: document.getElementById("segmentList"),
+  siteFocusBar: document.getElementById("siteFocusBar"),
+  siteFocusLabel: document.getElementById("siteFocusLabel"),
+  clearSiteFocusBtn: document.getElementById("clearSiteFocusBtn"),
   nowPlaying: document.getElementById("nowPlaying"),
   shareSegmentBtn: document.getElementById("shareSegmentBtn"),
   toggleSegmentLikeBtn: document.getElementById("toggleSegmentLikeBtn"),
@@ -205,6 +211,9 @@ async function init() {
 
     dom.datasetSummary.textContent = `${payload.sites_count || 0} site(s)  |  ${payload.segments_count || 0} segment(s)  |  ${payload.detections_count || 0} detections`;
 
+    // Read the shared link before anything selects a segment and rewrites the URL.
+    const sharedSegmentId = getSharedSegmentIdFromUrl();
+
     buildFilterOptions(state.segments);
     wireEvents();
     restoreSignedInUser();
@@ -212,9 +221,7 @@ async function init() {
     renderUserLibrary();
     applyTheme(loadStoredTheme());
     applyUIMode(loadStoredUIMode());
-    applyFilters();
-
-    const sharedSegmentId = getSharedSegmentIdFromUrl();
+    applyFilters({ autoSelect: false });
 
     // Collapse secondary panels on narrow screens for a cleaner initial view
     if (window.innerWidth <= 760) {
@@ -223,16 +230,17 @@ async function init() {
       if (dom.metadataPanel) dom.metadataPanel.open = false;
     }
 
-    if (sharedSegmentId) {
-      selectSegment(sharedSegmentId, {
-        flyTo: true,
-        autoplay: false,
-      });
+    const sharedSegment = sharedSegmentId
+      ? state.segments.find((segment) => segment.segment_id === sharedSegmentId)
+      : null;
+    if (sharedSegment) {
+      // A shared link opens on its site, with that site's recordings listed.
+      state.focusedSiteId = sharedSegment.site_id;
+      selectSegment(sharedSegment.segment_id, { flyTo: true, autoplay: false });
     } else if (state.filteredSegments.length > 0) {
-      selectSegment(state.filteredSegments[0].segment_id, {
-        flyTo: true,
-        autoplay: false,
-      });
+      // Otherwise keep the overview of all sites and just load a default segment.
+      const initial = pickSiteSegment(state.filteredSegments[0].site_id);
+      selectSegment(initial.segment_id, { flyTo: false, autoplay: false });
     }
   } catch (error) {
     dom.datasetSummary.textContent = "Could not load metadata. Run build script first.";
@@ -650,7 +658,14 @@ function wireEvents() {
     });
   }
 
+  if (dom.clearSiteFocusBtn) {
+    dom.clearSiteFocusBtn.addEventListener("click", () => {
+      clearSiteFocus();
+    });
+  }
+
   dom.clearFiltersBtn.addEventListener("click", () => {
+    state.focusedSiteId = null;
     dom.seasonFilter.value = "all";
     dom.clusterToggle.checked = true;
     dom.dawnDuskOnlyToggle.checked = false;
@@ -1872,7 +1887,7 @@ function getSelectedSpecies() {
   return selected;
 }
 
-function applyFilters() {
+function applyFilters(options = {}) {
   const season = dom.seasonFilter.value;
   const hourMin = Number(dom.hourRangeMin.value);
   const hourMax = Number(dom.hourRangeMax.value);
@@ -1898,13 +1913,39 @@ function applyFilters() {
   renderMarkers(state.filteredSegments);
   renderSegmentList(state.filteredSegments);
 
+  // Called directly as an event listener, `options` is the Event: autoSelect stays on.
+  if (options.autoSelect === false) {
+    return;
+  }
+
   if (!state.filteredSegments.find((segment) => segment.segment_id === state.activeSegmentId)) {
-    if (state.filteredSegments.length > 0) {
-      selectSegment(state.filteredSegments[0].segment_id, { flyTo: true, autoplay: false });
+    const fallback =
+      (state.focusedSiteId && pickSiteSegment(state.focusedSiteId)) || state.filteredSegments[0];
+    if (fallback) {
+      selectSegment(fallback.segment_id, { flyTo: true, autoplay: false });
     } else {
       clearActiveSegmentState();
     }
   }
+}
+
+function groupSegmentsBySite(segments) {
+  const sites = new Map();
+  for (const segment of segments) {
+    let site = sites.get(segment.site_id);
+    if (!site) {
+      site = {
+        siteId: segment.site_id,
+        name: segment.site_name || segment.site_id,
+        lat: Number(segment.latitude),
+        lng: Number(segment.longitude),
+        segments: [],
+      };
+      sites.set(segment.site_id, site);
+    }
+    site.segments.push(segment);
+  }
+  return sites;
 }
 
 function renderMarkers(segments) {
@@ -1919,41 +1960,49 @@ function renderMarkers(segments) {
       })
     : L.layerGroup();
 
-  state.markersBySegmentId.clear();
+  state.markersBySiteId.clear();
+  state.sitesById = groupSegmentsBySite(segments);
   const bounds = [];
 
-  for (const segment of segments) {
-    const lat = Number(segment.latitude);
-    const lng = Number(segment.longitude);
+  for (const site of state.sitesById.values()) {
+    if (!Number.isFinite(site.lat) || !Number.isFinite(site.lng)) {
+      continue;
+    }
 
-    const marker = L.marker([lat, lng], {
-      icon: markerIcon(segment, segment.segment_id === state.activeSegmentId),
-      title: `${segment.site_name || segment.site_id} - ${segment.segment_id}`,
+    const count = site.segments.length;
+    const marker = L.marker([site.lat, site.lng], {
+      icon: siteMarkerIcon(site),
+      title: `${site.name}, ${count} segment${count === 1 ? "" : "s"}`,
+      riseOnHover: true,
     });
-
+    marker.bindTooltip(siteTooltipHtml(site), {
+      direction: "top",
+      offset: [0, -14],
+      className: "site-tooltip",
+    });
     marker.on("click", () => {
-      selectSegment(segment.segment_id, { flyTo: false, autoplay: true });
-      setMobilePanelsOpen(false);
+      focusSite(site.siteId, { autoplay: true });
     });
 
-    state.markersBySegmentId.set(segment.segment_id, marker);
+    state.markersBySiteId.set(site.siteId, marker);
     state.markerLayer.addLayer(marker);
-    bounds.push([lat, lng]);
+    bounds.push([site.lat, site.lng]);
   }
 
   state.markerLayer.addTo(map);
-  if (bounds.length > 0) {
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+
+  // Fit the view to the sites once. Later filter changes must not move the map.
+  if (!state.hasFittedBounds && bounds.length > 0) {
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    state.hasFittedBounds = true;
   }
 }
 
-function markerIcon(segment, isActive) {
+function siteMarkerIcon(site) {
+  const isActive = Boolean(state.activeSegment) && state.activeSegment.site_id === site.siteId;
   const classes = ["marker-dot"];
-  if (segment.featured) {
+  if (site.segments.some((segment) => segment.featured)) {
     classes.push("marker-featured");
-  }
-  if (isDawnDusk(Number(segment.local_hour))) {
-    classes.push("marker-dawn-dusk");
   }
   if (isActive) {
     classes.push("marker-active");
@@ -1962,34 +2011,143 @@ function markerIcon(segment, isActive) {
     }
   }
 
+  const count = site.segments.length;
+  const badge = count > 1
+    ? `<span class="marker-count">${count > 999 ? "999+" : count}</span>`
+    : "";
+
   return L.divIcon({
-    className: "",
-    html: `<span class="${classes.join(" ")}"><span class="wave"></span><span class="wave"></span><span class="wave"></span></span>`,
+    className: "site-marker",
+    html: `<span class="${classes.join(" ")}"><span class="wave"></span><span class="wave"></span><span class="wave"></span></span>${badge}`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
-    popupAnchor: [0, -10],
   });
 }
 
+function siteTooltipHtml(site) {
+  const count = site.segments.length;
+  const dates = site.segments.map((segment) => segment.local_date).filter(Boolean).sort();
+  let range = "";
+  if (dates.length > 0) {
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    range = first === last ? first : `${first} – ${last}`;
+  }
+  return `<strong>${escapeHtml(site.name)}</strong><br>${count} segment${count === 1 ? "" : "s"}${range ? ` · ${escapeHtml(range)}` : ""}`;
+}
+
 function refreshMarkerIcons() {
-  for (const segment of state.filteredSegments) {
-    const marker = state.markersBySegmentId.get(segment.segment_id);
-    if (!marker) {
-      continue;
+  for (const site of state.sitesById.values()) {
+    const marker = state.markersBySiteId.get(site.siteId);
+    if (marker) {
+      marker.setIcon(siteMarkerIcon(site));
     }
-    marker.setIcon(markerIcon(segment, segment.segment_id === state.activeSegmentId));
+  }
+}
+
+function segmentLengthSeconds(segment) {
+  const start = Date.parse(segment.segment_start_local || "");
+  const end = Date.parse(segment.segment_end_local || "");
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? (end - start) / 1000 : 3600;
+}
+
+// The segment a site click plays: featured first, then full hours, then earliest.
+function pickSiteSegment(siteId) {
+  const candidates = state.filteredSegments.filter((segment) => segment.site_id === siteId);
+  if (candidates.length === 0) {
+    return null;
+  }
+  const isFullHour = (segment) => segmentLengthSeconds(segment) >= 3540;
+  return [...candidates].sort(
+    (a, b) =>
+      Number(Boolean(b.featured)) - Number(Boolean(a.featured)) ||
+      Number(isFullHour(b)) - Number(isFullHour(a)) ||
+      String(a.segment_start_local || "").localeCompare(String(b.segment_start_local || ""))
+  )[0];
+}
+
+function getSiteName(siteId) {
+  const site = state.sitesById.get(siteId);
+  if (site) {
+    return site.name;
+  }
+  const segment = state.segments.find((entry) => entry.site_id === siteId);
+  return (segment && segment.site_name) || siteId;
+}
+
+function focusSite(siteId, options = {}) {
+  state.focusedSiteId = siteId;
+  if (dom.segmentPanel) {
+    dom.segmentPanel.open = true;
+  }
+
+  const active = state.activeSegment;
+  const activeIsHere = Boolean(active) && active.site_id === siteId && state.filteredSegments.includes(active);
+  if (activeIsHere) {
+    // Already listening here: keep the current position instead of reloading.
+    renderSegmentList(state.filteredSegments);
+    if (options.autoplay && dom.audioPlayer.paused && dom.audioPlayer.getAttribute("src")) {
+      dom.audioPlayer.play().catch(() => {});
+    }
+  } else {
+    const pick = pickSiteSegment(siteId);
+    if (pick) {
+      selectSegment(pick.segment_id, { flyTo: false, autoplay: Boolean(options.autoplay) });
+    } else {
+      renderSegmentList(state.filteredSegments);
+    }
+  }
+
+  scrollActiveSegmentIntoView();
+  setMobilePanelsOpen(false);
+}
+
+function clearSiteFocus() {
+  state.focusedSiteId = null;
+  renderSegmentList(state.filteredSegments);
+  scrollActiveSegmentIntoView();
+}
+
+function updateSiteFocusBar(visibleCount) {
+  if (!dom.siteFocusBar) {
+    return;
+  }
+  const focusedSiteId = state.focusedSiteId;
+  dom.siteFocusBar.hidden = !focusedSiteId;
+  if (focusedSiteId && dom.siteFocusLabel) {
+    dom.siteFocusLabel.textContent = `${getSiteName(focusedSiteId)} · ${visibleCount} segment${visibleCount === 1 ? "" : "s"}`;
+  }
+}
+
+function scrollActiveSegmentIntoView() {
+  const item = dom.segmentList.querySelector(".segment-item.active");
+  if (!item) {
+    return;
+  }
+  const listRect = dom.segmentList.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  if (itemRect.top < listRect.top || itemRect.bottom > listRect.bottom) {
+    dom.segmentList.scrollTop += itemRect.top - listRect.top;
   }
 }
 
 function renderSegmentList(segments) {
+  const focusedSiteId = state.focusedSiteId;
+  const visible = focusedSiteId
+    ? segments.filter((segment) => segment.site_id === focusedSiteId)
+    : segments;
+  updateSiteFocusBar(visible.length);
   dom.segmentList.innerHTML = "";
 
-  if (segments.length === 0) {
-    dom.segmentList.innerHTML = '<li class="subtle">No segments match the current filters.</li>';
+  if (visible.length === 0) {
+    const message = focusedSiteId
+      ? `No segments at ${getSiteName(focusedSiteId)} match the current filters.`
+      : "No segments match the current filters.";
+    dom.segmentList.innerHTML = `<li class="subtle">${escapeHtml(message)}</li>`;
     return;
   }
 
-  for (const segment of segments) {
+  for (const segment of visible) {
     const item = document.createElement("li");
     item.className = "segment-item";
     const segmentHour = Number(segment.local_hour);
@@ -2050,11 +2208,17 @@ function selectSegment(segmentId, options = {}) {
     return;
   }
 
+  // Keep a focused segment list in step with what is playing.
+  if (state.focusedSiteId && state.focusedSiteId !== segment.site_id) {
+    state.focusedSiteId = segment.site_id;
+  }
+
   state.activeSegmentId = segment.segment_id;
   state.activeSegment = segment;
   updateSegmentShareUrl(segment.segment_id);
 
   renderSegmentList(state.filteredSegments);
+  scrollActiveSegmentIntoView();
   renderMetadata(segment);
   renderSegmentImage(segment);
   updateActiveSegmentLikeButton();
@@ -2097,7 +2261,7 @@ function selectSegment(segmentId, options = {}) {
     renderSpectrogramForCurrentSegment();
   }
 
-  const marker = state.markersBySegmentId.get(segment.segment_id);
+  const marker = state.markersBySiteId.get(segment.site_id);
   if (marker) {
     if (options.flyTo) {
       map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 12), { duration: 0.9 });
