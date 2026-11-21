@@ -197,13 +197,14 @@ async function init() {
     setupBrandLogo();
     setupLibrarySidebarResize();
 
-    const response = await fetch("api/data.json", { cache: "no-store" });
+    const dataUrl = new URL("api/data.json", window.location.href);
+    const response = await fetch(dataUrl, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Failed to load metadata: ${response.status}`);
     }
 
     const payload = await response.json();
-    state.segments = (payload.segments || []).filter((segment) => {
+    state.segments = hydrateSegments(payload, response.url || dataUrl.href).filter((segment) => {
       const lat = Number(segment.latitude);
       const lng = Number(segment.longitude);
       return Number.isFinite(lat) && Number.isFinite(lng);
@@ -246,6 +247,73 @@ async function init() {
     dom.datasetSummary.textContent = "Could not load metadata. Run build script first.";
     dom.segmentList.innerHTML = `<li class="subtle">${escapeHtml(String(error.message || error))}</li>`;
   }
+}
+
+// data.json stores each site, session and species name once; put them back on
+// every segment so the rest of the app can read segment.site_name, .site, etc.
+// Detections are not in the index: they load per segment (see loadDetections).
+function hydrateSegments(payload, dataUrl) {
+  const sites = payload.sites || {};
+  const sessions = payload.sessions || {};
+  const speciesNames = Array.isArray(payload.species) ? payload.species : [];
+
+  return (payload.segments || []).map((segment) => {
+    const site = sites[segment.site_id] || {};
+    const species = (segment.species_ids || [])
+      .map((index) => speciesNames[index])
+      .filter(Boolean);
+    const detectionsUrl = segment.detections_url
+      ? new URL(segment.detections_url, dataUrl).toString()
+      : "";
+
+    return {
+      ...segment,
+      site_name: site.site_name,
+      latitude: site.latitude,
+      longitude: site.longitude,
+      site,
+      session: sessions[segment.session_id] || {},
+      species,
+      speciesSet: new Set(species),
+      detections_url: detectionsUrl,
+      // undefined = not loaded yet; [] = nothing to load.
+      detections: Number(segment.detection_count) > 0 && detectionsUrl ? undefined : [],
+    };
+  });
+}
+
+const detectionRequests = new Map();
+
+function detectionsPending(segment) {
+  return Boolean(segment) && !Array.isArray(segment.detections);
+}
+
+function loadDetections(segment) {
+  if (!detectionsPending(segment)) {
+    return Promise.resolve();
+  }
+  if (!detectionRequests.has(segment.segment_id)) {
+    segment.detectionsError = false;
+    const request = fetch(segment.detections_url)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        segment.detections = Array.isArray(data.detections) ? data.detections : [];
+      })
+      .catch(() => {
+        // Left unloaded so the next selection retries.
+        segment.detectionsError = true;
+      })
+      .finally(() => {
+        detectionRequests.delete(segment.segment_id);
+      });
+    detectionRequests.set(segment.segment_id, request);
+  }
+  return detectionRequests.get(segment.segment_id);
 }
 
 function setupBrandLogo() {
@@ -1821,10 +1889,10 @@ function buildFilterOptions(segments) {
   const speciesNames = new Set();
 
   for (const segment of segments) {
-    for (const detection of segment.detections || []) {
-      const species = (detection.common_name || "").trim();
-      if (species) {
-        speciesNames.add(species);
+    for (const species of segment.species || []) {
+      const name = String(species).trim();
+      if (name) {
+        speciesNames.add(name);
       }
     }
   }
@@ -1905,7 +1973,7 @@ function applyFilters(options = {}) {
 
     let speciesMatch = true;
     if (selectedSpeciesSet.size > 0) {
-      const names = new Set((segment.detections || []).map((detection) => detection.common_name));
+      const names = segment.speciesSet || new Set();
       speciesMatch = [...selectedSpeciesSet].some((species) => names.has(species));
     }
 
@@ -2231,6 +2299,13 @@ function selectSegment(segmentId, options = {}) {
     renderDetectionTimeline(state.activeSegment);
   });
   renderDetectionTimeline(segment);
+  if (detectionsPending(segment)) {
+    loadDetections(segment).then(() => {
+      if (state.activeSegment === segment) {
+        renderDetectionTimeline(segment);
+      }
+    });
+  }
 
   const audioSrc = segment.public_url && segment.public_url.trim() !== ""
     ? segment.public_url
@@ -2334,16 +2409,20 @@ function renderDetectionTimeline(segment) {
   }
 
   const detections = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
-  if (detections.length === 0) {
-    dom.timelineHint.textContent = "No detections recorded for this segment.";
-    return;
-  }
 
-  const defaultHint = "Click a detection to jump \u00b7 click track to comment";
+  let defaultHint = "Click a detection to jump \u00b7 click track to comment";
+  if (detectionsPending(segment)) {
+    defaultHint = segment.detectionsError
+      ? "Could not load detections for this segment \u00b7 click track to comment"
+      : "Loading detections\u2026";
+  } else if (detections.length === 0) {
+    defaultHint = "No detections recorded for this segment \u00b7 click track to comment";
+  }
   dom.timelineHint.textContent = defaultHint;
   state.selectedTimelineComment = null;
   updateDeleteTimelineCommentButton();
 
+  // Comments are drawn below even when there are no detections (or they are loading).
   const duration = getDurationForTimeline(segment);
   for (const detection of detections) {
     const startSec = Number(detection.start_sec);

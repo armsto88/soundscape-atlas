@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
-"""Build website-ready JSON payload from metadata CSV files."""
+"""Build the website's published data from the metadata CSV files.
+
+Writes two kinds of file next to --output:
+
+  data.json                         index: published segments, plus each site,
+                                    session and species name stored once
+  detections/<SITE>/<SEGMENT>.json  one file per segment with detections,
+                                    loaded by the site when that segment is opened
+
+Keeping detections out of the index keeps it small: one file of everything
+grows past Cloudflare Pages' 25 MiB per-file limit after a few weeks of audio.
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
 import json
+import re
+import shutil
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -19,6 +32,14 @@ PRECISION_NAMES = {None: "exact", 2: "rounded", 1: "coarse"}
 DEFAULT_PRECISION = "rounded"
 SENSITIVE_DECIMALS = 1  # sensitive sites are never more precise than "coarse"
 SENSITIVE_ELEVATION_STEP_M = 100
+
+DETECTIONS_DIR_NAME = "detections"
+# IDs become file names, so they must not contain path separators or "..".
+SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+# Cloudflare Pages limits, warned about before a deploy would fail.
+PAGES_MAX_FILE_BYTES = 25 * 1024 * 1024
+PAGES_MAX_FILES = 20_000
 
 
 class PublicLocation(NamedTuple):
@@ -36,6 +57,10 @@ def read_csv(path: Path) -> List[dict]:
 
 def to_bool(value: str) -> bool:
     return str(value).strip().lower() == "true"
+
+
+def is_safe_id(value: str) -> bool:
+    return bool(SAFE_ID.match(value or "")) and ".." not in value
 
 
 def split_published(segments: List[dict]) -> Tuple[List[dict], List[dict], List[Tuple[str, str]]]:
@@ -100,7 +125,15 @@ def public_location(site: dict) -> Tuple[PublicLocation, List[str]]:
     return location, warnings
 
 
-def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
+def parse_seconds(value) -> float | None:
+    try:
+        return float(value) if value not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[str, dict]]:
+    """Return (index payload, {relative detections path: detections payload})."""
     sites = read_csv(metadata_dir / "sites.csv")
     sessions = read_csv(metadata_dir / "sessions.csv")
     detections = read_csv(metadata_dir / "birdnet_detections.csv")
@@ -116,69 +149,109 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
             print(f"warning: sites.csv {site['site_id']}: {warning}", file=sys.stderr)
     no_location = PublicLocation("", "", "", "coarse", True)
 
+    published_ids = {segment["segment_id"] for segment in segments}
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
-    species_count_by_segment: Dict[str, Counter] = defaultdict(Counter)
     for detection in detections:
         segment_id = detection.get("segment_id", "")
-        detections_by_segment[segment_id].append(detection)
-        common_name = (detection.get("common_name") or "Unknown").strip()
-        species_count_by_segment[segment_id][common_name] += 1
+        if segment_id in published_ids:
+            detections_by_segment[segment_id].append(detection)
 
-    web_segments = []
+    species_names = sorted(
+        {
+            (detection.get("common_name") or "Unknown").strip()
+            for rows in detections_by_segment.values()
+            for detection in rows
+        },
+        key=str.casefold,
+    )
+    species_index = {name: index for index, name in enumerate(species_names)}
+
+    index_sites: Dict[str, dict] = {}
+    index_sessions: Dict[str, dict] = {}
+    index_segments: List[dict] = []
+    detection_files: Dict[str, dict] = {}
+
     for segment in segments:
         segment_id = segment["segment_id"]
-        session = sessions_by_id.get(segment.get("session_id", ""), {})
-        site = sites_by_id.get(segment.get("site_id", ""), {})
-        location = locations.get(segment.get("site_id", ""), no_location)
+        site_id = segment.get("site_id", "")
+        session_id = segment.get("session_id", "")
 
-        top_species = [
-            {"name": name, "count": count}
-            for name, count in species_count_by_segment[segment_id].most_common(6)
-        ]
+        if site_id not in index_sites:
+            site = sites_by_id.get(site_id, {})
+            location = locations.get(site_id, no_location)
+            index_sites[site_id] = {
+                "site_name": site.get("site_name"),
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "country_code": site.get("country_code"),
+                "region_code": site.get("region_code"),
+                "locality": site.get("locality"),
+                "elevation_m": location.elevation_m,
+                "habitat": site.get("habitat"),
+                "biome": site.get("biome"),
+                "public_location_precision": location.precision,
+                "description": site.get("description"),
+                "is_sensitive": location.is_sensitive,
+            }
 
-        segment_detections = []
-        for detection in detections_by_segment[segment_id]:
-            start_sec_raw = detection.get("start_sec")
-            end_sec_raw = detection.get("end_sec")
-            try:
-                start_sec = float(start_sec_raw) if start_sec_raw not in (None, "") else None
-            except ValueError:
-                start_sec = None
-            try:
-                end_sec = float(end_sec_raw) if end_sec_raw not in (None, "") else None
-            except ValueError:
-                end_sec = None
+        if session_id not in index_sessions:
+            session = sessions_by_id.get(session_id, {})
+            index_sessions[session_id] = {
+                "timezone": session.get("timezone"),
+                "recorder": session.get("recorder"),
+                "microphones": session.get("microphones"),
+                "sample_rate_hz": session.get("sample_rate_hz"),
+                "bit_depth": session.get("bit_depth"),
+                "channels": session.get("channels"),
+                "weather_notes": session.get("weather_notes"),
+                "field_notes": session.get("field_notes"),
+                "operator": session.get("operator"),
+                "copyright_owner": session.get("copyright_owner"),
+                "license": session.get("license"),
+            }
 
-            segment_detections.append(
-                {
-                    "detection_id": detection.get("detection_id"),
-                    "common_name": detection.get("common_name"),
-                    "scientific_name": detection.get("scientific_name"),
-                    "start_sec": start_sec,
-                    "end_sec": end_sec,
-                    "confidence": detection.get("confidence"),
-                    "model": detection.get("model"),
-                    "review_status": detection.get("review_status"),
-                }
-            )
+        rows = detections_by_segment[segment_id]
+        counts = Counter((row.get("common_name") or "Unknown").strip() for row in rows)
+        top_species = [{"name": name, "count": count} for name, count in counts.most_common(6)]
 
-        segment_detections.sort(
-            key=lambda item: item["start_sec"] if item["start_sec"] is not None else -1
-        )
+        detections_url = ""
+        if rows:
+            if is_safe_id(site_id) and is_safe_id(segment_id):
+                relative = f"{DETECTIONS_DIR_NAME}/{site_id}/{segment_id}.json"
+                segment_detections = [
+                    {
+                        "detection_id": row.get("detection_id"),
+                        "common_name": row.get("common_name"),
+                        "scientific_name": row.get("scientific_name"),
+                        "start_sec": parse_seconds(row.get("start_sec")),
+                        "end_sec": parse_seconds(row.get("end_sec")),
+                        "confidence": row.get("confidence"),
+                        "model": row.get("model"),
+                        "review_status": row.get("review_status"),
+                    }
+                    for row in rows
+                ]
+                segment_detections.sort(
+                    key=lambda item: item["start_sec"] if item["start_sec"] is not None else -1
+                )
+                detection_files[relative] = {"segment_id": segment_id, "detections": segment_detections}
+                detections_url = relative
+            else:
+                print(
+                    f"warning: {site_id}/{segment_id} is not a safe file name; its detections are not published",
+                    file=sys.stderr,
+                )
 
         listening_opus_path = segment.get("listening_opus_path")
         spectrogram_image_url = ""
         if listening_opus_path and listening_opus_path.lower().endswith(".opus"):
             spectrogram_image_url = listening_opus_path[:-5] + ".png"
 
-        web_segments.append(
+        index_segments.append(
             {
                 "segment_id": segment_id,
-                "session_id": segment.get("session_id"),
-                "site_id": segment.get("site_id"),
-                "site_name": site.get("site_name"),
-                "latitude": location.latitude,
-                "longitude": location.longitude,
+                "session_id": session_id,
+                "site_id": site_id,
                 "segment_start_local": segment.get("segment_start_local"),
                 "segment_end_local": segment.get("segment_end_local"),
                 "local_date": segment.get("local_date"),
@@ -189,58 +262,101 @@ def build_payload(metadata_dir: Path, segments: List[dict]) -> dict:
                 "rain_present": to_bool(segment.get("rain_present", "false")),
                 "water_present": to_bool(segment.get("water_present", "false")),
                 "anthropogenic_noise": segment.get("anthropogenic_noise"),
-                "published": to_bool(segment.get("published", "false")),
                 "featured": to_bool(segment.get("featured", "false")),
                 "notes": segment.get("notes"),
                 "listening_opus_path": listening_opus_path,
                 "spectrogram_image_url": spectrogram_image_url,
                 "public_url": segment.get("public_url"),
-                "session": {
-                    "timezone": session.get("timezone"),
-                    "recorder": session.get("recorder"),
-                    "microphones": session.get("microphones"),
-                    "sample_rate_hz": session.get("sample_rate_hz"),
-                    "bit_depth": session.get("bit_depth"),
-                    "channels": session.get("channels"),
-                    "weather_notes": session.get("weather_notes"),
-                    "field_notes": session.get("field_notes"),
-                    "operator": session.get("operator"),
-                    "copyright_owner": session.get("copyright_owner"),
-                    "license": session.get("license"),
-                },
-                "site": {
-                    "country_code": site.get("country_code"),
-                    "region_code": site.get("region_code"),
-                    "locality": site.get("locality"),
-                    "elevation_m": location.elevation_m,
-                    "habitat": site.get("habitat"),
-                    "biome": site.get("biome"),
-                    "public_location_precision": location.precision,
-                    "description": site.get("description"),
-                    "is_sensitive": location.is_sensitive,
-                },
-                "detection_count": len(detections_by_segment[segment_id]),
+                "detection_count": len(rows),
                 "top_species": top_species,
-                "detections": segment_detections,
+                "species_ids": sorted(species_index[name] for name in counts),
+                "detections_url": detections_url,
             }
         )
 
     # Totals describe only what is published, so hidden recordings are not
     # revealed through the counts either.
-    return {
-        "generated_from": str(metadata_dir),
-        "sites_count": len({s["site_id"] for s in web_segments}),
-        "sessions_count": len({s["session_id"] for s in web_segments}),
-        "segments_count": len(web_segments),
-        "detections_count": sum(s["detection_count"] for s in web_segments),
-        "segments": web_segments,
+    index = {
+        "format": 2,
+        "sites_count": len(index_sites),
+        "sessions_count": len(index_sessions),
+        "segments_count": len(index_segments),
+        "detections_count": sum(s["detection_count"] for s in index_segments),
+        "species": species_names,
+        "sites": index_sites,
+        "sessions": index_sessions,
+        "segments": index_segments,
     }
+    return index, detection_files
+
+
+def to_json_lines(payload: dict) -> str:
+    """JSON with one list item or mapping entry per line.
+
+    Far smaller than indented JSON, and a git diff still shows one changed line
+    per changed segment, site or detection.
+    """
+
+    def compact(value) -> str:
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+    keys = list(payload)
+    lines = ["{"]
+    for position, key in enumerate(keys):
+        value = payload[key]
+        comma = "," if position < len(keys) - 1 else ""
+        if isinstance(value, list) and value:
+            body = ",\n".join(f"    {compact(item)}" for item in value)
+            lines.append(f"  {compact(key)}: [\n{body}\n  ]{comma}")
+        elif isinstance(value, dict) and value:
+            body = ",\n".join(f"    {compact(k)}: {compact(v)}" for k, v in value.items())
+            lines.append(f"  {compact(key)}: {{\n{body}\n  }}{comma}")
+        else:
+            lines.append(f"  {compact(key)}: {compact(value)}{comma}")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8", newline="\n")
+    tmp.replace(path)
+
+
+def replace_detections_dir(target: Path, files: Dict[str, dict]) -> int:
+    """Write all detection files to a fresh directory, then swap it in.
+
+    The whole directory is replaced so files for segments that were unpublished
+    or removed since the last build cannot linger. Returns total bytes written.
+    """
+    staging = target.with_name(target.name + ".new")
+    previous = target.with_name(target.name + ".old")
+    for leftover in (staging, previous):
+        if leftover.exists():
+            shutil.rmtree(leftover)
+
+    total = 0
+    staging.mkdir(parents=True)
+    for relative, payload in files.items():
+        path = staging / Path(relative).relative_to(DETECTIONS_DIR_NAME)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = to_json_lines(payload)
+        path.write_text(text, encoding="utf-8", newline="\n")
+        total += len(text.encode("utf-8"))
+
+    if target.exists():
+        target.rename(previous)
+    staging.rename(target)
+    if previous.exists():
+        shutil.rmtree(previous)
+    return total
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build website metadata JSON")
+    parser = argparse.ArgumentParser(description="Build the website's published data")
     parser.add_argument("--metadata-dir", default="metadata")
-    parser.add_argument("--output", default="website/api/data.json")
+    parser.add_argument("--output", default="website/api/data.json", help="index file; detections/ is written beside it")
     args = parser.parse_args()
 
     metadata_dir = Path(args.metadata_dir)
@@ -253,17 +369,33 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    payload = build_payload(metadata_dir, published)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    index, detection_files = build_outputs(metadata_dir, published)
 
-    with output_path.open("w", encoding="utf-8", newline="") as handle:
-        json.dump(payload, handle, indent=2)
-        handle.write("\n")
+    detections_bytes = replace_detections_dir(output_path.parent / DETECTIONS_DIR_NAME, detection_files)
+    index_text = to_json_lines(index)
+    write_text_atomic(output_path, index_text)
+    index_bytes = len(index_text.encode("utf-8"))
 
     print(
-        f"Wrote {output_path} with {payload['segments_count']} published segment(s); "
-        f"{len(unpublished)} unpublished segment(s) left out."
+        f"Wrote {output_path} ({index_bytes / 1024:.0f} KiB) with {index['segments_count']} published "
+        f"segment(s); {len(unpublished)} unpublished segment(s) left out."
     )
+    print(
+        f"Wrote {len(detection_files)} detection file(s) to {output_path.parent / DETECTIONS_DIR_NAME} "
+        f"({detections_bytes / 1024 / 1024:.1f} MiB)."
+    )
+
+    if index_bytes > PAGES_MAX_FILE_BYTES * 0.8:
+        print(
+            f"warning: {output_path} is {index_bytes / 1024 / 1024:.1f} MiB; Cloudflare Pages rejects files over 25 MiB",
+            file=sys.stderr,
+        )
+    if len(detection_files) > PAGES_MAX_FILES * 0.75:
+        print(
+            f"warning: {len(detection_files)} detection files; Cloudflare Pages allows about "
+            f"{PAGES_MAX_FILES:,} files per site, so detection files should move to R2 soon",
+            file=sys.stderr,
+        )
     return 0
 
 

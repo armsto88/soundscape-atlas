@@ -7,7 +7,17 @@
 
 ## What gets published
 
-`scripts/build_web_metadata.py` builds the public `website/api/data.json`:
+`scripts/build_web_metadata.py` builds the public files in `website/api/`:
+
+- `data.json`: the index of published segments, with each site, session and
+  species name stored once. It stays small (about 1 KB per segment).
+- `detections/<SITE_ID>/<SEGMENT_ID>.json`: one file per segment with
+  detections, loaded when that segment is opened. The folder is rebuilt from
+  scratch on every run, so files for unpublished segments never linger.
+  Cloudflare Pages allows about 20,000 files per site. At that scale these
+  files should move to R2, and the build warns before then.
+
+Rules:
 
 - Only segments with `published=true` are included, along with their detections.
   New segments from the ingest script start as `false`.
