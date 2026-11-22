@@ -43,6 +43,7 @@ import csv
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -112,6 +113,12 @@ WAV_CODECS = {"pcm_s16le", "pcm_s24le", "pcm_s32le", "pcm_f32le", "pcm_f64le"}
 # for them to count as one continuous recording, by timestamp precision.
 JOIN_TOLERANCE = {"bwf": 0.5, "bwf-coarse": 5.0, "filename": 90.0}
 
+# A complete BWF origination date (yyyy-mm-dd, any separators). Pro Tools
+# copies keep only the first 9 characters ("2023-09-2" for 2023-09-24).
+FULL_BWF_DATE_RE = re.compile(r"\s*\d{4}\D\d{2}\D\d{2}\s*")
+# Sound Devices iXML FILE_UID: "USSDV" + 10-character serial + "00" + YYMMDD + ...
+FILE_UID_DATE_RE = re.compile(r"<FILE_UID>\s*USSDV\w{10}00(\d{2})(\d{2})(\d{2})")
+
 
 class IngestError(Exception):
     pass
@@ -136,6 +143,7 @@ class RawFile:
     key: str  # stable identity that survives moves/renames
     timing: str  # "bwf" | "bwf-coarse" | "filename"
     site_hint: str = ""  # site id parsed from a project-style filename
+    ixml_date: bool = False  # BWF date was cut short; the date came from iXML
 
     @property
     def duration(self) -> float:
@@ -181,15 +189,60 @@ def parse_bwf_time(value: str) -> Optional[dtime]:
         return None
 
 
-def bwf_start(tags: Dict[str, str], sample_rate: int) -> Tuple[Optional[datetime], str]:
+def full_bwf_date(tags: Dict[str, str]) -> Optional[date]:
+    """The BWF origination date, or None if it is missing or cut short."""
+    value = tags.get("date", "")
+    if not FULL_BWF_DATE_RE.fullmatch(value):
+        return None
+    return parse_bwf_date(value)
+
+
+def read_ixml(path: Path) -> str:
+    """The iXML chunk of a WAV file, or "" if there is none before the audio data."""
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(12)
+            if header[:4] not in (b"RIFF", b"RF64", b"BW64") or header[8:12] != b"WAVE":
+                return ""
+            while True:
+                chunk = handle.read(8)
+                if len(chunk) < 8:
+                    return ""
+                chunk_id, size = struct.unpack("<4sI", chunk)
+                if chunk_id == b"data":
+                    return ""
+                if chunk_id == b"iXML":
+                    return handle.read(size).decode("utf-8", "replace")
+                handle.seek(size + (size & 1), os.SEEK_CUR)
+    except OSError:
+        return ""
+
+
+def ixml_file_date(ixml: str) -> Optional[date]:
+    """The day a Sound Devices file started, from the date in its iXML FILE_UID."""
+    match = FILE_UID_DATE_RE.search(ixml or "")
+    if not match:
+        return None
+    try:
+        return date(2000 + int(match[1]), int(match[2]), int(match[3]))
+    except ValueError:
+        return None
+
+
+def bwf_start(
+    tags: Dict[str, str], sample_rate: int, fallback_day: Optional[date] = None
+) -> Tuple[Optional[datetime], str]:
     """Start time of the first sample from BWF metadata.
 
     The origination date/time is only second-precise and on some recorders is
     written a few seconds after recording starts. time_reference (samples since
     midnight) is sample-accurate when the recorder runs time-of-day timecode, so
     it is preferred whenever it agrees with the origination time.
+
+    fallback_day replaces an origination date that is cut short (Pro Tools
+    copies); a cut date is never parsed on its own.
     """
-    day = parse_bwf_date(tags.get("date", ""))
+    day = full_bwf_date(tags) or fallback_day
     clock = parse_bwf_time(tags.get("creation_time", ""))
     if day is None or clock is None:
         return None, ""
@@ -241,7 +294,11 @@ def probe_file(path: Path) -> RawFile:
     if samples <= 0:
         raise IngestError("empty or unreadable audio")
 
-    start, timing = bwf_start(tags, sample_rate)
+    fallback_day = None
+    if full_bwf_date(tags) is None:
+        fallback_day = ixml_file_date(read_ixml(path))
+    start, timing = bwf_start(tags, sample_rate, fallback_day)
+    ixml_date = start is not None and fallback_day is not None
     site_hint = ""
     name_match = PROJECT_NAME_RE.match(path.stem)
     if name_match:
@@ -250,6 +307,10 @@ def probe_file(path: Path) -> RawFile:
             start = datetime.strptime(name_match["date"] + name_match["hm"], "%Y%m%d%H%M")
             timing = "filename"
     if start is None:
+        if tags.get("date") and tags.get("creation_time"):
+            raise IngestError(
+                f"BWF date {tags['date']!r} is incomplete and there is no iXML FILE_UID date"
+            )
         raise IngestError(
             "no BWF timestamp, and the filename does not follow SITEID_YYYYMMDD_HHMM"
         )
@@ -265,10 +326,13 @@ def probe_file(path: Path) -> RawFile:
         codec=str(stream.get("codec_name") or ""),
         bit_depth=int(stream.get("bits_per_raw_sample") or stream.get("bits_per_sample") or 0),
         recorder=clean_recorder_name(encoded_by),
-        recorder_id=encoded_by.strip() or f"folder:{path.parent}",
+        # Pro Tools copies cut a full 32-character BWF originator by one
+        # character (as with the date), so compare only the first 31.
+        recorder_id=encoded_by.strip()[:31] or f"folder:{path.parent}",
         key=reference or f"{path.name}@{start:%Y%m%dT%H%M%S}",
         timing=timing,
         site_hint=site_hint,
+        ixml_date=ixml_date,
     )
 
 
@@ -452,6 +516,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 row["status"] = "not found in last scan"
                 missing_count += 1
 
+    # Rows from an earlier scan whose files are now part of another recording
+    # (files joined differently). `process` skips them.
+    owner_of = {f: row["source_key"] for row in scanned_rows for f in split_files(row["files"])}
+    merged_count = 0
+    for row in existing_rows:
+        files = split_files(row.get("files", ""))
+        if row.get("source_key") not in seen_keys and files and all(f in owner_of for f in files):
+            row["status"] = f"merged into {owner_of[files[0]]}"
+            merged_count += 1
+
     existing_rows.sort(key=lambda row: row.get("recorder_start_local", ""))
     write_csv_atomic(manifest_path, MANIFEST_COLUMNS, existing_rows)
 
@@ -468,6 +542,11 @@ def cmd_scan(args: argparse.Namespace) -> int:
         f"{len(probed)} file(s) -> {len(sessions)} recording(s), {total_hours:.1f} h total. "
         f"{new_count} new, {moved_count} with updated paths, {missing_count} missing."
     )
+    if merged_count:
+        print(f"{merged_count} earlier row(s) now belong to another recording; marked 'merged into ...' and skipped by process.")
+    ixml_dated = sum(1 for f in probed if f.ixml_date)
+    if ixml_dated:
+        print(f"{ixml_dated} file(s) had a cut-short BWF date (Pro Tools copy); dated from their iXML FILE_UID.")
     for path, reason in failures:
         print(f"  skipped {path}: {reason}")
     print(f"Manifest: {manifest_path}")
@@ -541,33 +620,48 @@ def pan_filter(channels: List[int]) -> str:
     return f"pan=stereo|c0=c{left}|c1=c{right}"
 
 
-def concat_list(files: Sequence[RawFile], directory: Path) -> Path:
+def concat_list(files: Sequence[RawFile], directory: Path, inpoint: float = 0.0) -> Path:
     list_path = directory / "inputs.txt"
     lines = []
-    for f in files:
+    for index, f in enumerate(files):
         escaped = str(f.path).replace("'", "'\\''")
         lines.append(f"file '{escaped}'")
+        if index == 0 and inpoint > 0:
+            lines.append(f"inpoint {inpoint:.6f}")
     list_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return list_path
 
 
 def encode_segment(
     files: Sequence[RawFile],
-    list_path: Optional[Path],
+    list_dir: Path,
     segment: Segment,
     channels: List[int],
     working_path: Optional[Path],
     opus_path: Path,
     opus_bitrate: str,
 ) -> None:
-    cmd = [
-        "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
-        "-ss", f"{segment.offset:.6f}", "-t", f"{segment.length:.6f}",
-    ]
-    if list_path is not None:
-        cmd += ["-f", "concat", "-safe", "0", "-i", str(list_path)]
+    # Seeking into a concat input reads every file before the seek point, so
+    # hand ffmpeg only the files this segment overlaps.
+    needed: List[RawFile] = []
+    first_start = cursor = 0.0
+    for f in files:
+        if cursor < segment.offset + segment.length and cursor + f.duration > segment.offset:
+            if not needed:
+                first_start = cursor
+            needed.append(f)
+        cursor += f.duration
+    if not needed:
+        raise IngestError(f"segment {segment.segment_id} lies outside the recording")
+
+    skip = segment.offset - first_start
+    cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y"]
+    if len(needed) > 1:
+        # inpoint seeks inside the first file; -ss on the concat would read up to it.
+        list_path = concat_list(needed, list_dir, inpoint=skip)
+        cmd += ["-t", f"{segment.length:.6f}", "-f", "concat", "-safe", "0", "-i", str(list_path)]
     else:
-        cmd += ["-i", str(files[0].path)]
+        cmd += ["-ss", f"{skip:.6f}", "-t", f"{segment.length:.6f}", "-i", str(needed[0].path)]
 
     graph = f"[0:a]{pan_filter(channels)},aresample=48000"
     graph += ",asplit=2[w][o]" if working_path else "[o]"
@@ -639,7 +733,10 @@ def cmd_process(args: argparse.Namespace) -> int:
     sessions_by_id = {row["session_id"]: row for row in session_rows}
     segment_owner = {row["segment_id"]: row["session_id"] for row in segment_rows}
 
-    selected = [row for row in manifest_rows if row.get("site_id", "").strip()]
+    selected = [
+        row for row in manifest_rows
+        if row.get("site_id", "").strip() and not row.get("status", "").startswith("merged into")
+    ]
     if args.only:
         selected = [
             row for row in selected
@@ -720,7 +817,6 @@ def cmd_process(args: argparse.Namespace) -> int:
         written = conflicts = 0
         list_dir = tempfile.TemporaryDirectory(prefix="ingest_")
         try:
-            list_path = concat_list(files, Path(list_dir.name)) if len(files) > 1 else None
             for index, segment in enumerate(segments, start=1):
                 owner = segment_owner.get(segment.segment_id)
                 if owner and owner != session_id:
@@ -746,7 +842,7 @@ def cmd_process(args: argparse.Namespace) -> int:
                 else:
                     t0 = time.monotonic()
                     print(f"    [{index}/{len(segments)}] {segment.segment_id}  {timing} ...", end="", flush=True)
-                    encode_segment(files, list_path, segment, channels, working_path, opus_path, args.opus_bitrate)
+                    encode_segment(files, Path(list_dir.name), segment, channels, working_path, opus_path, args.opus_bitrate)
                     written += 1
                     print(f" ok ({time.monotonic() - t0:.0f}s)")
 
