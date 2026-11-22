@@ -6,7 +6,9 @@ Writes two kinds of file next to --output:
   data.json                         index: published segments, plus each site,
                                     session and species name stored once
   detections/<SITE>/<SEGMENT>.json  one file per segment with detections,
-                                    loaded by the site when that segment is opened
+                                    loaded by the site when that segment is opened;
+                                    back-to-back detections of a species are merged
+                                    into calling bouts, rejected ones are left out
 
 Keeping detections out of the index keeps it small: one file of everything
 grows past Cloudflare Pages' 25 MiB per-file limit after a few weeks of audio.
@@ -44,6 +46,9 @@ SENSITIVE_DECIMALS = 1  # sensitive sites are never more precise than "coarse"
 SENSITIVE_ELEVATION_STEP_M = 100
 
 DETECTIONS_DIR_NAME = "detections"
+# Detections of one species less than this far apart are shown as one calling
+# bout (BirdNET scores 3 s chunks, so a long call is many back-to-back rows).
+BOUT_GAP_SEC = 3.0
 # IDs become file names, so they must not contain path separators or "..".
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
@@ -142,6 +147,56 @@ def parse_seconds(value) -> float | None:
         return None
 
 
+def merge_bouts(rows: List[dict]) -> List[dict]:
+    """Join back-to-back detections of one species into calling bouts.
+
+    A bout keeps the first detection's ID, spans all its detections, carries
+    the best confidence and the number of detections (n), and counts as
+    checked by ear when any of its detections was confirmed.
+    """
+    by_species: Dict[str, List[Tuple[float, float, dict]]] = defaultdict(list)
+    for row in rows:
+        start = parse_seconds(row.get("start_sec"))
+        if start is None:
+            continue
+        end = parse_seconds(row.get("end_sec"))
+        key = (row.get("scientific_name") or row.get("common_name") or "").strip().lower()
+        by_species[key].append((start, end if end is not None and end > start else start, row))
+
+    bouts: List[dict] = []
+    for items in by_species.values():
+        items.sort(key=lambda item: item[0])
+        bout: Optional[dict] = None
+        best = -1.0
+        for start, end, row in items:
+            confidence = parse_seconds(row.get("confidence")) or 0.0
+            confirmed = (row.get("review_status") or "").strip().lower() == "confirmed"
+            if bout is not None and start <= bout["end_sec"] + BOUT_GAP_SEC:
+                bout["end_sec"] = max(bout["end_sec"], end)
+                bout["n"] += 1
+                if confidence > best:
+                    best, bout["confidence"] = confidence, row.get("confidence")
+                if confirmed:
+                    bout["review_status"] = "confirmed"
+                continue
+            best = confidence
+            bout = {
+                "detection_id": row.get("detection_id"),
+                "common_name": row.get("common_name"),
+                "scientific_name": row.get("scientific_name"),
+                "group": row.get("taxon_group") or "",
+                "start_sec": start,
+                "end_sec": end,
+                "confidence": row.get("confidence"),
+                "n": 1,
+                "model": row.get("model"),
+                "review_status": "confirmed" if confirmed else "unreviewed",
+            }
+            bouts.append(bout)
+    bouts.sort(key=lambda item: (item["start_sec"], item["common_name"] or ""))
+    return bouts
+
+
 def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Tuple[Optional[dict], str]:
     """Time-of-day period and that day's sunrise/sunset for a segment.
 
@@ -194,7 +249,8 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
     for detection in detections:
         segment_id = detection.get("segment_id", "")
-        if segment_id in published_ids:
+        # Detections rejected by ear are never published.
+        if segment_id in published_ids and (detection.get("review_status") or "").strip().lower() != "rejected":
             detections_by_segment[segment_id].append(detection)
 
     species_names = sorted(
@@ -272,28 +328,17 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
 
         rows = detections_by_segment[segment_id]
         counts = Counter((row.get("common_name") or "Unknown").strip() for row in rows)
-        top_species = [{"name": name, "count": count} for name, count in counts.most_common(6)]
+        group_of = {(row.get("common_name") or "Unknown").strip(): row.get("taxon_group") or "" for row in rows}
+        checked = {(row.get("common_name") or "Unknown").strip() for row in rows
+                   if (row.get("review_status") or "").strip().lower() == "confirmed"}
+        top_species = [{"name": name, "count": count, "group": group_of.get(name, ""), "checked": name in checked}
+                       for name, count in counts.most_common(6)]
 
         detections_url = ""
         if rows:
             if is_safe_id(site_id) and is_safe_id(segment_id):
                 relative = f"{DETECTIONS_DIR_NAME}/{site_id}/{segment_id}.json"
-                segment_detections = [
-                    {
-                        "detection_id": row.get("detection_id"),
-                        "common_name": row.get("common_name"),
-                        "scientific_name": row.get("scientific_name"),
-                        "start_sec": parse_seconds(row.get("start_sec")),
-                        "end_sec": parse_seconds(row.get("end_sec")),
-                        "confidence": row.get("confidence"),
-                        "model": row.get("model"),
-                        "review_status": row.get("review_status"),
-                    }
-                    for row in rows
-                ]
-                segment_detections.sort(
-                    key=lambda item: item["start_sec"] if item["start_sec"] is not None else -1
-                )
+                segment_detections = merge_bouts(rows)
                 detection_files[relative] = {"segment_id": segment_id, "detections": segment_detections}
                 detections_url = relative
             else:

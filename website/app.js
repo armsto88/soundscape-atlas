@@ -2546,7 +2546,9 @@ function renderMetadata(segment) {
 
   for (const species of topSpecies) {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="species-pill"><span>${escapeHtml(species.name)}</span><span>${escapeHtml(String(species.count))}</span></span>`;
+    const frog = isFrog(species.group) ? ` <span class="species-tag">frog</span>` : "";
+    const checked = species.checked ? ` <span class="species-checked" title="Checked by ear">&#10003;</span>` : "";
+    li.innerHTML = `<span class="species-pill"><span>${escapeHtml(species.name)}${frog}${checked}</span><span>${escapeHtml(String(species.count))}</span></span>`;
     dom.speciesList.append(li);
   }
 }
@@ -2683,17 +2685,21 @@ function renderDetectionTimeline(segment) {
   const all = (segment.detections || []).filter((detection) => Number.isFinite(Number(detection.start_sec)));
   const detections = all.filter((detection) => getDetectionConfidence(detection) >= minConfidence);
 
+  // Each mark is a calling bout of n back-to-back detections; rows count detections.
+  const calls = (detection) => Math.max(1, Number(detection.n) || 1);
   const counts = new Map();
+  const frogs = new Set();
   for (const detection of detections) {
     const name = detection.common_name || "Unknown";
-    counts.set(name, (counts.get(name) || 0) + 1);
+    counts.set(name, (counts.get(name) || 0) + calls(detection));
+    if (isFrog(detection.group)) frogs.add(name);
   }
   const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const namedCount = ranked.length > TIMELINE_MAX_LANES ? TIMELINE_MAX_LANES - 1 : ranked.length;
   const named = ranked.slice(0, namedCount);
   const laneOf = new Map(named.map(([name], index) => [name, index]));
   const otherSpecies = ranked.length - named.length;
-  const otherCount = detections.length - named.reduce((sum, [, count]) => sum + count, 0);
+  const otherCount = detections.reduce((sum, detection) => sum + calls(detection), 0) - named.reduce((sum, [, count]) => sum + count, 0);
 
   const showComments = state.showTimelineComments;
   const offset = showComments ? 1 : 0;
@@ -2704,7 +2710,7 @@ function renderDetectionTimeline(segment) {
     addTimelineRow("Comments", "", "comments-row");
   }
   for (const [name, count] of named) {
-    addTimelineRow(name, String(count), "");
+    addTimelineRow(frogs.has(name) ? `${name} (frog)` : name, String(count), "");
   }
   if (otherCount > 0) {
     addTimelineRow(`${otherSpecies} other species`, String(otherCount), "other-row");
@@ -2729,17 +2735,22 @@ function renderDetectionTimeline(segment) {
     const lane = laneOf.has(name) ? laneOf.get(name) : named.length;
     const confidence = getDetectionConfidence(detection);
     const percent = Math.round(confidence * 100);
+    const checked = detection.review_status === "confirmed";
+    const n = calls(detection);
+    const label = isFrog(detection.group) ? `${name} (frog)` : name;
+    const span = Number.isFinite(end) && end - start > 3.5 ? `${formatTime(start)}–${formatTime(end)}` : formatTime(start);
+    const how = checked ? "checked by ear" : "BirdNET, not checked";
 
     const mark = document.createElement("button");
     mark.type = "button";
-    mark.className = "detection-mark";
+    mark.className = checked ? "detection-mark checked" : "detection-mark";
     mark.style.left = `${Math.max(0, Math.min(1, start / duration)) * 100}%`;
     const width = Number.isFinite(end) && end > start ? ((end - start) / duration) * 100 : 0;
     mark.style.width = `max(3px, ${width}%)`;
     mark.style.setProperty("--row", String(lane + offset));
     mark.style.opacity = String(0.35 + 0.65 * confidence);
-    mark.dataset.tooltip = `${name} · ${formatTime(start)} · ${percent}%`;
-    mark.setAttribute("aria-label", `${name} at ${formatTime(start)}, ${percent} percent confidence`);
+    mark.dataset.tooltip = `${label} · ${span} · ${n > 1 ? `${n} calls, best ` : ""}${percent}% · ${checked ? "✓ " : ""}${how}`;
+    mark.setAttribute("aria-label", `${label} at ${span}, ${n > 1 ? `${n} calls, best ` : ""}${percent} percent confidence, ${how}`);
     mark.tabIndex = -1;
     mark.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3024,6 +3035,10 @@ function clearActiveSegmentState() {
   updateActiveSegmentLikeButton();
   updateAudioTimelineProgress();
   refreshMarkerIcons();
+}
+
+function isFrog(group) {
+  return String(group || "").toLowerCase() === "amphibia";
 }
 
 function getDetectionConfidence(detection) {

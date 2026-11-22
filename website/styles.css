@@ -7,6 +7,7 @@
   --text: #e8eef5;
   --muted: #9aa8b5;
   --ok: #7adba2;
+  --checked: #7adba2;
   --danger: #ff8f7a;
   --line: #2f3a47;
   --bg-glow-a: #1a3047;
@@ -36,6 +37,7 @@
   --marker-wave: #07202a;
 }
 body[data-theme="light"] {
+  --checked: #2e7d4f;
   --bg: #eef4f7;
   --panel: #ffffff;
   --panel-2: #edf3f6;
@@ -1628,6 +1630,41 @@ body[data-mode="chill"] .spectrogram-dock {
   background: var(--accent);
   cursor: pointer;
   pointer-events: auto;
+}
+
+/* Bouts checked by ear; unchecked ones keep the accent colour. */
+.detection-mark.checked {
+  background: var(--checked);
+}
+
+.detection-mark.checked:hover,
+.detection-mark.checked:focus-visible {
+  background: color-mix(in srgb, var(--checked) 70%, #ffffff);
+}
+
+.species-tag {
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.species-checked {
+  margin-left: 0.3rem;
+  font-weight: 700;
+  color: var(--checked);
+}
+
+.birdnet-credit {
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+}
+
+.dock-credit {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .detection-mark:hover,
