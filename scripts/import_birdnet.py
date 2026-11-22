@@ -13,14 +13,17 @@ gracefully):
     combined table with "Begin Path" and "File Offset (s)" columns
   * CSV results (*.BirdNET.results.csv)
   * Kaleidoscope CSV (BirdNET_Kaleidoscope.csv)
+  * BirdNET+ V3 analyze.py CSV (file, start_sec, end_sec, ...), as written
+    by run_birdnet.py
 
 Importing results for a segment replaces that segment's detections; other
 segments are untouched. Detection IDs are stable, and review_status values
 you set by hand are kept for detections that are still present.
 
-Non-bird classes (human voice, engine, dog, noise, ...) are left out unless
---keep-non-birds is given. Segments with possible human voices are listed so
-they can be checked before publishing.
+Human and noise classes (human voice, engine, dog, aircraft, ...) are left out
+unless --keep-non-birds is given; animals such as frogs are kept. Segments
+with possible human voices (at 25% or more, whatever --min-confidence is) are
+listed so they can be checked before publishing.
 
 Example:
   python3 scripts/import_birdnet.py --results /media/USER/archive/soundscape_atlas/birdnet --dry-run
@@ -45,25 +48,28 @@ from ingest_recordings import default_metadata_dir, read_csv, require_metadata_d
 RESULT_SUFFIXES = (".txt", ".csv", ".tsv")
 DEFAULT_MIN_CONFIDENCE = 0.25
 
-# BirdNET's non-bird classes (common name, lower case).
+# BirdNET's human and noise classes (common name, lower case): 2.4, then V3.
 NON_BIRD_CLASSES = {
     "human vocal", "human non-vocal", "human whistle", "engine", "dog", "gun",
     "power tools", "siren", "fireworks", "noise", "environmental",
+    "human", "domestic dog", "chainsaw", "aircraft", "boat", "explosion", "fire",
+    "hammer", "motor vehicle", "music", "power tool", "train", "sawing", "vehicle horn",
 }
-HUMAN_VOICE_CLASSES = {"human vocal", "human whistle"}
+HUMAN_VOICE_CLASSES = {"human vocal", "human whistle", "human"}
 # BirdNET writes a "nocall" placeholder row for files with no detections.
 NO_DETECTION_CLASSES = {"nocall", "no call"}
 
 # Column name aliases, compared lower-case without surrounding spaces.
 COLUMNS = {
-    "start": ("begin time (s)", "start (s)", "start", "offset", "start_time"),
-    "end": ("end time (s)", "end (s)", "end", "end_time"),
+    "start": ("begin time (s)", "start (s)", "start", "offset", "start_time", "start_sec"),
+    "end": ("end time (s)", "end (s)", "end", "end_time", "end_sec"),
     "duration": ("duration",),
     "file_offset": ("file offset (s)",),
     "common": ("common name", "common_name", "common"),
     "scientific": ("scientific name", "scientific_name", "scientific"),
     "confidence": ("confidence",),
     "file": ("begin path", "begin file", "file", "in file", "filepath", "path"),
+    "group": ("taxon_group", "taxon group"),
 }
 
 
@@ -76,6 +82,7 @@ class Detection:
     end: float
     confidence: float
     source: Path
+    group: str = ""  # taxon group (Aves, Amphibia, ...) when the results have one
 
 
 def read_table(path: Path) -> Tuple[List[str], List[List[str]]]:
@@ -148,7 +155,8 @@ def parse_results(path: Path) -> Tuple[List[Detection], Optional[str]]:
         if "_" in common and not scientific:
             # Some outputs use BirdNET's "Scientific name_Common name" labels.
             scientific, common = common.split("_", 1)
-        detections.append(Detection(segment_id, common or scientific, scientific, begin, end, confidence, path))
+        detections.append(Detection(segment_id, common or scientific, scientific, begin, end, confidence, path,
+                                    cell("group")))
     return detections, None
 
 
@@ -197,10 +205,32 @@ def main() -> int:
                         help="metadata folder (default: $SOUNDSCAPE_METADATA_DIR)")
     parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONFIDENCE,
                         help=f"drop detections below this (0-1, default {DEFAULT_MIN_CONFIDENCE})")
+    parser.add_argument("--group-min-confidence", action="append", default=[], metavar="GROUP=VALUE",
+                        help="another threshold for one taxon group, e.g. Amphibia=0.5 (needs results with a "
+                             "taxon_group column, as run_birdnet.py writes); repeatable")
+    parser.add_argument("--species-thresholds", type=Path, metavar="CSV",
+                        help="per-species thresholds (species_thresholds.csv from review_birdnet.py apply); "
+                             "they win over --group-min-confidence and --min-confidence, and 1.00 hides a species")
     parser.add_argument("--model", default="BirdNET", help='stored in the model column, e.g. "BirdNET 2.4"')
     parser.add_argument("--keep-non-birds", action="store_true", help="also import human, engine, dog, noise, ...")
     parser.add_argument("--dry-run", action="store_true", help="report only; write nothing")
     args = parser.parse_args()
+
+    group_thresholds: Dict[str, float] = {}
+    for spec in args.group_min_confidence:
+        group, _, value = spec.partition("=")
+        try:
+            group_thresholds[group.strip().lower()] = float(value)
+        except ValueError:
+            parser.error(f"--group-min-confidence expects GROUP=VALUE, e.g. Amphibia=0.5 (got {spec!r})")
+
+    species_thresholds: Dict[str, float] = {}
+    if args.species_thresholds:
+        _, threshold_rows = read_csv(args.species_thresholds.expanduser())
+        for row in threshold_rows:
+            if row.get("threshold", "").strip():
+                species_thresholds[species_key(row.get("common_name", ""), row.get("scientific_name", ""))] = \
+                    float(row["threshold"])
 
     metadata_dir = require_metadata_dir(args.metadata_dir)
     detections_path = metadata_dir / "birdnet_detections.csv"
@@ -249,6 +279,10 @@ def main() -> int:
         if not det.scientific:
             det.scientific = scientific_by_common.get(det.common.strip().lower(), "")
 
+    if group_thresholds and parsed and not any(det.group for det in parsed):
+        print("Warning: the results have no taxon_group column, so --group-min-confidence has no effect.",
+              file=sys.stderr)
+
     if parsed:
         for det in parsed:
             stats["read"] += 1
@@ -256,7 +290,8 @@ def main() -> int:
             if name in NO_DETECTION_CLASSES:
                 stats["nocall"] += 1
                 continue
-            if name in HUMAN_VOICE_CLASSES and det.confidence >= args.min_confidence:
+            # Voices are a privacy check: a higher species cut-off must not hide them.
+            if name in HUMAN_VOICE_CLASSES and det.confidence >= min(args.min_confidence, DEFAULT_MIN_CONFIDENCE):
                 human_voice[det.segment_id] = max(human_voice.get(det.segment_id, 0), det.confidence)
             if det.segment_id not in segments:
                 unknown_segments[det.segment_id] += 1
@@ -264,7 +299,10 @@ def main() -> int:
             if name in NON_BIRD_CLASSES and not args.keep_non_birds:
                 stats["non_bird"] += 1
                 continue
-            if det.confidence < args.min_confidence:
+            threshold = species_thresholds.get(species_key(det.common, det.scientific))
+            if threshold is None:
+                threshold = group_thresholds.get(det.group.strip().lower(), args.min_confidence)
+            if det.confidence < threshold or threshold >= 1.0:
                 stats["below_threshold"] += 1
                 continue
             length = segment_length(segments[det.segment_id])
@@ -317,6 +355,7 @@ def main() -> int:
                 "confidence": f"{det.confidence:.4f}".rstrip("0").rstrip("."),
                 "model": args.model,
                 "review_status": review,
+                "taxon_group": det.group,
             })
             species_totals[det.common] += 1
 
@@ -329,7 +368,10 @@ def main() -> int:
     print(f"{mode}: {stats['files']} result file(s), {stats['read']} detection(s) read.")
     print(f"  {len(imported_segments)} segment(s) analysed; kept {len(new_rows)} detection(s) in {len(by_segment)} of them, "
           f"replacing {len(replaced)} existing row(s)")
-    print(f"  dropped: {stats['below_threshold']} below {args.min_confidence:.0%} confidence, "
+    exceptions = "".join(f", {value:.0%} for {group.capitalize()}" for group, value in group_thresholds.items())
+    if species_thresholds:
+        exceptions += f", own threshold for {len(species_thresholds)} species"
+    print(f"  dropped: {stats['below_threshold']} below {args.min_confidence:.0%} confidence{exceptions}, "
           f"{stats['non_bird']} non-bird, {stats['duplicates']} duplicate, {stats['out_of_range']} outside the segment, "
           f"{stats['nocall']} 'nocall' placeholder")
     if species_totals:
@@ -349,6 +391,8 @@ def main() -> int:
 
     if args.dry_run:
         return 0
+    if "taxon_group" not in header:  # files from before the column existed
+        header = list(header) + ["taxon_group"]
     write_csv_atomic(detections_path, header, output_rows)
     print(f"\nWrote {detections_path} ({len(output_rows)} detection(s) in total).")
     print("Next: python3 scripts/validate_metadata.py && python3 scripts/build_web_metadata.py")

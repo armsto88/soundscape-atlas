@@ -42,6 +42,8 @@ uses the same pattern for the recording's start.
 
 1. **Scan** the raw folder. This reads BWF timestamps, rejoins files the recorder
    split at the 4 GB limit, and writes one manifest row per continuous recording.
+   Where a Pro Tools copy has cut the BWF date short (`2023-09-2`), the date is
+   taken from the Sound Devices iXML `FILE_UID`; files with neither are skipped.
 
    ```
    python3 scripts/ingest_recordings.py scan \
@@ -76,28 +78,62 @@ uses the same pattern for the recording's start.
 
 ## Species detections (BirdNET)
 
-1. Run BirdNET-Analyzer on `<archive-root>/audio/working_wav/<SITE_ID>/`,
-   one site at a time with that site's `--lat`/`--lon`, writing a Raven
-   selection table or CSV results (see the BirdNET-Analyzer documentation for
-   the exact command for your version). The working WAVs are named by segment
-   ID, so each result maps to its segment and times are relative to the
-   segment start.
+1. Run BirdNET+ V3 on the working WAVs with `scripts/run_birdnet.py` (dry run
+   first). It needs a checkout of
+   [birdnet-V3.0-dev](https://github.com/birdnet-team/birdnet-V3.0-dev) with
+   its `.venv` (default `~/birdnet-v3`). Each session is analysed with its
+   site's latitude/longitude and the week of its start date, for birds and
+   frogs by default (`--groups`), and results go to
+   `<archive-root>/birdnet/<SITE_ID>/<SESSION_ID>.BirdNET.results.csv`.
+   Finished sessions are skipped, so a stopped run can be restarted.
+
+   ```
+   python3 scripts/run_birdnet.py --archive-root <archive-root> --only <SITE_ID> --dry-run
+   ```
+
+   Results from BirdNET-Analyzer (Raven tables or CSV) can be imported too.
+   The working WAVs are named by segment ID, so each result maps to its
+   segment and times are relative to the segment start.
 2. Import (dry run first):
 
    ```
-   python3 scripts/import_birdnet.py --results <BirdNET output folder> \
-       --model "BirdNET 2.4" --dry-run
+   python3 scripts/import_birdnet.py --results <archive-root>/birdnet \
+       --model "BirdNET+ V3.0.1" --min-confidence 0.75 \
+       --group-min-confidence Amphibia=0.5 --dry-run
    ```
 
    - Detections below `--min-confidence` (default 0.25) are dropped. The
      website also filters by confidence (50% and above by default).
      A higher threshold keeps `birdnet_detections.csv` smaller in git.
-   - Non-bird classes (human voice, engine, dog, noise, ...) are dropped
-     unless `--keep-non-birds` is given. Segments with possible human voices
-     are listed so you can listen before publishing them.
+     Keeping BirdNET's own output at 0.25 means the threshold can be changed
+     later with a re-import instead of a new BirdNET run.
+   - `--group-min-confidence` sets another threshold for one taxon group:
+     BirdNET scores frogs lower than birds, so frogs use 0.5. It needs the
+     `taxon_group` column that `run_birdnet.py` adds to its results.
+   - Human and noise classes (human voice, engine, dog, aircraft, ...) are
+     dropped unless `--keep-non-birds` is given; frogs and other animals are
+     kept. Segments with possible human voices (25% or more) are listed so you
+     can listen before publishing them.
    - Re-importing a segment replaces its detections. Detection IDs stay the
      same, and `review_status` values you set by hand are kept.
-3. Rebuild with `scripts/build_web_metadata.py`.
+3. Check the detections by ear with `scripts/review_birdnet.py serve` (a page
+   on http://127.0.0.1:8765, this computer only; marks are saved in
+   `birdnet_reviews.csv` in the metadata folder):
+   - **Species sample**: about 20 random detections per species, spread over
+     the score range and with the scores hidden. `review_birdnet.py apply`
+     then sets each species' threshold where BirdNET is right 90% of the time
+     (`--target`), in `species_thresholds.csv`; re-import with
+     `--species-thresholds <metadata>/species_thresholds.csv` to use them.
+     More checks per species give a steadier threshold.
+   - **Hour check**: each species' best detection in each published hour
+     (or `--hours`). `apply` sets `review_status` to confirmed or rejected
+     for that species in that hour.
+
+   ```
+   python3 scripts/review_birdnet.py serve --archive-root <archive-root> --top 20
+   python3 scripts/review_birdnet.py apply --dry-run
+   ```
+4. Rebuild with `scripts/build_web_metadata.py`.
 
 ## Publishing audio to R2
 

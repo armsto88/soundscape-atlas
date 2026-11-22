@@ -62,7 +62,8 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `start_sec`, `end_sec` | Seconds from the segment start |
 | `confidence` | 0 to 1 |
 | `model` | e.g. `BirdNET 2.4` |
-| `review_status` | `unreviewed`, or a value you set (kept across re-imports) |
+| `review_status` | `unreviewed`, or a value you set (kept across re-imports). `review_birdnet.py apply` sets `confirmed` / `rejected`; rejected detections are never published, confirmed ones show as checked by ear |
+| `taxon_group` | BirdNET+ V3 taxon group (`Aves`, `Amphibia`, ...), blank for older results; the website labels frogs |
 
 ## D1 database (website accounts)
 

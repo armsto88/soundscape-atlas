@@ -14,7 +14,9 @@ detections on a timeline and dawn and dusk following the local sunrise and sunse
 ```
 metadata_template/  empty CSV templates; the real metadata lives on the archive drive
 scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working WAVs
-            import_birdnet.py      BirdNET-Analyzer results -> detections CSV
+            run_birdnet.py         BirdNET+ V3 on the working WAVs, per session
+            import_birdnet.py      BirdNET results -> detections CSV
+            review_birdnet.py      check detections by ear -> review status, thresholds
             upload_to_r2.py        published Opus copies -> R2, sets public_url
             setup_r2_remote.sh     one-time rclone setup for the R2 bucket
             build_web_metadata.py  CSVs -> website/api/data.json + detections/
@@ -36,7 +38,7 @@ In short:
    [metadata_template/README.md](metadata_template/README.md)).
 1. `ingest_recordings.py scan` a folder of raw recordings, fill `site_id` and
    `timezone` in the manifest, then `ingest_recordings.py process`.
-2. Run BirdNET-Analyzer on the working WAVs, then `import_birdnet.py`.
+2. `run_birdnet.py` (BirdNET+ V3) on the working WAVs, then `import_birdnet.py`.
 3. Set `published=true` on segments to make them public.
 4. `upload_to_r2.py` to put their audio in R2.
 5. `validate_metadata.py`, `build_web_metadata.py`, then commit and push.

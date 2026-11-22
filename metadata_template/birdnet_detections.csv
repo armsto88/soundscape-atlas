@@ -1,1 +1,1 @@
-detection_id,segment_id,common_name,scientific_name,start_sec,end_sec,confidence,model,review_status
+detection_id,segment_id,common_name,scientific_name,start_sec,end_sec,confidence,model,review_status,taxon_group
