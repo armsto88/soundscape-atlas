@@ -22,6 +22,7 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `public_location_precision` | `exact`, `rounded` (about 1 km, the default) or `coarse` (about 10 km) |
 | `description` | Public free text, so keep exact places out of it for sensitive sites |
 | `is_sensitive` | `true` caps the published location at `coarse` and rounds the elevation |
+| `area` | Optional. A named area within the state, e.g. `Northern Rivers`, used to group places on the website (country › state › area › site). Published as written |
 
 ## sessions.csv: one row per continuous recording (written by `ingest_recordings.py process`)
 

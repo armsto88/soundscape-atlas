@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import re
 import shutil
@@ -49,6 +50,8 @@ DETECTIONS_DIR_NAME = "detections"
 # Detections of one species less than this far apart are shown as one calling
 # bout (BirdNET scores 3 s chunks, so a long call is many back-to-back rows).
 BOUT_GAP_SEC = 3.0
+# The activity curve on a site's page counts detections per bin of this many seconds.
+ACTIVITY_BIN_SEC = 300
 # IDs become file names, so they must not contain path separators or "..".
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
@@ -197,6 +200,22 @@ def merge_bouts(rows: List[dict]) -> List[dict]:
     return bouts
 
 
+def activity_bins(segment: dict, rows: List[dict]) -> List[int]:
+    """Detections per ACTIVITY_BIN_SEC from the segment's start, for the activity curve."""
+    try:
+        start = datetime.fromisoformat(str(segment.get("segment_start_local") or ""))
+        end = datetime.fromisoformat(str(segment.get("segment_end_local") or ""))
+        duration = max(1.0, (end - start).total_seconds())
+    except ValueError:
+        duration = 3600.0
+    bins = [0] * max(1, math.ceil(duration / ACTIVITY_BIN_SEC))
+    for row in rows:
+        second = parse_seconds(row.get("start_sec"))
+        if second is not None:
+            bins[min(len(bins) - 1, max(0, int(second // ACTIVITY_BIN_SEC)))] += 1
+    return bins
+
+
 def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Tuple[Optional[dict], str]:
     """Time-of-day period and that day's sunrise/sunset for a segment.
 
@@ -268,6 +287,7 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
     index_segments: List[dict] = []
     detection_files: Dict[str, dict] = {}
 
+    site_species: Dict[str, Dict[str, dict]] = defaultdict(dict)
     suspect_sites = set()
     for segment in segments:
         segment_id = segment["segment_id"]
@@ -283,6 +303,7 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "longitude": location.longitude,
                 "country_code": site.get("country_code"),
                 "region_code": site.get("region_code"),
+                "area": (site.get("area") or "").strip(),
                 "locality": site.get("locality"),
                 "elevation_m": location.elevation_m,
                 "habitat": site.get("habitat"),
@@ -295,6 +316,9 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
         if session_id not in index_sessions:
             session = sessions_by_id.get(session_id, {})
             index_sessions[session_id] = {
+                # The whole recording's span, so a site page can show unpublished hours as gaps.
+                "start_local": session.get("start_datetime_local"),
+                "end_local": session.get("end_datetime_local"),
                 "timezone": session.get("timezone"),
                 "recorder": session.get("recorder"),
                 "microphones": session.get("microphones"),
@@ -333,6 +357,20 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                    if (row.get("review_status") or "").strip().lower() == "confirmed"}
         top_species = [{"name": name, "count": count, "group": group_of.get(name, ""), "checked": name in checked}
                        for name, count in counts.most_common(6)]
+        activity = activity_bins(segment, rows)
+        for row in rows:
+            name = (row.get("common_name") or "Unknown").strip()
+            entry = site_species[site_id].setdefault(name, {
+                "name": name,
+                "scientific": (row.get("scientific_name") or "").strip(),
+                "group": row.get("taxon_group") or "",
+                "calls": 0,
+                "hours": set(),
+                "checked": False,
+            })
+            entry["calls"] += 1
+            entry["hours"].add(segment_id)
+            entry["checked"] = entry["checked"] or (row.get("review_status") or "").strip().lower() == "confirmed"
 
         detections_url = ""
         if rows:
@@ -373,6 +411,7 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "spectrogram_image_url": spectrogram_image_url,
                 "public_url": segment.get("public_url"),
                 "detection_count": len(rows),
+                "activity": activity,
                 "top_species": top_species,
                 "species_ids": sorted(species_index[name] for name in counts),
                 "detections_url": detections_url,
@@ -380,6 +419,14 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "sunrise": sun["sunrise"] if sun else "",
                 "sunset": sun["sunset"] if sun else "",
             }
+        )
+
+    # Each site's species across its published hours: calls are detections,
+    # hours the number of published hours the species was detected in.
+    for site_id, entries in site_species.items():
+        index_sites[site_id]["species"] = sorted(
+            ({**entry, "hours": len(entry["hours"])} for entry in entries.values()),
+            key=lambda entry: (-entry["calls"], entry["name"].casefold()),
         )
 
     # Totals describe only what is published, so hidden recordings are not

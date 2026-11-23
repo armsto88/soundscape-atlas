@@ -121,3 +121,38 @@ export function showTip(text, anchor) {
 export function hideTip() {
   if (tip) tip.hidden = true;
 }
+
+// "19 h 17 min", "45 min".
+export function fmtDuration(ms) {
+  const minutes = Math.round(ms / MINUTE);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+// A session's title: exactly when the audio starts and stops.
+export function fmtSpan(start, end) {
+  const a = new Date(start);
+  const b = new Date(end);
+  const sameYear = a.getUTCFullYear() === b.getUTCFullYear();
+  const sameDay = sameYear && fmtDay(start) === fmtDay(end);
+  if (sameDay) return `${fmtDay(start)}, ${fmtClock(start)} → ${fmtClock(end)}`;
+  if (sameYear) return `${fmtDay(start, { year: false })} ${fmtClock(start)} → ${fmtDay(end, { year: false })} ${fmtClock(end)}, ${b.getUTCFullYear()}`;
+  return `${fmtDay(start)} ${fmtClock(start)} → ${fmtDay(end)} ${fmtClock(end)}`;
+}
+
+export function slug(name) {
+  return String(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export function escapeHtml(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+export const SVG_NS = "http://www.w3.org/2000/svg";
+export function svg(tag, attrs = {}) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined) node.setAttribute(k, v);
+  return node;
+}

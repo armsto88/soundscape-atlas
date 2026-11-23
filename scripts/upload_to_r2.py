@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload published listening copies to Cloudflare R2 with rclone.
+"""Upload published listening copies and their spectrograms to Cloudflare R2 with rclone.
 
 Only segments with published=true in segments.csv are uploaded. A
 publicly served bucket makes every object reachable by anyone who guesses its
@@ -7,6 +7,8 @@ name, and segment IDs are easy to guess.
 
 Object keys mirror listening_opus_path, e.g.
   audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240413_1715.opus
+Each hour's spectrogram (the .png beside the .opus, from make_spectrograms.py)
+goes up with it when it exists; the website shows it behind the hour's timeline.
 
 After uploading, the script lists what is actually in the bucket and sets
 public_url in segments.csv for exactly those published segments; it clears
@@ -14,8 +16,8 @@ public_url for everything else. URLs you entered by hand that point somewhere
 other than --public-base-url are left alone. Rebuild website/api/data.json
 afterwards.
 
-Objects for segments that are no longer published are listed as stale;
---prune deletes them (after confirmation). Nothing outside
+Objects for segments that are no longer published (audio or spectrogram)
+are listed as stale; --prune deletes them (after confirmation). Nothing outside
 audio/listening_opus/ in the bucket is ever touched.
 
 One-time setup (credentials stay in rclone's config, never in this repo):
@@ -23,9 +25,8 @@ One-time setup (credentials stay in rclone's config, never in this repo):
   bash scripts/setup_r2_remote.sh
     asks for the access key, secret and endpoint of an R2 API token with
     Object Read & Write on the bucket, and creates the rclone remote "r2"
-  The bucket needs public access (custom domain or r2.dev) and a CORS rule
-  allowing GET from the website, because the player loads audio with
-  crossorigin="anonymous".
+  The bucket needs public access (custom domain or r2.dev). The website loads
+  audio and images without CORS, so no CORS rule is required.
 
 Example:
   python3 scripts/upload_to_r2.py \\
@@ -50,10 +51,10 @@ sys.dont_write_bytecode = True  # keep scripts/ free of __pycache__
 from ingest_recordings import default_metadata_dir, read_csv, require_metadata_dir, write_csv_atomic  # noqa: E402
 
 AUDIO_PREFIX = "audio/listening_opus/"
-UPLOAD_HEADERS = [
-    "Content-Type: audio/ogg",
-    "Cache-Control: public, max-age=86400",
-]
+UPLOAD_HEADERS = {
+    "audio": ["Content-Type: audio/ogg", "Cache-Control: public, max-age=86400"],
+    "spectrogram": ["Content-Type: image/png", "Cache-Control: public, max-age=86400"],
+}
 PREVIEW_LIMIT = 20
 
 
@@ -158,17 +159,23 @@ def main() -> int:
         else:
             missing_local.append(key)
 
+    # Spectrograms sit beside the Opus files; they belong to the same published hours.
+    spectrogram_keys = {key[:-len(".opus")] + ".png" for key in published_keys.values()}
+    spectrograms = sorted(k for k in spectrogram_keys if (archive_root / k).is_file())
+
     mode = "DRY RUN - nothing will change" if args.dry_run else "Uploading"
     print(f"{mode}: {len(to_upload)} published listening cop{'y' if len(to_upload) == 1 else 'ies'} "
-          f"from {archive_root} to {destination}")
+          f"and {len(spectrograms)} spectrogram(s) from {archive_root} to {destination}")
     preview("Published but not found locally", missing_local)
     preview("Published with an unusable listening_opus_path (skipped)", bad_paths)
 
     copy_failed = False
     with tempfile.TemporaryDirectory(prefix="r2_upload_") as tmp:
-        if to_upload:
-            upload_list = Path(tmp) / "upload.txt"
-            upload_list.write_text("\n".join(to_upload) + "\n", encoding="utf-8")
+        for kind, keys in (("audio", to_upload), ("spectrogram", spectrograms)):
+            if not keys:
+                continue
+            upload_list = Path(tmp) / f"upload_{kind}.txt"
+            upload_list.write_text("\n".join(keys) + "\n", encoding="utf-8")
             command = [
                 "copy", str(archive_root), destination,
                 "--files-from", str(upload_list),
@@ -180,15 +187,15 @@ def main() -> int:
                 "--transfers", str(max(1, args.transfers)),
                 "--stats-one-line", "--stats", "30s", "-v",
             ]
-            for value in UPLOAD_HEADERS:
+            for value in UPLOAD_HEADERS[kind]:
                 command += ["--header-upload", value]
             if args.dry_run:
                 command.append("--dry-run")
             print()
-            copy_failed = run_rclone(command).returncode != 0
-            if copy_failed:
-                print("\nrclone reported errors; public URLs are set only for files that are in the bucket.",
-                      file=sys.stderr)
+            if run_rclone(command).returncode != 0:
+                copy_failed = True
+                print(f"\nrclone reported errors uploading {kind} files; public URLs are set only for "
+                      "audio that is in the bucket.", file=sys.stderr)
 
         try:
             in_bucket = list_remote_audio(destination)
@@ -196,9 +203,9 @@ def main() -> int:
             print(exc, file=sys.stderr)
             return 1
         if args.dry_run:
-            in_bucket |= set(to_upload)  # what the bucket would hold after a real run
+            in_bucket |= set(to_upload) | set(spectrograms)  # what the bucket would hold after a real run
 
-        wanted = set(published_keys.values())
+        wanted = set(published_keys.values()) | spectrogram_keys
         stale = sorted(in_bucket - wanted)
         print()
         preview("In the bucket but not published (stale)", stale)

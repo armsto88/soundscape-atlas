@@ -1,0 +1,130 @@
+// A place: what and where it is, then one chart per recording session. Click
+// a chart to listen from that moment; the hour you are in opens in detail
+// under its chart, and follows the playback from hour to hour.
+
+import { el, plural, humanize, fmtSpan, fmtDuration, hideTip } from "./util.js";
+import { createSessionChart, sessionSummary } from "./sessionchart.js";
+import { createDetail } from "./detail.js";
+import { renderSpecies } from "./species.js";
+
+const TOPO_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+
+export function render(main, model, params, ctx) {
+  const site = model.sites.get(params.id);
+  if (!site) {
+    main.append(el("section", { class: "page" }, el("p", { class: "back" }, el("a", { href: "#/" }, "← Atlas")), el("h1", {}, "Place not found")));
+    return {};
+  }
+  const player = ctx.player;
+
+  // ---- header ----------------------------------------------------------------
+  const facts = [humanize(site.habitat), humanize(site.biome), site.elevation_m ? `${site.elevation_m} m above sea level` : ""].filter(Boolean);
+  const insetEl = el("div", { class: "inset-map", "aria-hidden": "true" });
+  const head = el("header", { class: "site-head" },
+    el("div", {},
+      el("p", { class: "back" }, el("a", { href: `#/?focus=${encodeURIComponent(site.id)}` }, "← Atlas")),
+      el("p", { class: "eyebrow" }, [site.locality, site.area, site.state, site.country].filter(Boolean).join(" · ")),
+      el("h1", {}, site.site_name),
+      el("p", { class: "facts" }, facts.join(" · ")),
+      site.description ? el("p", { class: "lede" }, site.description) : null,
+      site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
+      el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
+        (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"))),
+    insetEl);
+
+  // ---- sessions --------------------------------------------------------------
+  const blocks = new Map(); // session -> { chart, slot }
+  let active = null;        // the hour shown in detail
+  let detail = null;
+  let detailSession = null;
+
+  const select = (seg, { play = false, at = null, reveal = true } = {}) => {
+    // Update the page first: starting the player announces the new hour, which
+    // calls back into select() and must find the page already showing it.
+    if (active !== seg) {
+      active = seg;
+      if (detailSession !== seg.session) {
+        if (detail) {
+          detail.destroy();
+          detail.el.remove();
+        }
+        detail = createDetail(ctx, { onSelect: (s) => select(s) });
+        detailSession = seg.session;
+        blocks.get(seg.session).slot.append(detail.el);
+        // when it opens low on the screen, bring the chart and its detail up together
+        if (reveal) requestAnimationFrame(() => {
+          if (detail.el.getBoundingClientRect().top > window.innerHeight * 0.55) {
+            blocks.get(seg.session).slot.parentElement.scrollIntoView({ block: "start", behavior: "smooth" });
+          }
+        });
+      }
+      detail.show(seg);
+      for (const [session, b] of blocks) b.chart.setSelected(session === seg.session ? seg : null);
+      ctx.replace(`#/site/${encodeURIComponent(site.id)}?at=${encodeURIComponent(seg.segment_id)}`);
+    }
+    if (play) player.load(seg, { autoplay: true, at });
+    else if (player.segment && player.segment.session === seg.session && player.segment !== seg && (player.isPlaying || player.wanted)) {
+      player.load(seg, { autoplay: true }); // moving the window while listening moves the listening too
+    }
+  };
+
+  const sessionsEl = el("section", { class: "sessions" },
+    el("h2", {}, "Sessions"),
+    el("p", { class: "muted hint" }, "Click anywhere on a chart to listen from that moment. The hour you're in opens below the chart: drag its highlighted window, or use the arrows, to move through the session."));
+  for (const session of site.sessions) {
+    const chart = createSessionChart(session, {
+      maxRate: site.maxRate,
+      onSeek: (seg, at) => select(seg, { play: true, at }),
+      onSelect: (seg) => select(seg),
+    });
+    const slot = el("div", { class: "detail-slot" });
+    sessionsEl.append(el("article", { class: "session" },
+      el("header", { class: "session-head" },
+        el("h3", {}, fmtSpan(session.start, session.end)),
+        el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
+      chart.el,
+      slot));
+    blocks.set(session, { chart, slot });
+  }
+
+  main.append(el("article", { class: "page site" }, head, sessionsEl, renderSpecies(site)));
+
+  // ---- the inset map -------------------------------------------------------------
+  const inset = L.map(insetEl, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, attributionControl: false });
+  L.tileLayer(TOPO_URL, { maxZoom: 17 }).addTo(inset);
+  const approx = site.public_location_precision !== "exact";
+  inset.setView([site.latitude, site.longitude], approx ? 9 : 11);
+  if (approx) L.circle([site.latitude, site.longitude], { radius: site.public_location_precision === "coarse" ? 6000 : 700, color: "#c2913d", weight: 1.5, dashArray: "4 4", fillOpacity: 0.12 }).addTo(inset);
+  else L.circleMarker([site.latitude, site.longitude], { radius: 7, color: "#2a2a26", weight: 1.5, fillColor: "#c2913d", fillOpacity: 1 }).addTo(inset);
+
+  // ---- follow the player -----------------------------------------------------------
+  const onState = () => {
+    const moment = player.segment && player.segment.site === site ? player.moment : null;
+    for (const [session, b] of blocks) b.chart.setPlayhead(player.segment && player.segment.session === session ? moment : null);
+  };
+  const onChange = (event) => {
+    if (event.detail.site === site) select(event.detail, { reveal: false });
+  };
+  player.addEventListener("state", onState);
+  player.addEventListener("change", onChange);
+
+  // open on the hour in the address, or on the hour already playing here
+  const playingHere = player.segment && player.segment.site === site && (player.isPlaying || player.wanted);
+  const start = (params.at && model.segmentsById.get(params.at)) || (playingHere ? player.segment : null);
+  if (start && start.site === site) {
+    select(start, { reveal: false });
+    // after the inset map and fonts have settled, so the jump lands where it should
+    setTimeout(() => blocks.get(start.session).slot.parentElement.scrollIntoView({ block: "start" }), 150);
+  }
+  onState();
+
+  return {
+    destroy() {
+      player.removeEventListener("state", onState);
+      player.removeEventListener("change", onChange);
+      if (detail) detail.destroy();
+      inset.remove();
+      hideTip();
+    },
+  };
+}

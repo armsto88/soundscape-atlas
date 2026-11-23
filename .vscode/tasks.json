@@ -2,19 +2,19 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Preview website (static, no accounts)",
-      "detail": "http://localhost:8787 - map and player only; sign-in needs the Wrangler task",
+      "label": "Preview website on the real metadata",
+      "detail": "http://127.0.0.1:8790 - every processed hour, with audio from the archive drive; nothing is written to website/",
       "type": "shell",
-      "command": "python3 -m http.server 8787 --bind 127.0.0.1 --directory website",
+      "command": "python3 scripts/preview_site.py --archive-root /media/tom/archive/soundscape_atlas",
       "windows": {
-        "command": "py -3 -m http.server 8787 --bind 127.0.0.1 --directory website"
+        "command": "py -3 scripts/preview_site.py"
       },
       "isBackground": true,
       "problemMatcher": []
     },
     {
-      "label": "Preview website with accounts (wrangler pages dev)",
-      "detail": "http://localhost:8788 - runs the Pages Functions against the local D1 database",
+      "label": "Preview published site with the API (wrangler pages dev)",
+      "detail": "http://localhost:8788 - website/ as deployed, with the Pages Functions against the local D1 database",
       "type": "shell",
       "command": "npx wrangler pages dev website",
       "isBackground": true,

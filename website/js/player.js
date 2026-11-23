@@ -22,6 +22,7 @@ class Player extends EventTarget {
     this.audio.hidden = true;
     this.segment = null;
     this.error = "";
+    this.pendingSeek = null;
     this.wanted = false; // the listener pressed play (survives hour changes)
     this.dom = null;
 
@@ -30,6 +31,12 @@ class Player extends EventTarget {
     for (const name of ["play", "pause", "playing", "waiting", "timeupdate", "durationchange", "ended", "emptied"]) {
       a.addEventListener(name, emit);
     }
+    a.addEventListener("loadedmetadata", () => {
+      if (this.pendingSeek !== null) {
+        a.currentTime = Math.min(this.pendingSeek, Math.max(0, (a.duration || this.pendingSeek + 1) - 0.25));
+        this.pendingSeek = null;
+      }
+    });
     a.addEventListener("error", () => {
       this.error = "Couldn't load the audio for this hour.";
       this.emitState();
@@ -60,6 +67,10 @@ class Player extends EventTarget {
   get currentTime() {
     return this.audio.currentTime || 0;
   }
+  // The wall-clock moment being played (ms, site's local clock), or null.
+  get moment() {
+    return this.segment ? this.segment.start + this.currentTime * 1000 : null;
+  }
   get duration() {
     const d = this.audio.duration;
     if (Number.isFinite(d) && d > 0) return d;
@@ -71,14 +82,17 @@ class Player extends EventTarget {
     this.renderBar();
   }
 
-  load(segment, { autoplay = false } = {}) {
+  // Load an hour, optionally starting `at` a number of seconds into it.
+  load(segment, { autoplay = false, at = null } = {}) {
     if (!segment) return;
     if (this.segment === segment) {
+      if (at !== null) this.seek(at);
       if (autoplay) this.play();
       return;
     }
     this.segment = segment;
     this.error = "";
+    this.pendingSeek = at !== null && at > 0 ? at : null;
     this.audio.pause();
     if (segment.public_url) {
       this.audio.src = segment.public_url;
@@ -128,8 +142,8 @@ class Player extends EventTarget {
   }
 
   neighbour(step) {
-    if (!this.segment || !this.segment.night) return null;
-    const list = this.segment.night.segments;
+    if (!this.segment || !this.segment.session) return null;
+    const list = this.segment.session.segments;
     const i = list.indexOf(this.segment);
     return list[i + step] || null;
   }
@@ -189,12 +203,12 @@ class Player extends EventTarget {
 
     d.title.innerHTML = "";
     if (!seg) {
-      d.title.append(el("span", { class: "player-hint" }, "Choose a place on the atlas, then an hour of the night."));
+      d.title.append(el("span", { class: "player-hint" }, "Choose a place, then click a session's chart to listen."));
       d.time.textContent = "";
     } else {
       const when = `${fmtDay(seg.start, { year: false })} · ${fmtClock(seg.start)}–${fmtClock(seg.end)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;
       d.title.append(
-        el("a", { href: `#/hour/${encodeURIComponent(seg.segment_id)}`, class: "player-link" },
+        el("a", { href: `#/site/${encodeURIComponent(seg.site.id)}?at=${encodeURIComponent(seg.segment_id)}`, class: "player-link" },
           el("strong", {}, seg.site.site_name || seg.site_id), el("span", {}, when)));
       d.time.textContent = `${fmtTime(this.currentTime)} / ${fmtTime(this.duration)}`;
     }

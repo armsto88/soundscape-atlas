@@ -103,7 +103,8 @@ uses the same pattern for the recording's start.
    ```
 
    - Detections below `--min-confidence` (default 0.25) are dropped. The
-     website also filters by confidence (50% and above by default).
+     website shows every imported detection, with an option to show only
+     confident ones (90% or more, or checked by ear).
      A higher threshold keeps `birdnet_detections.csv` smaller in git.
      Keeping BirdNET's own output at 0.25 means the threshold can be changed
      later with a re-import instead of a new BirdNET run.
@@ -138,7 +139,13 @@ uses the same pattern for the recording's start.
 ## Publishing audio to R2
 
 1. Mark the segments to publish: set `published=true` in `segments.csv`.
-2. Upload them (dry run first):
+2. Draw their spectrograms, if not done yet (about a minute per hour; existing
+   images are kept):
+
+   ```
+   python3 scripts/make_spectrograms.py --archive-root <archive-root> --only <SITE_ID> --dry-run
+   ```
+3. Upload them (dry run first):
 
    ```
    python3 scripts/upload_to_r2.py --archive-root <archive-root> \
@@ -146,13 +153,19 @@ uses the same pattern for the recording's start.
    ```
 
    Only published segments are uploaded, each to the same path as its
-   `listening_opus_path`. The script then checks the bucket and sets
+   `listening_opus_path`, with its spectrogram beside it when there is one. The script then checks the bucket and sets
    `public_url` for exactly the published segments it holds. It clears
    `public_url` for the rest, but leaves hand-entered URLs that point elsewhere
    alone. Objects for segments that are no longer published are listed;
    `--prune` deletes them after asking. `R2_REMOTE` and `R2_PUBLIC_BASE_URL`
    can replace the two flags.
-3. Rebuild with `scripts/build_web_metadata.py`.
+4. Rebuild with `scripts/build_web_metadata.py`.
+5. Fetch bird plates for any newly published species:
+   `python3 scripts/fetch_bird_plates.py --data website/api/data.json --art website/art`.
+   Species without a plate are listed in `website/art/birds/CREDITS.md`, and
+   frogs come from `scripts/make_frog_plate.py` (see [website.md](website.md)).
+6. Preview with `python3 scripts/preview_site.py --archive-root <archive-root> --published-only`,
+   then commit and push `website/`.
 
 ### One-time R2 setup
 
@@ -166,20 +179,8 @@ uses the same pattern for the recording's start.
 - Optionally add `export R2_REMOTE=r2:<bucket>` and
   `export R2_PUBLIC_BASE_URL=<public URL>` to `~/.bashrc`, so `upload_to_r2.py`
   needs no flags.
-- Add a CORS rule to the bucket. The player loads audio with
-  `crossorigin="anonymous"`, so without one the audio does not play at all:
-
-  ```json
-  [
-    {
-      "AllowedOrigins": ["https://soundscape-atlas.pages.dev", "http://localhost:8787", "http://localhost:8788"],
-      "AllowedMethods": ["GET", "HEAD"],
-      "AllowedHeaders": ["Range"],
-      "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges"],
-      "MaxAgeSeconds": 86400
-    }
-  ]
-  ```
+- No CORS rule is needed: the website plays audio and shows spectrograms
+  without one. The bucket's existing rule does no harm.
 
 - After the first upload, open a segment and check that the player shows its
   length. A blank or infinite duration means range requests are not being

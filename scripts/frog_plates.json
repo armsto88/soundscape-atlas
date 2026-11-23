@@ -1,0 +1,57 @@
+{
+ "_about": "Sources and cut-out settings for scripts/make_frog_plate.py. Polygons are in pixels of the working image: the source, cropped to 'crop' (original pixels), then resized to 'work_width'.",
+ "assa-darlingtoni": {
+  "common_name": "Pouched Frog",
+  "scientific_name": "Assa darlingtoni",
+  "source": {
+   "url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Assa_darlingtoni.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Assa_darlingtoni.jpg",
+   "author": "Hexasoft",
+   "licence": "CC BY-SA 3.0",
+   "site": "Wikimedia Commons"
+  },
+  "crop": null,
+  "work_width": 1000,
+  "poly": [[62,212],[72,178],[108,150],[150,120],[185,96],[215,94],[260,104],[330,114],[400,118],[440,114],[480,114],[560,118],[620,128],[660,122],[700,106],[760,103],[830,112],[882,130],[900,155],[896,182],[872,202],[862,216],[882,242],[902,282],[907,330],[902,378],[914,390],[912,442],[896,472],[878,466],[855,456],[800,466],[760,472],[720,492],[680,512],[632,548],[602,552],[598,535],[640,500],[675,470],[648,447],[600,447],[520,452],[440,442],[430,412],[400,442],[330,472],[262,492],[200,497],[152,497],[148,480],[198,463],[278,430],[318,382],[298,362],[248,346],[188,322],[138,302],[98,272],[68,242]],
+  "perch": true,
+  "perch_depth": 40
+ },
+ "dryopsophus-pearsonianus": {
+  "common_name": "Cascade Tree Frog",
+  "scientific_name": "Dryopsophus pearsonianus",
+  "source": {
+   "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/584533295/original.jpg",
+   "page": "https://www.inaturalist.org/photos/584533295",
+   "author": "Greg Tasney",
+   "licence": "CC BY-SA 4.0",
+   "site": "iNaturalist"
+  },
+  "crop": [450, 532, 1638, 1310],
+  "work_width": 1000,
+  "poly": [[166,230],[185,203],[230,188],[280,158],[330,128],[400,113],[480,106],[560,108],[640,116],[700,126],[750,128],[792,136],[814,155],[820,185],[814,215],[807,240],[812,270],[802,300],[782,322],[742,332],[702,337],[694,350],[722,360],[747,380],[772,410],[780,434],[760,437],[735,417],[725,402],[705,397],[690,377],[670,357],[640,357],[600,360],[562,370],[544,385],[562,398],[622,398],[644,415],[635,434],[602,440],[593,455],[603,476],[592,492],[560,487],[540,467],[500,462],[470,472],[440,462],[400,447],[378,422],[330,407],[288,397],[248,377],[208,352],[178,322],[168,280]],
+  "perch": true,
+  "perch_depth": 45
+ },
+ "crinia-signifera": {
+  "common_name": "Common Eastern Froglet",
+  "scientific_name": "Crinia signifera",
+  "source": {
+   "url": "https://upload.wikimedia.org/wikipedia/commons/8/8b/Common_Froglet_%28Crinia_signifera%29_%289041134272%29.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Common_Froglet_(Crinia_signifera)_(9041134272).jpg",
+   "author": "Matt from Melbourne, Australia",
+   "licence": "CC BY 2.0",
+   "site": "Wikimedia Commons"
+  },
+  "crop": [700, 300, 4700, 2950],
+  "work_width": 1000,
+  "poly": [[898,200],[884,163],[852,147],[824,118],[818,92],[792,82],[744,88],[728,110],[650,112],[560,108],[420,122],[358,148],[298,182],[220,202],[172,222],[162,255],[176,274],[108,288],[85,310],[88,352],[114,392],[160,432],[208,470],[248,500],[262,558],[282,562],[288,522],[340,526],[398,556],[452,588],[468,578],[442,554],[392,520],[420,502],[530,502],[546,522],[620,542],[700,548],[782,532],[800,568],[808,540],[792,520],[812,472],[818,448],[800,442],[774,480],[740,500],[700,482],[662,462],[642,442],[662,402],[692,382],[722,346],[762,322],[822,292],[872,258],[898,232]],
+  "perch": true,
+  "perch_depth": 38,
+  "paint_out": {
+   "box": [90, 420, 620, 545],
+   "min_lightness": 150,
+   "max_chroma": 45,
+   "note": "a grass stem across the hind leg"
+  }
+ }
+}

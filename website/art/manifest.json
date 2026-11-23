@@ -1,0 +1,26 @@
+{
+ "birds": [
+  "acanthiza-pusilla",
+  "alisterus-scapularis",
+  "cacatua-galerita",
+  "corvus-orru",
+  "dacelo-novaeguineae",
+  "eolophus-roseicapilla",
+  "gerygone-mouki",
+  "macropygia-phasianella",
+  "meliphaga-lewinii",
+  "myzomela-sanguinolenta",
+  "ninox-boobook",
+  "pachycephala-pectoralis",
+  "pardalotus-punctatus",
+  "psophodes-olivaceus",
+  "rhipidura-albiscapa",
+  "strepera-graculina",
+  "symposiachrus-trivirgatus"
+ ],
+ "frogs": [
+  "assa-darlingtoni",
+  "crinia-signifera",
+  "dryopsophus-pearsonianus"
+ ]
+}
