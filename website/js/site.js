@@ -6,8 +6,17 @@ import { el, plural, humanize, fmtSpan, fmtDuration, hideTip } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
+import { createMap, tokens } from "./map.js";
 
-const TOPO_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+// a circle of radius metres around a place, as a GeoJSON polygon
+function circle(lon, lat, metres) {
+  const ring = [];
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * 2 * Math.PI;
+    ring.push([lon + (metres * Math.cos(a)) / (111320 * Math.cos((lat * Math.PI) / 180)), lat + (metres * Math.sin(a)) / 110540]);
+  }
+  return { type: "Polygon", coordinates: [ring] };
+}
 
 export function render(main, model, params, ctx) {
   const site = model.sites.get(params.id);
@@ -90,15 +99,19 @@ export function render(main, model, params, ctx) {
   main.append(el("article", { class: "page site" }, head, sessionsEl, renderSpecies(site)));
 
   // ---- the inset map -------------------------------------------------------------
-  const inset = L.map(insetEl, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, attributionControl: false });
-  L.tileLayer(TOPO_URL, { maxZoom: 17 }).addTo(inset);
   const approx = site.public_location_precision !== "exact";
-  inset.setView([site.latitude, site.longitude], approx ? 9 : 11);
-  const css = getComputedStyle(document.documentElement); // colours come from the tokens in styles.css
-  const ochre = css.getPropertyValue("--ochre").trim();
-  const ink = css.getPropertyValue("--ink").trim();
-  if (approx) L.circle([site.latitude, site.longitude], { radius: site.public_location_precision === "coarse" ? 6000 : 700, color: ochre, weight: 1.5, dashArray: "4 4", fillOpacity: 0.12 }).addTo(inset);
-  else L.circleMarker([site.latitude, site.longitude], { radius: 7, color: ink, weight: 1.5, fillColor: ochre, fillOpacity: 1 }).addTo(inset);
+  const inset = createMap(insetEl, { interactive: false, center: [site.longitude, site.latitude], zoom: approx ? 8 : 10 });
+  inset.on("load", () => {
+    const t = tokens();
+    if (approx) {
+      inset.addSource("spot", { type: "geojson", data: circle(site.longitude, site.latitude, site.public_location_precision === "coarse" ? 6000 : 700) });
+      inset.addLayer({ id: "spot-fill", type: "fill", source: "spot", paint: { "fill-color": t.ochre, "fill-opacity": 0.12 } });
+      inset.addLayer({ id: "spot-edge", type: "line", source: "spot", paint: { "line-color": t.ochre, "line-width": 1.5, "line-dasharray": [3, 3] } });
+    } else {
+      inset.addSource("spot", { type: "geojson", data: { type: "Point", coordinates: [site.longitude, site.latitude] } });
+      inset.addLayer({ id: "spot", type: "circle", source: "spot", paint: { "circle-radius": 7, "circle-color": t.ochre, "circle-stroke-color": t.ink, "circle-stroke-width": 1.5 } });
+    }
+  });
 
   // ---- follow the player -----------------------------------------------------------
   const onState = () => {

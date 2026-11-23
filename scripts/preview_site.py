@@ -2,10 +2,11 @@
 """Preview the website locally on the real metadata, before anything is public.
 
 Builds test data from the metadata folder into .preview/api (ignored by git) and
-serves website/ with two folders laid over it:
+serves website/ with three folders laid over it:
 
     /api/...    from .preview/api, instead of website/api (the published data)
     /audio/...  from <archive-root>/audio, so hours play and spectrograms show
+    /map/...    from .maptiles, the base map (scripts/build_map_tiles.py)
 
 website/api is never written, so unpublished hours cannot end up in the public
 repository. By default every processed hour is treated as published (every
@@ -89,6 +90,8 @@ class Handler(SimpleHTTPRequestHandler):
             return str(PREVIEW / "api" / os.path.normpath(clean[len("/api/"):]).lstrip("./"))
         if clean.startswith("/audio/") and self.archive_audio:
             return str(self.archive_audio / os.path.normpath(clean[len("/audio/"):]).lstrip("./"))
+        if clean.startswith("/map/"):
+            return str(REPO / ".maptiles" / os.path.normpath(clean[len("/map/"):]).lstrip("./"))
         return super().translate_path(path)
 
     def end_headers(self):
@@ -144,12 +147,12 @@ class Handler(SimpleHTTPRequestHandler):
         self._remaining = None
 
     def log_message(self, fmt, *args):
-        if "/audio/" in self.path:
+        if "/audio/" in self.path or "/map/" in self.path:
             return
         super().log_message(fmt, *args)
 
 
-Handler.extensions_map.update({".opus": "audio/ogg", ".json": "application/json", ".js": "text/javascript", ".webp": "image/webp"})
+Handler.extensions_map.update({".opus": "audio/ogg", ".json": "application/json", ".js": "text/javascript", ".webp": "image/webp", ".mjs": "text/javascript", ".woff2": "font/woff2", ".pmtiles": "application/octet-stream"})
 
 
 def main() -> int:

@@ -1,10 +1,12 @@
 # The website
 
 A static site in `website/`, served by Cloudflare Pages: plain ES modules, no
-build step, Leaflet from a CDN, Esri topographic tiles and a "field notebook"
-look (warm paper, ink, Fraunces and Inter). It reads `website/api/data.json`
-and one detections file per hour, built by `scripts/build_web_metadata.py`;
-audio and spectrograms come from the R2 bucket.
+build step, a "field notebook" look (paper, ink, Fraunces and Inter) and our own
+map drawn by MapLibre. Everything it loads comes from the site itself or the R2
+bucket: no CDNs, no Google Fonts, no third-party tiles. It reads
+`website/api/data.json` and one detections file per hour, built by
+`scripts/build_web_metadata.py`; audio, spectrograms and the map file come from
+the R2 bucket.
 
 ## Screens
 
@@ -42,16 +44,42 @@ website/styles.css      all styles
 website/js/app.js       routing (#/, #/site/..., #/about)
 website/js/data.js      data.json -> places, sessions, hours, species
 website/js/atlas.js     map and place accordion
+website/js/map.js       the base map: style from the colour tokens, fonts, sources
+website/js/config.js    where the map file lives (local preview or R2)
 website/js/site.js      place page
 website/js/sessionchart.js   one session's chart and its hour window
 website/js/detail.js    the hour in detail
 website/js/species.js   plate grid with rings
 website/js/player.js    the audio element and the player bar
 website/art/            bird plates, frog plates, manifest.json
+website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
+website/vendor/         MapLibre GL JS 6.17.0, pmtiles 4.5.0, @protomaps/basemaps 5.7.2, licences
 ```
 
 The audio element has no `crossorigin` attribute, so audio plays from any host
 without CORS rules.
+
+## The map
+
+One PMTiles file of OpenStreetMap data (Protomaps' basemap), built by
+`scripts/build_map_tiles.py` from Protomaps' daily world build: the world up to
+zoom 6, wide areas around our places at zoom 7–10 and close-ups (about 30 km
+around each group of places) at 11–14. Run it again after adding places far
+from the others. It needs the `pmtiles` tool and writes
+`.maptiles/soundscape-map.pmtiles` (git-ignored), which goes to the R2 bucket
+as `map/soundscape-map.pmtiles`; `js/config.js` holds the public address.
+
+`js/map.js` reads the file as three sources, coarse to fine, so a finer level
+with no tiles shows the coarser one instead of a blank map. Colours come from
+the tokens in `styles.css`, labels use the site's own fonts (MapLibre's
+`font-faces`; no glyph server), and layers that need icon images are left out.
+The places are a map layer, so their labels make room for each other.
+
+The relief is a second file from the same script, `soundscape-terrain.pmtiles`:
+Mapterhorn's terrain (zoom 0–12, terrarium WebP) for the same areas, shaded
+with MapLibre's "igor" hill shade between each level's land colours and its
+roads. The map must credit OpenStreetMap, Protomaps and Mapterhorn (bottom
+right); the About page also names the elevation sources.
 
 ## Data the site needs from the build
 

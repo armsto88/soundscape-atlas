@@ -71,6 +71,11 @@ function renderAbout(main) {
     el("p", {}, "The species on each hour's timeline were identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology) and may contain errors. Species marked as checked by ear have been confirmed by a person."),
     el("p", {}, "Bird plates are hand-cut 1800s illustrations by John Gould and others, from the Fugleramme project (CC BY-SA 4.0). Frogs are drawn in the same style from openly licensed photos (CC BY-SA 4.0). ",
       el("a", { href: "art/birds/CREDITS.md" }, "Bird credits"), " · ", el("a", { href: "art/frogs/CREDITS.md" }, "Frog credits"), "."),
+    el("p", {}, "Map data © ", el("a", { href: "https://www.openstreetmap.org/copyright" }, "OpenStreetMap contributors"),
+      ", drawn with ", el("a", { href: "https://protomaps.com" }, "Protomaps"), " and MapLibre. Relief from ",
+      el("a", { href: "https://mapterhorn.com/attribution" }, "Mapterhorn"),
+      ", built from open elevation data including Geoscience Australia (CC BY 4.0), GeoBasis-DE/LVGL-SL (Saarland) and LGL Baden-Württemberg (dl-de/by-2-0). ",
+      "Fonts: Inter and Fraunces (SIL Open Font License)."),
     el("p", {}, "Recordings by Tom Armstrong. All rights reserved.")));
 }
 
