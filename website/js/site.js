@@ -94,8 +94,11 @@ export function render(main, model, params, ctx) {
   L.tileLayer(TOPO_URL, { maxZoom: 17 }).addTo(inset);
   const approx = site.public_location_precision !== "exact";
   inset.setView([site.latitude, site.longitude], approx ? 9 : 11);
-  if (approx) L.circle([site.latitude, site.longitude], { radius: site.public_location_precision === "coarse" ? 6000 : 700, color: "#c2913d", weight: 1.5, dashArray: "4 4", fillOpacity: 0.12 }).addTo(inset);
-  else L.circleMarker([site.latitude, site.longitude], { radius: 7, color: "#2a2a26", weight: 1.5, fillColor: "#c2913d", fillOpacity: 1 }).addTo(inset);
+  const css = getComputedStyle(document.documentElement); // colours come from the tokens in styles.css
+  const ochre = css.getPropertyValue("--ochre").trim();
+  const ink = css.getPropertyValue("--ink").trim();
+  if (approx) L.circle([site.latitude, site.longitude], { radius: site.public_location_precision === "coarse" ? 6000 : 700, color: ochre, weight: 1.5, dashArray: "4 4", fillOpacity: 0.12 }).addTo(inset);
+  else L.circleMarker([site.latitude, site.longitude], { radius: 7, color: ink, weight: 1.5, fillColor: ochre, fillOpacity: 1 }).addTo(inset);
 
   // ---- follow the player -----------------------------------------------------------
   const onState = () => {

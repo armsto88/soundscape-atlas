@@ -81,6 +81,31 @@ Beyond each hour's basics, `build_web_metadata.py` writes:
 Files are named by the scientific name BirdNET+ V3 reports, e.g.
 `crinia-signifera.webp`.
 
+## Colours and brand
+
+Every colour is a token in `styles.css` `:root`; nothing else in the site
+names a colour. Each accent has one job:
+
+- **ink**: text and data (detection marks, the activity curve);
+- **ochre**: places and selection (map markers, the hour window, selected
+  rows, which also get a thin ochre bar); `ochre-deep` for lines that must be
+  seen (focus ring, hour-window edge);
+- **green**: checked by ear, and links;
+- **red**: now (the playhead, with a small cap, and the progress line), and errors;
+- **slate**: night (and later the map's water); **dusk**: twilight. The chart's
+  sky is one gradient from day to dusk at sunset to night an hour later.
+
+The mark is three contour lines around an ochre dot: a hill on a map, and
+sound spreading from the recorder. It sits inline in the top bar of
+`index.html` (colours from the tokens). `website/assets/` holds `mark.svg`,
+`favicon.svg` (a simpler two-ring version on a paper tile), `favicon-32.png`,
+`apple-touch-icon.png` and `social.png`, the 1200 × 630 link-preview image,
+drawn by `scripts/make_social_image.py`. That script can add one hour's
+spectrogram strip (`--segment`), but only for a published hour.
+
+Spectrogram PNGs get a fixed tone curve in `make_spectrograms.py` and are laid
+over the chart paper with `mix-blend-mode: multiply`.
+
 ## Preview
 
 ```

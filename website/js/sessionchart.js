@@ -23,8 +23,22 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
   defs.append(pattern);
   plotSvg.append(defs);
   const rect = (a, b, cls, extra = {}) => svg("rect", { x: (x(a) * 1000).toFixed(2), y: "0", width: Math.max(0, (x(b) - x(a)) * 1000).toFixed(2), height: String(H), class: cls, ...extra });
-  for (const [a, b] of session.nights) plotSvg.append(rect(a, b, "sc-night"));
-  for (const [a, b] of session.twilights) plotSvg.append(rect(a, b, "sc-twilight"));
+  // the sky: one gradient, from day to dusk at sunset to night an hour later, and back at dawn.
+  // It is laid out in the plot's own units, so stops outside the session still shade its edges.
+  const stops = [];
+  for (const { t, set } of session.sky) {
+    if (set) stops.push([t - HOUR, "day"], [t, "dusk"], [t + HOUR, "night"]);
+    else stops.push([t - HOUR, "night"], [t, "dusk"], [t + HOUR, "day"]);
+  }
+  stops.sort((p, q) => p[0] - q[0]);
+  if (stops.length) {
+    const t0 = stops[0][0];
+    const t1 = stops[stops.length - 1][0];
+    const sky = svg("linearGradient", { id: `sky-${uid}`, gradientUnits: "userSpaceOnUse", x1: (x(t0) * 1000).toFixed(2), y1: "0", x2: (x(t1) * 1000).toFixed(2), y2: "0" });
+    for (const [t, kind] of stops) sky.append(svg("stop", { offset: ((t - t0) / (t1 - t0)).toFixed(5), class: `sc-sky-${kind}` }));
+    defs.append(sky);
+    plotSvg.append(rect(session.start, session.end, "sc-sky", { fill: `url(#sky-${uid})` }));
+  }
 
   // activity: one closed area per run of back-to-back published hours
   const runs = [];

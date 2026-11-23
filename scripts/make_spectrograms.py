@@ -3,15 +3,20 @@
 
 The website shows the image as the timeline background of an hour, so it is a
 long, thin strip: 3600 px wide (one pixel per second), 0 to 12 kHz, dark marks
-on a light background (greyscale PNG). It is made from the Opus copy, so it can
-be run for any processed hour, before or after BirdNET.
+on a light background (greyscale PNG). The site lays it over its chart paper with
+mix-blend-mode: multiply, so white becomes the paper and the marks read as ink.
+It is made from the Opus copy, so it can be run for any processed hour, before
+or after BirdNET.
+
+Images drawn before 23 Nov 2026 have no tone curve and look nearly blank on the
+site; redraw them with --force.
 
     python3 scripts/make_spectrograms.py --archive-root /media/tom/archive/soundscape_atlas --dry-run
     python3 scripts/make_spectrograms.py --archive-root /media/tom/archive/soundscape_atlas --only AU_NSW_BOOMERANG_FALLS
 
 Existing images are kept unless --force is given. About a minute of one CPU
-core per hour; --jobs runs several hours at once. upload_to_r2.py does not yet
-copy the images to the bucket.
+core per hour; --jobs runs several hours at once. upload_to_r2.py uploads each
+image with its hour.
 
 Requires ffmpeg on PATH.
 """
@@ -30,13 +35,24 @@ LISTENING_DIR = Path("audio", "listening_opus")
 DEFAULT_SIZE = "3600x200"
 TOP_HZ = 12000
 
+# Tone curve, applied after negate (255 = silence, darker = louder). Without it an
+# hour uses only grey levels of about 170-255 and the strip looks nearly blank. The
+# curve is the same for every hour, so quiet hours stay quiet: grey 250 and lighter
+# stays white, 178 and darker becomes as dark as the site's ink (42), with a gentle
+# power curve between so the background hiss stays pale.
+TONE_LIGHT = 250
+TONE_DARK = 178
+TONE_POWER = 1.9
+TONE_INK = 42
+
 
 def ffmpeg_filter(size: str) -> str:
+    tone = f"255-{255 - TONE_INK}*pow(clip(({TONE_LIGHT}-val)/{TONE_LIGHT - TONE_DARK},0,1),{TONE_POWER})"
     return (
         "aformat=channel_layouts=mono,"
         f"showspectrumpic=s={size}:mode=combined:color=intensity:scale=log:fscale=lin:"
         f"stop={TOP_HZ}:legend=0:drange=80:limit=0,"
-        "format=gray,negate"
+        f"format=gray,negate,lut=c0='{tone}'"
     )
 
 

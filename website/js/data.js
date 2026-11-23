@@ -225,21 +225,12 @@ function finishSession(session) {
   const inSpan = (t) => t >= session.start - HOUR && t <= session.end + HOUR;
   session.sunrises = rises.filter(inSpan);
   session.sunsets = sets.filter(inSpan);
-  const events = [...session.sunsets.map((t) => ({ t, set: true })), ...session.sunrises.map((t) => ({ t, set: false }))].sort((a, b) => a.t - b.t);
-  const bands = [];
-  let open = events.length && !events[0].set ? session.start - HOUR : null;
-  for (const e of events) {
-    if (e.set) open = e.t;
-    else if (open !== null) {
-      bands.push([open, e.t]);
-      open = null;
-    }
-  }
-  if (open !== null) bands.push([open, session.end + HOUR]);
-  session.nights = bands.map(([a, b]) => [Math.max(a, session.start), Math.min(b, session.end)]).filter(([a, b]) => b > a);
-  session.twilights = [...session.sunsets, ...session.sunrises]
-    .map((t) => [Math.max(t - HOUR, session.start), Math.min(t + HOUR, session.end)])
-    .filter(([a, b]) => b > a);
+  // Every sunset and sunrise within a day of the session, for the chart's sky. The nearest ones
+  // count even when they fall hours outside the recording: a 19:00-05:00 session in winter is
+  // night all through, although no sun event lies within it.
+  const near = (t) => t >= session.start - 24 * HOUR && t <= session.end + 24 * HOUR;
+  session.sky = [...sets.filter(near).map((t) => ({ t, set: true })), ...rises.filter(near).map((t) => ({ t, set: false }))]
+    .sort((a, b) => a.t - b.t);
 }
 
 // The published hour that contains a moment of a session, if any.
