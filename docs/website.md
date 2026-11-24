@@ -204,7 +204,7 @@ written, so unpublished hours cannot reach the public repository.
     Wompoo Fruit Dove, Scarlet Robin. Done: White-throated Treecreeper,
     Australian Logrunner (Prêtre's plate in Temminck: Gould's has a painted
     landscape behind the birds, which does not cut cleanly), Albert's Lyrebird
-    (Gould's Supplement, 1869). The
+    (Gould's Supplement, 1869), Fuscous Honeyeater. The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is
@@ -219,6 +219,10 @@ written, so unpublished hours cannot reach the public repository.
     State Library of New South Wales copy (`birdsaustralia4goula` and its
     sibling volumes) has cleaner paper than the BHL copy, whose plates show
     the facing text through. Wikimedia's image server rate-limits scripts hard.
+- Size plates by the bird, not the whole drawing: tall vignettes (a vine with
+  long tendrils, as for the Fuscous Honeyeater and Brown Gerygone) leave the
+  birds tiny in the rings. Fugleramme keeps a bird box per plate for this;
+  the site could crop or scale to it.
 - Redraw the frogs, and a frog entry for each new frog.
 - Spectrograms for the hours not drawn yet (`scripts/make_spectrograms.py`).
 - A species index across the atlas: where and when a species was heard.
