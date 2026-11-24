@@ -320,7 +320,7 @@ class Player extends EventTarget {
     d.title.innerHTML = "";
     d.clock.innerHTML = "";
     if (!seg) {
-      d.title.append(el("span", { class: "player-hint" }, "Choose a place, then click a session's chart to listen."));
+      d.title.append(el("span", { class: "player-hint" }, "Choose a place on the map and press ▶ to listen."));
       d.time.title = "";
     } else {
       const when = `${fmtDay(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;

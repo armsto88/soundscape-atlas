@@ -13,7 +13,13 @@ the R2 bucket.
 - **Atlas** (`#/`): the map, with named areas at low zoom and labelled places
   when zoomed in, and the places as an accordion (country › state › area ›
   place). Opening a section flies the map there; closing it zooms back out a
-  level. Clicking a place shows a small card with an "Open site" button.
+  level. Clicking a place shows a small card with a play button and "Open
+  site". The play button plays the place's hour without leaving the map, the
+  same for every visit: an hour marked `featured` in segments.csv (from its
+  start); otherwise the liveliest dawn hour (most detections, any session) from
+  half an hour before sunrise, or from its busiest five minutes if earlier;
+  otherwise the liveliest hour from its busiest five minutes
+  (`quickListen()` in `js/data.js`).
 - **Place** (`#/site/<site_id>?at=<segment_id>`): description and inset map,
   then one chart per recording session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,

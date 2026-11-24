@@ -3,11 +3,14 @@
 // closing it zooms back out a level. Clicking a place shows a small card.
 // The places are a layer of the map, so their labels make room for each other.
 
-import { el, append, plural, fmtInt, humanize } from "./util.js";
+import { el, append, plural, fmtInt, humanize, fmtDay, fmtClock } from "./util.js";
 import { LngLatBounds, Marker, NavigationControl, ScaleControl } from "../vendor/maplibre-gl.mjs";
 import { createMap, tokens, FONTS } from "./map.js";
+import { quickListen } from "./data.js";
 
 const PILL_RADIUS_PX = 44; // a group's sites closer than this on screen collapse into one pill
+const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const PLACE_LAYERS = ["places-label", "places-dot", "places-ring"];
 
 export function render(main, model, params, ctx) {
@@ -43,8 +46,32 @@ export function render(main, model, params, ctx) {
 
   // ---- the card ------------------------------------------------------------
   const rowsBySite = new Map();
+  let cardPlay = null; // { button, site } for the card's play button, if it has one
+  const playingHere = (site) => ctx.player.isPlaying && ctx.player.segment && ctx.player.segment.site === site;
+  const showCardPlay = () => {
+    if (!cardPlay) return;
+    const on = playingHere(cardPlay.site);
+    cardPlay.button.innerHTML = on ? ICON_PAUSE : ICON_PLAY;
+    cardPlay.button.setAttribute("aria-label", on ? "Pause" : `Listen: ${cardPlay.label}`);
+  };
+  // one tap to hear a place: its featured hour, or its liveliest dawn from before sunrise
+  const listenRow = (site) => {
+    const quick = quickListen(site);
+    if (!quick) return null;
+    const label = quick.kind === "dawn" ? "Dawn chorus" : humanize(quick.seg.period) || "Listen";
+    const button = el("button", { class: "card-play", type: "button", onclick: () => {
+      if (playingHere(site)) ctx.player.pause();
+      else if (ctx.player.segment && ctx.player.segment.site === site) ctx.player.play(); // paused here: carry on
+      else ctx.player.load(quick.seg, { autoplay: true, at: quick.at });
+    } });
+    cardPlay = { button, site, label };
+    showCardPlay();
+    return el("div", { class: "card-listen" }, button,
+      el("div", { class: "card-listen-text" }, el("b", {}, label), el("span", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`)));
+  };
   const openCard = (site) => {
     card.innerHTML = "";
+    cardPlay = null;
     const facts = [humanize(site.habitat), humanize(site.biome), site.elevation_m ? `${site.elevation_m} m` : ""].filter(Boolean).join(" · ");
     const heard = site.species.length ? ` · ${plural(site.species.length, "species")}` : "";
     append(card, [
@@ -55,7 +82,7 @@ export function render(main, model, params, ctx) {
       el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}${heard}`),
       site.description ? el("p", { class: "card-desc" }, site.description) : null,
       site.public_location_precision !== "exact" ? el("p", { class: "note card-desc" }, "Shown at an approximate location.") : null,
-      el("div", { class: "actions" }, el("a", { class: "btn btn-primary", href: `#/site/${encodeURIComponent(site.id)}` }, "Open site")),
+      el("div", { class: "card-foot" }, listenRow(site), el("a", { class: "card-open", href: `#/site/${encodeURIComponent(site.id)}` }, "Open site →")),
     ]);
     card.hidden = false;
     select(site.id);
@@ -240,6 +267,7 @@ export function render(main, model, params, ctx) {
   const pulse = new Marker({ element: el("div", { class: "place-pulse", "aria-hidden": "true" }), anchor: "center" });
   let pulsing = null;
   const onPlayer = () => {
+    showCardPlay();
     const site = ctx.player.isPlaying && ctx.player.segment ? ctx.player.segment.site : null;
     if (site === pulsing) return;
     pulsing = site;

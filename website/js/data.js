@@ -238,6 +238,50 @@ export function segmentAt(session, t) {
   return session.segments.find((s) => t >= s.start && t < s.end) || null;
 }
 
+// What the atlas's play button plays at a place, always the same for a place:
+// - an hour marked featured in segments.csv, from its start;
+// - otherwise the liveliest dawn hour (most detections, any session), from half
+//   an hour before sunrise, or from its busiest five minutes if they come
+//   earlier, so the listener hears the chorus build;
+// - otherwise the liveliest hour, from its busiest five minutes;
+// - otherwise the latest session, from half an hour before sunrise (or its start).
+// Returns { seg, at (seconds into seg), moment (ms), kind } or null.
+export function quickListen(site) {
+  const hours = site.segments.filter((s) => s.public_url);
+  if (!hours.length) return null;
+  const featured = hours.find((s) => s.featured === true);
+  if (featured) return { ...startFrom(featured.session, featured.start), kind: "featured" };
+  const liveliest = (list) => list.reduce((a, b) => (b.detection_count > a.detection_count ? b : a));
+  const busiest = (seg) => {
+    const bins = seg.activity || [];
+    const peak = bins.reduce((best, v, i) => (v > bins[best] ? i : best), 0);
+    return seg.start + Math.max(0, peak * ACTIVITY_BIN_SEC * 1000 - 10_000);
+  };
+  const dawns = hours.filter((s) => s.period === "dawn" && s.detection_count > 0);
+  if (dawns.length) {
+    const seg = liveliest(dawns);
+    const sunrise = seg.session.sunrises.find((t) => t > seg.start - HOUR && t < seg.end + HOUR);
+    const t = Math.min(busiest(seg), sunrise ? sunrise - 30 * MINUTE : seg.start);
+    return { ...startFrom(seg.session, t), kind: "dawn" };
+  }
+  const busy = hours.filter((s) => s.detection_count > 0);
+  if (busy.length) {
+    const seg = liveliest(busy);
+    return { ...startFrom(seg.session, busiest(seg)), kind: "busiest" };
+  }
+  const session = site.sessions.find((s) => s.segments.some((x) => x.public_url));
+  const sunrise = session.sunrises.find((t) => t >= session.start && t <= session.end);
+  return { ...startFrom(session, sunrise ? sunrise - 30 * MINUTE : session.start), kind: sunrise ? "dawn" : "start" };
+}
+
+// the published hour holding moment t (or the next one after it), and where in it to start
+function startFrom(session, t) {
+  const hours = session.segments.filter((s) => s.public_url);
+  const seg = hours.find((s) => t >= s.start && t < s.end) || hours.find((s) => s.start >= t) || hours[hours.length - 1];
+  const moment = Math.min(Math.max(t, seg.start), seg.end);
+  return { seg, at: (moment - seg.start) / 1000, moment };
+}
+
 const pending = new Map();
 export function loadDetections(seg) {
   if (seg.detections) return Promise.resolve(seg.detections);
