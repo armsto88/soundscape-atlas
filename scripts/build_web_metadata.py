@@ -96,6 +96,15 @@ def split_published(segments: List[dict]) -> Tuple[List[dict], List[dict], List[
     return published, unpublished, unrecognised
 
 
+def support_link(site: dict) -> dict:
+    """The optional support_name/support_url/support_note columns, only with an https link."""
+    name = (site.get("support_name") or "").strip()
+    url = (site.get("support_url") or "").strip()
+    if not name or not url.startswith("https://"):
+        return {}
+    return {"support": {"name": name, "url": url, "note": (site.get("support_note") or "").strip()}}
+
+
 def public_location(site: dict) -> Tuple[PublicLocation, List[str]]:
     """Coordinates and elevation as they may be published for a site.
 
@@ -311,6 +320,8 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "public_location_precision": location.precision,
                 "description": site.get("description"),
                 "is_sensitive": location.is_sensitive,
+                # optional: a local conservation group's own donation page ("support this place")
+                **support_link(site),
             }
 
         if session_id not in index_sessions:

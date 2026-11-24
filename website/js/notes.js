@@ -15,6 +15,7 @@
 import { el, fmtClock, plural, HOUR, MINUTE } from "./util.js";
 import { loadDetections, segmentAt, chorusPeak, ACTIVITY_BIN_SEC } from "./data.js";
 import { loadWeather, sessionWeather } from "./weather.js";
+import { hasSupport, supportText } from "./support.js";
 
 const SURE = 0.7;
 const BIN = ACTIVITY_BIN_SEC * 1000;
@@ -28,7 +29,7 @@ export function renderNotes(session, { onPlay }) {
     if (started) return;
     started = true;
     const birds = session.hasDetections ? sessionNotes(session).catch(() => null) : Promise.resolve(null);
-    Promise.all([birds, loadWeather(session)]).then(([notes]) => fill(root, notes, sessionWeather(session), onPlay));
+    Promise.all([birds, loadWeather(session)]).then(([notes]) => fill(root, notes, sessionWeather(session), onPlay, session.site));
   };
   if ("IntersectionObserver" in window) {
     const watch = new IntersectionObserver((entries) => {
@@ -126,7 +127,7 @@ async function sessionNotes(session) {
   return notes;
 }
 
-function fill(root, notes, weather, onPlay) {
+function fill(root, notes, weather, onPlay, site) {
   const lines = [...(weather ? [{ label: "Weather", items: [{ text: weather }] }] : []), ...(notes ? notes.lines : [])];
   if (!lines.length) return;
   const birds = Boolean(notes && notes.lines.length);
@@ -142,6 +143,8 @@ function fill(root, notes, weather, onPlay) {
         : el("span", {}, item.text),
     ])),
   ]);
+  // a way to give something back, for a listener moved by what they heard
+  if (hasSupport(site)) rows.push([el("dt", {}, "Care for this place"), el("dd", {}, supportText(site))]);
   const credits = [
     birds ? "Birds and frogs from BirdNET detections that are checked by ear or at least 70% sure." : "",
     weather ? "Weather from Open-Meteo.com (ERA5 reanalysis, about 25 km grid)." : "",

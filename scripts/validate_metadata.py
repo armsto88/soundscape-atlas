@@ -170,6 +170,17 @@ def main() -> int:
         if not is_blank(row.get("site_id"))
     }
 
+    # Optional "support this place" link: a conservation group's own donation page.
+    for line_number, row in loaded_rows["sites"]:
+        url = (row.get("support_url") or "").strip()
+        name = (row.get("support_name") or "").strip()
+        if url and not url.startswith("https://"):
+            errors.append(f"sites.csv:{line_number}: support_url must start with https:// (got {url!r})")
+        if url and not name:
+            errors.append(f"sites.csv:{line_number}: support_url is set but support_name is blank")
+        if name and not url:
+            errors.append(f"sites.csv:{line_number}: support_name is set but support_url is blank")
+
     session_ids: Set[str] = {
         row["session_id"].strip()
         for _, row in loaded_rows["sessions"]

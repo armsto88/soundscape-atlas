@@ -1,1 +1,1 @@
-site_id,site_name,country_code,region_code,locality,latitude,longitude,elevation_m,habitat,biome,public_location_precision,description,is_sensitive,area
+site_id,site_name,country_code,region_code,locality,latitude,longitude,elevation_m,habitat,biome,public_location_precision,description,is_sensitive,area,support_name,support_url,support_note

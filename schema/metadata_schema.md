@@ -23,6 +23,7 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `description` | Public free text, so keep exact places out of it for sensitive sites |
 | `is_sensitive` | `true` caps the published location at `coarse` and rounds the elevation |
 | `area` | Optional. A named area within the state, e.g. `Northern Rivers`, used to group places on the website (country › state › area › site). Published as written |
+| `support_name`, `support_url`, `support_note` | Optional, all published. A local conservation group to support from this place's page: its name, a link to its **own** donation page (must start with `https://`; the site never handles money), and one line about what it does here, e.g. `Restores rainforest along the Nightcap ranges.` Places in the same area can repeat the same group |
 
 ## sessions.csv: one row per continuous recording (written by `ingest_recordings.py process`)
 

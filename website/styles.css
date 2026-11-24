@@ -216,6 +216,13 @@ small { font-size: 0.8em; }
 .notes-sep { color: var(--ink-3); }
 .notes-credit { margin: 0.45rem 0 0; font-size: 0.74rem; color: var(--ink-3); }
 
+/* ---- care for this place: a local group's own donation page ---- */
+.support { margin: 0.9rem 0 0.8rem; padding: 0.15rem 0 0.15rem 0.95rem; border-left: 2px solid var(--green); max-width: 60ch; }
+.support .eyebrow { margin-bottom: 0.15rem; }
+.support p:last-child { margin: 0; }
+.support-link { white-space: nowrap; font-weight: 500; }
+.card-support { font-size: 0.9rem; }
+
 /* ---- hour detail ------------------------------------------------------------ */
 .detail { margin-top: 0.9rem; padding: 1rem 1rem 0.6rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-0); }
 .detail-head { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }

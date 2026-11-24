@@ -7,6 +7,7 @@ import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
 import { renderNotes } from "./notes.js";
+import { supportBlock } from "./support.js";
 import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
 
@@ -38,6 +39,7 @@ export function render(main, model, params, ctx) {
       el("h1", {}, site.site_name),
       el("p", { class: "facts" }, facts.join(" · ")),
       site.description ? el("p", { class: "lede" }, site.description) : null,
+      supportBlock(site),
       site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
       el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
         (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"))),

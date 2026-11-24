@@ -44,6 +44,12 @@ list and its card shows only the essentials; the map's credits start folded
 and the scale bar is hidden. In the hour view each species lane carries its
 own name across the top (no name column), and plates sit three to a row.
 
+**Care for this place**: if a place has a local conservation group in
+sites.csv (`support_name`, `support_url`, `support_note`), its place page
+shows it under the description, the session notes end with it, and the atlas
+card (desktop) links to it. The link goes to the group's own donation page in
+a new tab; the site never handles money and adds no tracking (`js/support.js`).
+
 The player bar at the bottom keeps playing while you move around, and moves on
 to the next published hour of the session by itself. Old `#/hour/<segment_id>`
 links, and `?segment=<id>` links from the previous site, open the place at

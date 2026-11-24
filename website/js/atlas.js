@@ -7,6 +7,7 @@ import { el, append, plural, fmtInt, humanize, fmtDay, fmtClock } from "./util.j
 import { LngLatBounds, Marker, NavigationControl, ScaleControl } from "../vendor/maplibre-gl.mjs";
 import { createMap, tokens, FONTS } from "./map.js";
 import { quickListen } from "./data.js";
+import { hasSupport, supportLink } from "./support.js";
 
 const PILL_RADIUS_PX = 44; // a group's sites closer than this on screen collapse into one pill
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
@@ -81,6 +82,7 @@ export function render(main, model, params, ctx) {
       facts ? el("p", { class: "muted card-facts" }, facts) : null,
       el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}${heard}`),
       site.description ? el("p", { class: "card-desc" }, site.description) : null,
+      hasSupport(site) ? el("p", { class: "card-desc card-support" }, supportLink(site, `Support ${site.support.name}`)) : null,
       site.public_location_precision !== "exact" ? el("p", { class: "note card-desc" }, "Shown at an approximate location.") : null,
       el("div", { class: "card-foot" }, listenRow(site), el("a", { class: "card-open", href: `#/site/${encodeURIComponent(site.id)}` }, "Open site →")),
     ]);
