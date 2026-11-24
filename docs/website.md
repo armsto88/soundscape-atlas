@@ -138,6 +138,9 @@ with no tiles shows the coarser one instead of a blank map. Colours come from
 the tokens in `styles.css`, labels use the site's own fonts (MapLibre's
 `font-faces`; no glyph server), and layers that need icon images are left out.
 The places are a map layer, so their labels make room for each other.
+The place picked is marked in ochre, never ink: a deep ochre dot in a soft
+ochre disc, and its name stays ink with a light ochre highlight behind it (a
+paler one on hover). The area pills turn cream with an ochre edge on hover.
 
 The relief is a second file from the same script, `soundscape-terrain.pmtiles`:
 Mapterhorn's terrain (zoom 0–12, terrarium WebP) for the same areas, shaded
@@ -254,7 +257,8 @@ written, so unpublished hours cannot reach the public repository.
     landscape behind the birds, which does not cut cleanly), Albert's Lyrebird
     (Gould's Supplement, 1869), Fuscous Honeyeater, Pale-yellow Robin,
     Pacific Emerald Dove, White-headed Pigeon, Wompoo Fruit Dove,
-    Rose-crowned Fruit Dove, White-eared Honeyeater, Scarlet Robin. The
+    Rose-crowned Fruit Dove, White-eared Honeyeater, Scarlet Robin,
+    Striated Thornbill. The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is
