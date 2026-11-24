@@ -141,5 +141,9 @@ export function createMap(container, options = {}) {
   }
   const map = new MapLibreMap({ container, style: baseStyle(), attributionControl: false, maxZoom: 16, ...options });
   map.addControl(new AttributionControl({ compact: true }), "bottom-right");
+  // on small maps (phones, the inset map) the credits start folded into their "i" button
+  map.once("load", () => {
+    if (map.getContainer().clientWidth < 640) map.getContainer().querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+  });
   return map;
 }

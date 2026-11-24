@@ -324,9 +324,11 @@ class Player extends EventTarget {
       d.time.title = "";
     } else {
       const when = `${fmtDay(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;
+      // a problem replaces the date line, so the place's name always stays in view
       d.title.append(
         el("a", { href: `#/site/${encodeURIComponent(seg.site.id)}?at=${encodeURIComponent(seg.segment_id)}`, class: "player-link" },
-          el("strong", {}, seg.site.site_name || seg.site_id), el("span", {}, when)));
+          el("strong", {}, seg.site.site_name || seg.site_id),
+          this.error ? el("span", { class: "player-error" }, this.error) : el("span", {}, when)));
       // the recording's own clock: the time of day at the place, as it was
       const moment = this.moment;
       const seconds = String(new Date(moment).getUTCSeconds()).padStart(2, "0");
@@ -345,12 +347,9 @@ class Player extends EventTarget {
       d.nowArt.hidden = !image;
     }
     d.now.classList.toggle("on", Boolean(call));
-    d.msg.hidden = !this.error;
+    d.msg.hidden = !(seg && this.error && this.audio.error);
     d.msg.innerHTML = "";
-    if (this.error) {
-      d.msg.append(this.error, " ");
-      if (this.audio.error) d.msg.append(d.retry);
-    }
+    if (!d.msg.hidden) d.msg.append(d.retry);
     const frac = this.duration ? this.currentTime / this.duration : 0;
     d.progress.style.width = `${(frac * 100).toFixed(3)}%`;
     d.track.setAttribute("aria-valuenow", String(Math.round(frac * 100)));

@@ -79,7 +79,7 @@ small { font-size: 0.8em; }
   background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--rule);
 }
-.wordmark { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--font-serif); font-size: 1.3rem; font-weight: 500; color: var(--ink); text-decoration: none; }
+.wordmark { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--font-serif); font-size: 1.3rem; font-weight: 500; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .wordmark-mark { flex: none; width: 28px; height: 28px; }
 .wordmark-mark circle { fill: var(--ochre); }
 .topbar nav a { margin-left: 1.25rem; color: var(--ink-2); text-decoration: none; font-weight: 500; padding-bottom: 2px; border-bottom: 2px solid transparent; }
@@ -223,6 +223,7 @@ small { font-size: 0.8em; }
 .lane-name small { color: var(--ink-3); font-style: italic; margin-left: 0.3rem; }
 .lane-name b { font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .lane-name span { transition: color 0.5s ease; }
+.lane-caption { display: none; } /* the lane's name inside the lane, for phones */
 .lane-name.calling span { color: var(--ochre-deep); transition-duration: 0.2s; }
 .lane-name.fold { color: var(--ink-2); font-weight: 500; }
 .lane-name.fold span { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
@@ -317,6 +318,8 @@ small { font-size: 0.8em; }
 .player-now-art img { width: 26px; height: 26px; object-fit: contain; }
 .player-now-name { font-size: 0.82rem; font-style: italic; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-msg { color: var(--red); font-size: 0.85rem; }
+.player-link span.player-error { color: var(--red); }
+.player[data-state="error"] .player-time { display: none; } /* no clock when the audio failed */
 .linklike { background: none; border: 0; padding: 0; color: var(--green); text-decoration: underline; cursor: pointer; }
 .player-nav { display: flex; gap: 0.2rem; }
 .player-skip { width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: var(--ink); }
@@ -356,8 +359,50 @@ small { font-size: 0.8em; }
   .player-clock { font-size: 0.95rem; }
   .player-row { gap: 0.6rem; padding: 0 0.75rem; }
 }
+/* phones: each species lane carries its own name, so names get the full width */
+@media (max-width: 600px) {
+  .tl { grid-template-columns: minmax(0, 1fr); --lane-h: 30px; }
+  .tl.expanded { --lane-h: 26px; }
+  .tl-left { display: none; }
+  .lane-caption {
+    display: block; position: absolute; left: 3px; top: 1px; z-index: 1; max-width: calc(100% - 6px); padding: 0 4px;
+    border: 0; background: none; font: inherit; font-size: 0.72rem; line-height: 1.3; color: var(--ink-2);
+    text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: color 0.5s ease;
+  }
+  .lane-caption b { font-weight: 400; color: var(--ink-3); }
+  .lane-caption.fold { color: var(--ink); font-weight: 500; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+  .lane-caption.focus { color: var(--ink); font-weight: 600; }
+  .lane-caption.calling { color: var(--ochre-deep); transition-duration: 0.2s; }
+  .mark { top: 15px; bottom: 4px; }
+  .mark.checked { top: 13px; bottom: 1px; }
+  .tl.expanded .mark { top: 14px; bottom: 3px; }
+  .tl.expanded .mark.checked { top: 12px; bottom: 1px; }
+  .tl-spec::before { content: "0–12 kHz"; position: absolute; left: 6px; top: 4px; z-index: 1; font-size: 0.65rem; color: var(--ink-3); }
+}
 @media (max-width: 480px) {
   .page { padding: 1.2rem 1rem 2.5rem; }
+  .topbar { padding: 0 0.9rem; }
+  .topbar nav a { margin-left: 0.9rem; }
+  .wordmark { font-size: 1.12rem; gap: 0.45rem; }
+  .wordmark-mark { width: 24px; height: 24px; }
+  .maplibregl-ctrl-scale { display: none; }
+  .site-card { left: 0.5rem; right: 0.5rem; bottom: 0.5rem; width: auto; padding: 0.7rem 0.9rem 0.8rem; border-radius: 10px; }
+  .site-card h2 { font-size: 1.2rem; }
+  .site-card p { margin-bottom: 0.25rem; }
+  .site-card .card-desc, .site-card .card-facts { display: none; }
+  .site-card .actions { margin-top: 0.45rem; }
+  .site-card .btn { padding: 0.4rem 0.85rem; }
+  .session-head h3 { font-size: 1rem; }
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem 0.5rem; }
+  .ring { width: 92px; height: 92px; }
+  .ring img { max-width: 74px; max-height: 68px; }
+  .ring .ph { width: 56px; height: 56px; }
+  .tile b { font-size: 0.8rem; }
+  .tile span { font-size: 0.72rem; }
+  .player-row { gap: 0.5rem; padding: 0 0.6rem; }
+  .player-link strong { font-size: 0.95rem; }
+  .player-link span { font-size: 0.74rem; }
+  .player-skip { width: 32px; height: 32px; }
   .sc-sun { font-size: 0.64rem; }
   .sc-tick { font-size: 0.66rem; }
   .arrow-btn { min-height: 42px; padding: 0 0.7rem; }

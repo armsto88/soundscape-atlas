@@ -27,6 +27,11 @@ the R2 bucket.
   with a ring for its share of the calls, birds first, then frogs.
 - **About** (`#/about`).
 
+Phones (designed for 375 px wide, the iPhone SE): the map sits above the place
+list and its card shows only the essentials; the map's credits start folded
+and the scale bar is hidden. In the hour view each species lane carries its
+own name across the top (no name column), and plates sit three to a row.
+
 The player bar at the bottom keeps playing while you move around, and moves on
 to the next published hour of the session by itself. Old `#/hour/<segment_id>`
 links, and `?segment=<id>` links from the previous site, open the place at

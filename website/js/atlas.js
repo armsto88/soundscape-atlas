@@ -51,10 +51,10 @@ export function render(main, model, params, ctx) {
       el("button", { class: "site-card-close", type: "button", "aria-label": "Close", onclick: closeCard }, "×"),
       el("p", { class: "eyebrow" }, [site.locality, site.area || site.state].filter(Boolean).join(" · ")),
       el("h2", {}, site.site_name),
-      facts ? el("p", { class: "muted" }, facts) : null,
+      facts ? el("p", { class: "muted card-facts" }, facts) : null,
       el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}${heard}`),
-      site.description ? el("p", {}, site.description) : null,
-      site.public_location_precision !== "exact" ? el("p", { class: "note" }, "Shown at an approximate location.") : null,
+      site.description ? el("p", { class: "card-desc" }, site.description) : null,
+      site.public_location_precision !== "exact" ? el("p", { class: "note card-desc" }, "Shown at an approximate location.") : null,
       el("div", { class: "actions" }, el("a", { class: "btn btn-primary", href: `#/site/${encodeURIComponent(site.id)}` }, "Open site")),
     ]);
     card.hidden = false;

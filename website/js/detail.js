@@ -152,7 +152,19 @@ export function createDetail(ctx, { onSelect }) {
         "aria-expanded": toggle ? String(Boolean(row.collapse)) : null,
         onclick: () => (toggle ? setExpanded(Boolean(row.fold)) : setFocus(row.name)),
       }, el("span", {}, row.label, row.frog ? el("small", {}, "frog") : null), row.calls != null ? el("b", {}, fmtInt(row.calls)) : null));
-      lanesRight.append(el("div", { class: "lane-track" }));
+      // on phones the name column is hidden and each lane carries its name as a caption
+      lanesRight.append(el("div", { class: "lane-track" },
+        el("button", {
+          class: `lane-caption${toggle ? " fold" : ""}${focus === row.name ? " focus" : ""}`,
+          type: "button",
+          tabindex: "-1",
+          "data-name": row.name || null,
+          onclick: (event) => {
+            event.stopPropagation();
+            if (toggle) setExpanded(Boolean(row.fold));
+            else setFocus(row.name);
+          },
+        }, row.label, row.frog ? " (frog)" : "", row.calls != null ? el("b", {}, ` ${fmtInt(row.calls)}`) : null)));
     }
     const tracks = lanesRight.children;
     const duration = seg.durationSec;
@@ -215,6 +227,7 @@ export function createDetail(ctx, { onSelect }) {
     // the lanes of the species calling right now take on a little ochre
     const now = new Set(mine ? player.calling.map((d) => d.common_name) : []);
     for (const b of lanesLeft.children) b.classList.toggle("calling", now.has(b.dataset.name));
+    for (const c of lanesRight.querySelectorAll(".lane-caption")) c.classList.toggle("calling", now.has(c.dataset.name));
     if (!mine) return;
     const frac = seg.durationSec ? clamp(player.currentTime / seg.durationSec, 0, 1) : 0;
     playhead.style.left = `${(frac * 100).toFixed(3)}%`;
