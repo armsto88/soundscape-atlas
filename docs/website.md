@@ -258,7 +258,9 @@ written, so unpublished hours cannot reach the public repository.
     (Gould's Supplement, 1869), Fuscous Honeyeater, Pale-yellow Robin,
     Pacific Emerald Dove, White-headed Pigeon, Wompoo Fruit Dove,
     Rose-crowned Fruit Dove, White-eared Honeyeater, Scarlet Robin,
-    Striated Thornbill, Buff-rumped Thornbill. The
+    Striated Thornbill, Buff-rumped Thornbill, Russet-tailed Thrush (Keulemans,
+    in Seebohm & Sharpe's Monograph of the Turdidae). Left for Fugleramme's
+    coming batch (#406): Green Catbird, Mistletoebird, Shining Bronze Cuckoo. The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is

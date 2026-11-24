@@ -2476,5 +2476,73 @@
     [371, 1887]
    ]
   }
+ },
+ "Zoothera heinei": {
+  "name": "Russet-tailed Thrush",
+  "source": "keulemans",
+  "work": "J. G. Keulemans, in Seebohm & Sharpe, A Monograph of the Turdidae, vol. 1 (1898-1902), pl. VI: fig. 1 \"Geocichla heinii\" (this species), fig. 2 \"G. papuensis\" (its New Guinea race)",
+  "scan": "https://archive.org/details/mobot31753003757629/page/n364/mode/1up",
+  "scan_file": "https://archive.org/download/mobot31753003757629/page/n364.jpg",
+  "scan_note": "Harvard Museum of Comparative Zoology copy, digitised by the Biodiversity Heritage Library; public domain (Keulemans died 1912)",
+  "cut": "2026-11-24, Fugleramme plate-review tools at a7848e0 (plate.py cut via cut_multi.py, finish.py), via cutplate.py: not in Gould; paper balanced to the halo tone; paper_clean 172 drops the paper (191) and the cloud wash (180), keeps the grass (154), rock and birds; the figure numbers 1 and 2 painted out with neighbouring rock texture (clones), Keulemans' monogram removed; cloud wash enclosed by the grass and birds kept as painted.",
+  "spec": {
+   "box": [180, 950, 2750, 3980],
+   "paper_min": 167,
+   "paper_clean": 172,
+   "seal": 4,
+   "balance": [229, 211, 179],
+   "seed": [
+    [707, 1208],
+    [1315, 1513]
+   ],
+   "clones": [
+    [
+     [
+      [714, 1996],
+      [750, 1996],
+      [750, 2034],
+      [714, 2034]
+     ],
+     40,
+     0
+    ],
+    [
+     [
+      [1602, 1810],
+      [1638, 1810],
+      [1638, 1848],
+      [1602, 1848]
+     ],
+     -45,
+     0
+    ]
+   ],
+   "remove": [
+    [
+     [140, 2175],
+     [265, 2175],
+     [265, 2255],
+     [140, 2255]
+    ]
+   ],
+   "gaps": [
+    [263, 447],
+    [434, 422],
+    [1071, 454],
+    [102, 584],
+    [79, 701],
+    [75, 847],
+    [1624, 815],
+    [100, 900],
+    [87, 980],
+    [1931, 1087],
+    [1929, 1381],
+    [1932, 1510],
+    [101, 2027],
+    [201, 2153],
+    [1737, 2214],
+    [803, 2325]
+   ]
+  }
  }
 }
