@@ -1,0 +1,6 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240823_0400",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240823_0400_16560_b2045d","common_name":"Australian Boobook","scientific_name":"Ninox boobook","group":"Aves","start_sec":1656.0,"end_sec":1659.0,"confidence":"0.7963","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

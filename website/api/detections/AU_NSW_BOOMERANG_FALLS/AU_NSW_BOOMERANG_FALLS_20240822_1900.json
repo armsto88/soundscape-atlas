@@ -1,0 +1,7 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240822_1900",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1900_21600_b2045d","common_name":"Australian Boobook","scientific_name":"Ninox boobook","group":"Aves","start_sec":2160.0,"end_sec":2163.0,"confidence":"0.8093","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1900_26070_b2045d","common_name":"Australian Boobook","scientific_name":"Ninox boobook","group":"Aves","start_sec":2607.0,"end_sec":2610.0,"confidence":"0.7546","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

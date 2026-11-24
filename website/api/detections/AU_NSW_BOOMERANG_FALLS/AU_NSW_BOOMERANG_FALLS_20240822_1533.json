@@ -1,0 +1,17 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240822_1533",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_02790_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":25.0,"end_sec":28.0,"confidence":"0.7886","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_03480_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":94.0,"end_sec":103.0,"confidence":"0.797","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_04170_d538ac","common_name":"White-headed Pigeon","scientific_name":"Columba leucomela","group":"Aves","start_sec":163.0,"end_sec":169.0,"confidence":"0.7968","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_04620_d538ac","common_name":"White-headed Pigeon","scientific_name":"Columba leucomela","group":"Aves","start_sec":208.0,"end_sec":214.0,"confidence":"0.7727","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_06090_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":355.0,"end_sec":358.0,"confidence":"0.7961","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_06210_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":367.0,"end_sec":370.0,"confidence":"0.7524","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_06570_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":403.0,"end_sec":406.0,"confidence":"0.7642","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_08220_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":568.0,"end_sec":571.0,"confidence":"0.7618","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_11040_add3dd","common_name":"Torresian Crow","scientific_name":"Corvus orru","group":"Aves","start_sec":850.0,"end_sec":853.0,"confidence":"0.7506","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_14640_94b838","common_name":"Sulphur-crested Cockatoo","scientific_name":"Cacatua galerita","group":"Aves","start_sec":1210.0,"end_sec":1213.0,"confidence":"0.8439","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_14700_c32ceb","common_name":"Australian Logrunner","scientific_name":"Orthonyx temminckii","group":"Aves","start_sec":1216.0,"end_sec":1222.0,"confidence":"0.787","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1533_15090_c32ceb","common_name":"Australian Logrunner","scientific_name":"Orthonyx temminckii","group":"Aves","start_sec":1255.0,"end_sec":1258.0,"confidence":"0.7974","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

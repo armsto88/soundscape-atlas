@@ -1,0 +1,6 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240823_0000",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240823_0000_22530_20aa64","common_name":"Cascade Tree Frog","scientific_name":"Dryopsophus pearsonianus","group":"Amphibia","start_sec":2253.0,"end_sec":2256.0,"confidence":"0.5028","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

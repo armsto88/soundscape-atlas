@@ -1,0 +1,7 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240822_1800",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1800_01380_392b64","common_name":"Pouched Frog","scientific_name":"Assa darlingtoni","group":"Amphibia","start_sec":138.0,"end_sec":141.0,"confidence":"0.7285","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_1800_04350_a898e1","common_name":"Sooty Owl","scientific_name":"Tyto tenebricosa","group":"Aves","start_sec":435.0,"end_sec":438.0,"confidence":"0.7586","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

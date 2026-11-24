@@ -1,0 +1,6 @@
+{
+  "segment_id": "AU_NSW_BOOMERANG_FALLS_20240822_2200",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOMERANG_FALLS_20240822_2200_28830_9d9256","common_name":"Common Eastern Froglet","scientific_name":"Crinia signifera","group":"Amphibia","start_sec":2883.0,"end_sec":2886.0,"confidence":"0.5315","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}
