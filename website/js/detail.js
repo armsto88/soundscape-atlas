@@ -10,6 +10,7 @@
 
 import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, clamp } from "./util.js";
 import { loadDetections } from "./data.js";
+import { loadWeather, hourWeather } from "./weather.js";
 
 const MAX_LANES = 8;
 const CONFIDENT = 0.9;
@@ -34,12 +35,13 @@ export function createDetail(ctx, { onSelect }) {
   const nextBtn = el("button", { class: "arrow-btn", type: "button", onclick: () => step(1) });
   const title = el("h4", { class: "detail-title" });
   const sub = el("p", { class: "detail-sub muted" });
+  const weatherLine = el("p", { class: "detail-weather", hidden: true });
   const playBtn = el("button", { class: "btn btn-primary", type: "button", onclick: () => {
     if (!seg) return;
     if (player.segment === seg) player.toggle();
     else player.load(seg, { autoplay: true });
   } });
-  const head = el("div", { class: "detail-head" }, prevBtn, el("div", { class: "detail-heading" }, title, sub), playBtn, nextBtn);
+  const head = el("div", { class: "detail-head" }, prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), playBtn, nextBtn);
 
   // ---- timeline ----------------------------------------------------------------
   const left = el("div", { class: "tl-left" });
@@ -243,6 +245,12 @@ export function createDetail(ctx, { onSelect }) {
     show(next) {
       if (seg === next) return;
       seg = next;
+      weatherLine.hidden = true;
+      loadWeather(seg.session).then(() => {
+        if (seg !== next) return;
+        weatherLine.textContent = hourWeather(seg);
+        weatherLine.hidden = !weatherLine.textContent;
+      });
       focus = null;
       const list = seg.session.segments;
       const i = list.indexOf(seg);

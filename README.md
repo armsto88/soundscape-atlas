@@ -49,7 +49,7 @@ In short:
 3. Set `published=true` on segments to make them public, and draw their
    spectrograms with `make_spectrograms.py`.
 4. `upload_to_r2.py` to put their audio and spectrograms in R2.
-5. `validate_metadata.py`, `build_web_metadata.py`, `fetch_bird_plates.py`,
+5. `validate_metadata.py`, `build_web_metadata.py`, `fetch_weather.py`, `fetch_bird_plates.py`,
    check with `preview_site.py --published-only`, then commit and push.
 
 Only published segments reach the website, and site coordinates are rounded

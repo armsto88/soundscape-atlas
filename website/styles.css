@@ -222,6 +222,7 @@ small { font-size: 0.8em; }
 .detail-heading { min-width: 0; }
 .detail-title { font-size: 1.5rem; margin: 0; }
 .detail-sub { margin: 0; font-size: 0.88rem; }
+.detail-weather { margin: 0.1rem 0 0; font-size: 0.8rem; color: var(--ink-3); }
 .arrow-btn {
   display: inline-flex; align-items: center; gap: 0.35rem; min-height: 46px; padding: 0 0.95rem;
   border: 1.5px solid var(--ink); border-radius: 999px; background: var(--paper); cursor: pointer; font-weight: 500; font-variant-numeric: tabular-nums;

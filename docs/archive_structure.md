@@ -159,7 +159,9 @@ uses the same pattern for the recording's start.
    alone. Objects for segments that are no longer published are listed;
    `--prune` deletes them after asking. `R2_REMOTE` and `R2_PUBLIC_BASE_URL`
    can replace the two flags.
-4. Rebuild with `scripts/build_web_metadata.py`.
+4. Rebuild with `scripts/build_web_metadata.py`, then add the weather for any
+   new session: `python3 scripts/fetch_weather.py --data website/api/data.json`
+   (writes `website/api/weather/`; only rounded coordinates are sent).
 5. Fetch bird plates for any newly published species:
    `python3 scripts/fetch_bird_plates.py --data website/api/data.json --art website/art`.
    Species without a plate are listed in `website/art/birds/CREDITS.md`, and

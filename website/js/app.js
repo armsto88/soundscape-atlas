@@ -75,6 +75,7 @@ function renderAbout(main) {
       ", drawn with ", el("a", { href: "https://protomaps.com" }, "Protomaps"), " and MapLibre. Relief from ",
       el("a", { href: "https://mapterhorn.com/attribution" }, "Mapterhorn"),
       ", built from open elevation data including Geoscience Australia (CC BY 4.0), GeoBasis-DE/LVGL-SL (Saarland) and LGL Baden-Württemberg (dl-de/by-2-0). ",
+      "Weather at the time of each session from ", el("a", { href: "https://open-meteo.com" }, "Open-Meteo.com"), " (ERA5 reanalysis, CC BY 4.0). ",
       "Fonts: Inter and Fraunces (SIL Open Font License)."),
     el("p", {}, "Recordings by Tom Armstrong. All rights reserved.")));
 }

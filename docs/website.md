@@ -116,6 +116,13 @@ Beyond each hour's basics, `build_web_metadata.py` writes:
   filled in, `js/data.js` derives areas for the current regions) and a
   `species` summary with scientific names, for the plate grid.
 
+`scripts/fetch_weather.py` then adds `api/weather/<session_id>.json` per
+session: hourly temperature, rain, cloud and wind from Open-Meteo's archive
+(ERA5 reanalysis; coordinates rounded to 0.1° before sending, answers cached
+in `.cache/weather/`). `js/weather.js` turns it into the "Weather" line of the
+session notes and the weather under each hour's title, and works out the
+moon's phase itself. `preview_site.py` runs it after each build.
+
 ## Species images
 
 - **Birds**: hand-cut 1800s plates from [Fugleramme](https://github.com/arnegiacomo/fugleramme)

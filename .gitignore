@@ -31,3 +31,6 @@ Thumbs.db
 
 # Map tiles built by scripts/build_map_tiles.py (uploaded to R2, not kept in git)
 .maptiles/
+
+# Caches of downloaded data (scripts/fetch_weather.py)
+.cache/

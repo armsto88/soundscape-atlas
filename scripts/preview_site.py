@@ -78,6 +78,11 @@ def build(metadata_dir: Path, archive_root: Path | None, published_only: bool) -
             [sys.executable, str(REPO / "scripts" / "build_web_metadata.py"), "--metadata-dir", str(tmp_dir), "--output", str(api / "data.json")],
             check=True,
         )
+        # the weather for each session (cached in .cache/weather; without a network
+        # the preview simply shows no weather for sessions not fetched before)
+        result = subprocess.run([sys.executable, str(REPO / "scripts" / "fetch_weather.py"), "--data", str(api / "data.json")])
+        if result.returncode != 0:
+            print("warning: no weather for some sessions (see above)", file=sys.stderr, flush=True)
 
 
 class Handler(SimpleHTTPRequestHandler):
