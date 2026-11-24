@@ -21,6 +21,22 @@ the R2 bucket.
   the session notes show; half an hour before sunrise if there's no real
   chorus); otherwise the liveliest hour from its busiest five minutes
   (`quickListen()` and `chorusPeak()` in `js/data.js`).
+
+  Above the places, **Find a bird or frog** (`#/?species=<scientific-name>`):
+  suggestions as you type (plate, name, scientific name, places and
+  sessions), matching the start of the name or of any word in it, or the
+  scientific name. Picking one replaces the accordion with a card (plate,
+  "heard at 8 places, in 11 sessions · mostly 06:00–09:00" and a 24-hour
+  strip) and the places it was heard at, by area, each with its sessions: a
+  strip of the session with night shaded and a mark wherever the species
+  called, a link that opens the place at the hour of its clearest call, and
+  ▶ to hear that call from the map. On the map the other places dim and each
+  place is ringed by the share of its hours with the species. A place is
+  listed only after **3 calls** there, or one checked by ear (`MIN_CALLS` in
+  `js/data.js`), so a stray BirdNET detection does not put a bird on the map.
+  For a species on a **sensitive-species list** the search names only the
+  areas, never the places (see "Data the site needs from the build"); place
+  pages are not changed by this.
 - **Place** (`#/site/<site_id>?at=<segment_id>`): description and inset map,
   then one chart per recording session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,
@@ -38,6 +54,16 @@ the R2 bucket.
   when the session scrolls into view.
   Below the sessions, "Most often heard here": an even grid of plates, each
   with a ring for its share of the calls, birds first, then frogs.
+
+  A species can be followed through the sessions (`&species=`): picked with
+  "Find a species heard here" in the header, by pressing its plate, or
+  carried over from the atlas search. A card above the sessions says how
+  often it was heard here; each chart gets a lane marking every five minutes
+  it called, with its clearest call flagged in red, and a line underneath
+  ("153 calls in 7 hours, between about 16:00 and 09:30" and a button for the
+  clearest call); sessions without it fade back; and the hour in detail opens
+  with its lane focused. The × on the card, or pressing the plate again,
+  clears it.
 
   Help text sits behind small (i) buttons by the headings (Sessions, the hour
   view, Session notes, Most often heard here; `info()` in `js/util.js`), never
@@ -79,7 +105,8 @@ website/js/config.js    where the map file lives (local preview or R2)
 website/js/site.js      place page
 website/js/sessionchart.js   one session's chart and its hour window
 website/js/detail.js    the hour in detail
-website/js/species.js   plate grid with rings
+website/js/species.js   plate grid with rings (plates are buttons when a species can be followed)
+website/js/search.js    the species search field, the card for the species picked, the 24-hour strip
 website/js/player.js    the audio element and the player bar
 website/art/            bird plates, frog plates, manifest.json
 website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
@@ -127,7 +154,28 @@ Beyond each hour's basics, `build_web_metadata.py` writes:
 - each hour's `activity`, detections per five minutes, for the curve;
 - each place's `area` (the optional `area` column in sites.csv; until it is
   filled in, `js/data.js` derives areas for the current regions) and a
-  `species` summary with scientific names, for the plate grid.
+  `species` summary with scientific names, for the plate grid;
+- (format 3) a top-level `species` list, every species heard in a published
+  hour once, as `{name, scientific, group}` plus `area_only_in` for a species
+  on a sensitive list; and in each hour a `species` list of
+  `[species index, calls, clearest call (second), its confidence, 5-minute bins
+  with calls, checked by ear 0/1]`, most calls first. `js/data.js` adds these
+  up per session and place for the search and the chart lanes, so the search
+  needs nothing beyond data.json, and like every other count it only knows
+  published hours.
+
+**Sensitive species.** `scripts/sensitive_species.csv` lists the taxa whose
+locations governments and BirdLife Australia blur in their own atlases, and
+where each list applies (`AU-NSW`, `AU-QLD`, or `AU` for everywhere in
+Australia). `scripts/fetch_sensitive_species.py` writes it from the Atlas of
+Living Australia's copies of the NSW Sensitive Species List (dr487), the
+Queensland Confidential Species (dr493) and BirdLife Australia's sensitive
+list (dr494); run it again now and then, and when places in a new state or
+country are added (Germany has no list yet). The build matches species by
+scientific or common name and prints a note for each one it marks. As of 24
+Nov 2026 that is Sooty Owl (NSW, Category 3) and, from BirdLife's list,
+Eastern Shriketit (the list names the whole species as well as the northern
+subspecies) and Diamond Firetail, which the 3-call rule already leaves out.
 
 `scripts/fetch_weather.py` then adds `api/weather/<session_id>.json` per
 session: hourly temperature, rain, cloud and wind from Open-Meteo's archive
@@ -206,7 +254,7 @@ written, so unpublished hours cannot reach the public repository.
     landscape behind the birds, which does not cut cleanly), Albert's Lyrebird
     (Gould's Supplement, 1869), Fuscous Honeyeater, Pale-yellow Robin,
     Pacific Emerald Dove, White-headed Pigeon, Wompoo Fruit Dove,
-    Rose-crowned Fruit Dove. The
+    Rose-crowned Fruit Dove, White-eared Honeyeater. The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is
@@ -227,5 +275,7 @@ written, so unpublished hours cannot reach the public repository.
   the site could crop or scale to it.
 - Redraw the frogs, and a frog entry for each new frog.
 - Spectrograms for the hours not drawn yet (`scripts/make_spectrograms.py`).
-- A species index across the atlas: where and when a species was heard.
+- Species search: German names (and German sensitive species) once the German
+  places are published; a family word per species, so "owl" also finds the
+  Boobook; perhaps a page per species later.
 - A slot for a site photo once there are photos.
