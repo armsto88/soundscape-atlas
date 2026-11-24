@@ -1,15 +1,23 @@
 // A place: what and where it is, then one chart per recording session. Click
 // a chart to listen from that moment; the hour you are in opens in detail
 // under its chart, and follows the playback from hour to hour.
+//
+// A species can be picked (the search in the header, a plate, or ?species= from
+// the atlas): each chart then gets a lane marking when it called, sessions
+// without it fade back, and the hour in detail opens on its lane.
 
-import { el, plural, humanize, fmtSpan, fmtDuration, hideTip, info } from "./util.js";
+import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, hideTip, info } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
+import { findSpecies } from "./data.js";
+import { createSpeciesSearch, lensCard } from "./search.js";
 import { renderNotes } from "./notes.js";
 import { supportBlock } from "./support.js";
 import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
+
+const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 
 // a circle of radius metres around a place, as a GeoJSON polygon
 function circle(lon, lat, metres) {
@@ -28,13 +36,31 @@ export function render(main, model, params, ctx) {
     return {};
   }
   const player = ctx.player;
+  let picked = (params.species && model.speciesByKey.get(params.species)) || null; // the species followed through the sessions
 
   // ---- header ----------------------------------------------------------------
   const facts = [humanize(site.habitat), humanize(site.biome), site.elevation_m ? `${site.elevation_m} m above sea level` : ""].filter(Boolean);
   const insetEl = el("div", { class: "inset-map", "aria-hidden": "true" });
+  const backHref = () => `#/?focus=${encodeURIComponent(site.id)}${picked ? `&species=${encodeURIComponent(picked.key)}` : ""}`;
+  const backLink = el("a", { href: backHref() }, "← Atlas");
+  const heardHere = [...site.heard.values()];
+  const find = heardHere.length ? createSpeciesSearch({
+    id: "site-find",
+    label: "Find a species heard here",
+    source: (text) => ({
+      items: findSpecies(heardHere.map((p) => p.sp), text)
+        .sort((a, b) => a.score - b.score || site.heard.get(b.sp).calls - site.heard.get(a.sp).calls)
+        .map(({ sp }) => {
+          const p = site.heard.get(sp);
+          return { sp, meta: plural(p.calls, "call") + (site.sessions.length > 1 ? ` · ${p.sessions.length} of ${site.sessions.length} sessions` : "") };
+        }),
+      empty: "Not heard here by that name.",
+    }),
+    onPick: (sp) => setPicked(sp),
+  }) : null;
   const head = el("header", { class: "site-head" },
     el("div", {},
-      el("p", { class: "back" }, el("a", { href: `#/?focus=${encodeURIComponent(site.id)}` }, "← Atlas")),
+      el("p", { class: "back" }, backLink),
       el("p", { class: "eyebrow" }, [site.locality, site.area, site.state, site.country].filter(Boolean).join(" · ")),
       el("h1", {}, site.site_name),
       el("p", { class: "facts" }, facts.join(" · ")),
@@ -42,14 +68,23 @@ export function render(main, model, params, ctx) {
       supportBlock(site),
       site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
       el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
-        (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"))),
+        (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified")),
+      find ? el("div", { class: "site-find" }, find.el) : null),
     insetEl);
+  const lensBar = el("div", { class: "site-lens", hidden: true });
 
   // ---- sessions --------------------------------------------------------------
-  const blocks = new Map(); // session -> { chart, slot }
+  const blocks = new Map(); // session -> { chart, slot, article, lensText }
   let active = null;        // the hour shown in detail
   let detail = null;
   let detailSession = null;
+  const address = () => {
+    const query = new URLSearchParams();
+    if (active) query.set("at", active.segment_id);
+    if (picked) query.set("species", picked.key);
+    const text = query.toString();
+    return `#/site/${encodeURIComponent(site.id)}${text ? `?${text}` : ""}`;
+  };
 
   const select = (seg, { play = false, at = null, reveal = true } = {}) => {
     // Update the page first: starting the player announces the new hour, which
@@ -61,7 +96,7 @@ export function render(main, model, params, ctx) {
           detail.destroy();
           detail.el.remove();
         }
-        detail = createDetail(ctx, { onSelect: (s) => select(s) });
+        detail = createDetail(ctx, { onSelect: (s) => select(s), focusName: () => (picked ? picked.name : null) });
         detailSession = seg.session;
         blocks.get(seg.session).slot.append(detail.el);
         // when it opens low on the screen, bring the chart and its detail up together
@@ -73,7 +108,7 @@ export function render(main, model, params, ctx) {
       }
       detail.show(seg);
       for (const [session, b] of blocks) b.chart.setSelected(session === seg.session ? seg : null);
-      ctx.replace(`#/site/${encodeURIComponent(site.id)}?at=${encodeURIComponent(seg.segment_id)}`);
+      ctx.replace(address());
     }
     if (play) player.load(seg, { autoplay: true, at });
     else if (player.segment && player.segment.session === seg.session && player.segment !== seg && (player.isPlaying || player.wanted)) {
@@ -94,17 +129,76 @@ export function render(main, model, params, ctx) {
       onSelect: (seg) => select(seg),
     });
     const slot = el("div", { class: "detail-slot" });
-    sessionsEl.append(el("article", { class: "session" },
+    const lensText = el("p", { class: "sc-lens-text", hidden: true });
+    const article = el("article", { class: "session" },
       el("header", { class: "session-head" },
         el("h3", {}, fmtSpan(session.start, session.end)),
         el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
       chart.el,
+      lensText, // the species picked, in this session
       slot, // the hour in detail, right under its chart
-      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) })));
-    blocks.set(session, { chart, slot });
+      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }));
+    sessionsEl.append(article);
+    blocks.set(session, { chart, slot, article, lensText });
   }
 
-  main.append(el("article", { class: "page site" }, head, sessionsEl, renderSpecies(site)));
+  const speciesEl = renderSpecies(site, {
+    find: (s) => model.speciesByName.get(s.name),
+    picked: () => picked,
+    onPick: (sp) => setPicked(picked === sp ? null : sp),
+  });
+  main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl));
+
+  // ---- the species picked ------------------------------------------------------------
+  function renderLensBar() {
+    lensBar.innerHTML = "";
+    lensBar.hidden = !picked;
+    if (!picked) return;
+    const here = site.heard.get(picked);
+    const text = here
+      ? `Heard in ${here.sessions.length} of ${plural(site.sessions.length, "session")} here, ${plural(here.calls, "call")} in ${plural(here.hours, "hour")}. Each chart below marks when it called.`
+      : "Not heard in the published hours here.";
+    lensBar.append(lensCard(picked, {
+      onClear: () => setPicked(null),
+      children: [
+        el("p", { class: "lens-text" }, text),
+        el("p", { class: "lens-text" }, el("a", { href: `#/?species=${encodeURIComponent(picked.key)}` }, "Where else it was heard →")),
+      ],
+    }));
+  }
+  function renderSessionsLens() {
+    for (const [session, b] of blocks) {
+      const e = picked ? session.heard.get(picked) : null;
+      b.article.classList.toggle("lens-off", Boolean(picked) && !e);
+      b.chart.setLens(picked ? (e ? { marks: e.marks, best: e.best.t, name: picked.name } : { none: true }) : null);
+      b.lensText.innerHTML = "";
+      b.lensText.hidden = !picked;
+      if (!picked) continue;
+      if (!e) {
+        b.lensText.append(el("span", {}, el("b", {}, picked.name), " was not heard in this session."));
+        continue;
+      }
+      const from = e.marks[0][0];
+      const to = e.marks[e.marks.length - 1][1];
+      b.lensText.append(
+        el("span", {}, el("b", {}, picked.name), `: ${plural(e.calls, "call")} in ${plural(e.hours, "hour")}, between about ${fmtClock(from)} and ${fmtClock(to)}`),
+        e.best.seg.public_url ? el("button", {
+          class: "lens-call", type: "button",
+          onclick: () => select(e.best.seg, { play: true, at: Math.max(0, e.best.sec - 3) }),
+        }, el("span", { class: "lens-call-icon", html: ICON_PLAY, "aria-hidden": "true" }), `Clearest call, ${fmtClock(e.best.t)}`) : null);
+    }
+  }
+  function setPicked(sp) {
+    picked = sp;
+    ctx.replace(address());
+    backLink.href = backHref();
+    renderLensBar();
+    renderSessionsLens();
+    for (const b of speciesEl ? speciesEl.querySelectorAll(".tile-btn") : []) b.setAttribute("aria-pressed", String(Boolean(picked) && b.dataset.name === picked.name));
+    if (detail) detail.setFocus(picked ? picked.name : null);
+  }
+  renderLensBar();
+  renderSessionsLens();
 
   // ---- the inset map -------------------------------------------------------------
   const approx = site.public_location_precision !== "exact";

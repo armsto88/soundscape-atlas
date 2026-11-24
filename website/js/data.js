@@ -22,6 +22,18 @@ function fallbackArea(site) {
 
 export const isFrog = (group) => /amphibia/i.test(String(group || ""));
 
+// The species search lists a species at a place once BirdNET found at least this
+// many of its calls there, or one was checked by ear: a single stray detection
+// is not "heard here".
+export const MIN_CALLS = 3;
+
+function plateFor(scientific, frog, birdArt, frogArt) {
+  const key = slug(scientific);
+  if (!key) return "";
+  if (frog) return frogArt.has(key) ? `art/frogs/${key}.webp` : "";
+  return birdArt.has(key) ? `art/birds/${key}.webp` : "";
+}
+
 export async function loadModel(url = "api/data.json") {
   const [response, art] = await Promise.all([
     fetch(url, { cache: "no-store" }),
@@ -34,6 +46,30 @@ export async function loadModel(url = "api/data.json") {
 export function buildModel(raw, art = {}) {
   const birdArt = new Set(art.birds || []);
   const frogArt = new Set(art.frogs || []);
+
+  // Every species heard in a published hour; older indexes list names only.
+  const allSpecies = (raw.species || []).map((entry, id) => {
+    const info = typeof entry === "string" ? { name: entry } : entry || {};
+    const scientific = String(info.scientific || "");
+    const frog = isFrog(info.group);
+    return {
+      id,
+      name: String(info.name || ""),
+      scientific,
+      group: info.group || "",
+      frog,
+      key: slug(scientific) || slug(info.name),
+      image: plateFor(scientific, frog, birdArt, frogArt),
+      areaOnlyIn: new Set(info.area_only_in || []),
+      places: new Map(), // site -> its calls there (see placeHeard)
+    };
+  });
+  // [species id, calls, clearest call (second), its confidence, 5-minute bins, checked by ear]
+  const parseHeard = (item) => {
+    const sp = Array.isArray(item) ? allSpecies[item[0]] : null;
+    if (!sp) return null;
+    return { sp, calls: Number(item[1]) || 0, bestSec: Number(item[2]) || 0, bestConf: Number(item[3]) || 0, bins: (item[4] || []).map(Number), checked: Boolean(item[5]) };
+  };
 
   const sites = new Map();
   for (const [id, site] of Object.entries(raw.sites || {})) {
@@ -75,6 +111,8 @@ export function buildModel(raw, art = {}) {
       activity,
       detection_count: count,
       top_species: Array.isArray(row.top_species) ? row.top_species : [],
+      species: undefined,
+      heard: Array.isArray(row.species) ? row.species.map(parseHeard).filter(Boolean) : [],
       spectrogram_url: row.public_url ? String(row.public_url).replace(/\.opus(\?.*)?$/i, ".png") : "",
       detections: null,
     });
@@ -95,10 +133,14 @@ export function buildModel(raw, art = {}) {
     seg.site.segments.push(seg);
   }
   const sessions = [...sessionsById.values()];
-  for (const session of sessions) finishSession(session);
+  for (const session of sessions) {
+    finishSession(session);
+    session.heard = sessionHeard(session);
+  }
 
   for (const site of sites.values()) {
     site.sessions.sort((a, b) => b.start - a.start);
+    site.heard = placeHeard(site);
     site.hours = site.segments.length;
     site.detections = site.segments.reduce((n, s) => n + s.detection_count, 0);
     site.species = siteSpecies(site, birdArt, frogArt);
@@ -110,6 +152,7 @@ export function buildModel(raw, art = {}) {
 
   const published = [...sites.values()].filter((s) => s.segments.length > 0);
   const tree = buildTree(published);
+  const species = allSpecies.filter((sp) => sp.places.size > 0);
 
   return {
     raw,
@@ -119,8 +162,122 @@ export function buildModel(raw, art = {}) {
     segmentsById,
     sessions,
     tree,
+    species,
+    speciesByKey: new Map(species.map((sp) => [sp.key, sp])),
+    speciesByName: new Map(species.map((sp) => [sp.name, sp])),
     totals: { sites: published.length, sessions: sessions.length, hours: segments.length },
   };
+}
+
+// ---- species search ------------------------------------------------------------
+
+// Each species in a session: calls, hours, the clearest call, and when it called
+// (marks: [from, to] in five-minute steps, back-to-back ones joined).
+function sessionHeard(session) {
+  const heard = new Map();
+  for (const seg of session.segments) {
+    for (const h of seg.heard) {
+      let e = heard.get(h.sp);
+      if (!e) heard.set(h.sp, (e = { sp: h.sp, session, calls: 0, hours: 0, checked: false, best: null, marks: [] }));
+      e.calls += h.calls;
+      e.hours += 1;
+      e.checked = e.checked || h.checked;
+      if (!e.best || h.bestConf > e.best.conf) e.best = { seg, sec: h.bestSec, conf: h.bestConf, t: seg.start + h.bestSec * 1000 };
+      for (const bin of h.bins) {
+        const from = seg.start + bin * ACTIVITY_BIN_SEC * 1000;
+        const to = Math.min(seg.end, from + ACTIVITY_BIN_SEC * 1000);
+        const last = e.marks[e.marks.length - 1];
+        if (last && from - last[1] < 1000) last[1] = to;
+        else e.marks.push([from, to]);
+      }
+    }
+  }
+  return heard;
+}
+
+// Each species at a place, over its sessions (newest first). `counts` is whether
+// the search lists the place for it; `areaOnly` whether the search may name only
+// the area, because the species is on a sensitive list there.
+function placeHeard(site) {
+  const heard = new Map();
+  for (const session of site.sessions) {
+    for (const e of session.heard.values()) {
+      let p = heard.get(e.sp);
+      if (!p) heard.set(e.sp, (p = { sp: e.sp, site, calls: 0, hours: 0, checked: false, sessions: [] }));
+      p.calls += e.calls;
+      p.hours += e.hours;
+      p.checked = p.checked || e.checked;
+      p.sessions.push(e);
+    }
+  }
+  for (const p of heard.values()) {
+    p.counts = p.calls >= MIN_CALLS || p.checked;
+    p.areaOnly = areaOnlyAt(p.sp, site);
+    p.sp.places.set(site, p);
+  }
+  return heard;
+}
+
+export function areaOnlyAt(sp, site) {
+  return sp.areaOnlyIn.has(site.country_code) || sp.areaOnlyIn.has(`${site.country_code}-${site.region_code}`);
+}
+
+// The places the search lists a species at, most calls first.
+export function speciesPlaces(sp) {
+  return [...sp.places.values()].filter((p) => p.counts).sort((a, b) => b.calls - a.calls);
+}
+
+// Species whose name or scientific name matches what was typed, best first:
+// the start of the name, the start of a word, the start of a scientific word,
+// then anywhere. Returns [{ sp, score }]; callers break ties.
+export function findSpecies(list, query) {
+  const plain = (s) => String(s || "").toLowerCase().replace(/[’']/g, "");
+  const q = plain(query).trim();
+  if (!q) return [];
+  const found = [];
+  for (const sp of list) {
+    const name = plain(sp.name);
+    const sci = plain(sp.scientific);
+    const score = name.startsWith(q) ? 0
+      : name.split(/[\s-]+/).some((w) => w.startsWith(q)) ? 1
+      : sci.split(" ").some((w) => w.startsWith(q)) ? 2
+      : name.includes(q) || sci.includes(q) ? 3 : -1;
+    if (score >= 0) found.push({ sp, score });
+  }
+  return found;
+}
+
+// In which clock hours a species called, from the session entries' marks
+// (counted in five-minute steps): 24 numbers.
+export function callingHours(entries) {
+  const counts = Array(24).fill(0);
+  const step = ACTIVITY_BIN_SEC * 1000;
+  for (const e of entries) {
+    for (const [from, to] of e.marks) {
+      for (let t = from; t < to; t += step) counts[new Date(t).getUTCHours()] += 1;
+    }
+  }
+  return counts;
+}
+
+// "mostly 06:00–10:00": the shortest run of hours around the busiest one that
+// holds most of the calling; nothing when that run is too long to say much
+// (a few calls scattered through the night).
+export function mostlyWhen(counts) {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (!total) return "";
+  let lo = counts.indexOf(Math.max(...counts));
+  let hi = lo;
+  let sum = counts[lo];
+  while (sum < total * 0.6 && hi - lo < 23) {
+    const left = counts[(((lo - 1) % 24) + 24) % 24];
+    const right = counts[(hi + 1) % 24];
+    if (right >= left) sum += counts[(++hi) % 24];
+    else sum += counts[(((--lo) % 24) + 24) % 24];
+  }
+  if (hi - lo >= 9) return "";
+  const pad = (n) => String(((n % 24) + 24) % 24).padStart(2, "0");
+  return `mostly ${pad(lo)}:00–${pad(hi + 1)}:00`;
 }
 
 // country › state › area › site. Sites without an area sit directly under their state.
