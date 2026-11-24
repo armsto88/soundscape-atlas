@@ -745,5 +745,67 @@
     [314, 1973]
    ]
   }
+ },
+ "Eopsaltria capito": {
+  "name": "Pale-yellow Robin",
+  "source": "gould",
+  "work": "John Gould, The Birds of Australia, Supplement (1869), plate \"Eopsaltria Capito\" (Large-headed Robin)",
+  "scan": "https://archive.org/details/birdsaustraliasuppgoula/page/n45/mode/1up",
+  "scan_file": "https://archive.org/download/birdsaustraliasuppgoula/page/n45.jpg",
+  "scan_note": "State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain",
+  "cut": "2026-11-24, Fugleramme plate-review tools at a7848e0 (plate.py cut, finish.py): paper balanced to the halo tone; pale sky wash counted as paper, the soft shadow wash kept; the lithographer's initials at the branch tip removed; paper caught between leaves toned to the page.",
+  "spec": {
+   "box": [550, 350, 4200, 6200],
+   "paper_min": 200,
+   "paper_clean": 205,
+   "seal": 4,
+   "balance": [247, 234, 218],
+   "seed": [700, 990],
+   "remove": [
+    [
+     [1112, 2124],
+     [1138, 2120],
+     [1152, 2160],
+     [1188, 2250],
+     [1182, 2274],
+     [1163, 2270],
+     [1140, 2216],
+     [1124, 2180]
+    ]
+   ],
+   "gaps": [
+    [437, 402],
+    [650, 353],
+    [317, 367],
+    [323, 417],
+    [672, 414],
+    [821, 569],
+    [140, 641],
+    [970, 615],
+    [1057, 761],
+    [1007, 767],
+    [456, 896],
+    [410, 1225],
+    [1152, 1259],
+    [1110, 1336],
+    [822, 1356],
+    [911, 1368],
+    [892, 1378],
+    [590, 1402],
+    [609, 1408],
+    [767, 1415],
+    [886, 1431],
+    [1301, 1478],
+    [403, 1444],
+    [598, 1447],
+    [1265, 1473],
+    [1316, 1533],
+    [258, 1545],
+    [1293, 1934],
+    [1042, 2205],
+    [1207, 1942],
+    [776, 1980]
+   ]
+  }
  }
 }
