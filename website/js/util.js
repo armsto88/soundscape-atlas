@@ -101,9 +101,12 @@ export function pct(part, whole) {
   return `${((part / whole) * 100).toFixed(4)}%`;
 }
 
-// One floating tooltip for the whole page.
+// One floating readout for the whole page: what is under the pointer (a time,
+// a call). Help text never goes here; it sits behind an (i), see info().
 let tip = null;
+let tipTimer = 0;
 export function showTip(text, anchor) {
+  clearTimeout(tipTimer);
   if (!tip) {
     tip = el("div", { class: "tooltip", role: "tooltip" });
     document.body.append(tip);
@@ -119,7 +122,44 @@ export function showTip(text, anchor) {
   tip.style.top = `${top + window.scrollY}px`;
 }
 export function hideTip() {
+  clearTimeout(tipTimer);
   if (tip) tip.hidden = true;
+}
+// A tap has no hover to end, so a readout shown by touch stays up a moment.
+export function hideTipSoon(ms = 2500) {
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(hideTip, ms);
+}
+
+// A small (i) button for a heading, and the help panel it opens. Explanations
+// live here instead of in tooltips, so they work the same with a mouse, a
+// keyboard and a finger. Put the button in or beside the heading and the panel
+// where the help should appear.
+let infoCount = 0;
+export function info(topic, ...content) {
+  const id = `info-${++infoCount}`;
+  const panel = el("div", { class: "info-panel", id, hidden: true }, content);
+  const button = el("button", {
+    class: "info-btn", type: "button", "aria-expanded": "false", "aria-controls": id, "aria-label": `About ${topic}`,
+    onclick: (event) => {
+      event.stopPropagation();
+      toggle(panel.hidden);
+    },
+  }, "i");
+  const toggle = (open) => {
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    button.classList.toggle("open", open);
+  };
+  const close = (event) => {
+    if (event.key === "Escape" && !panel.hidden) {
+      toggle(false);
+      button.focus();
+    }
+  };
+  button.addEventListener("keydown", close);
+  panel.addEventListener("keydown", close);
+  return { button, panel };
 }
 
 // "19 h 17 min", "45 min".

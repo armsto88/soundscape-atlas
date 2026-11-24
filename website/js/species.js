@@ -1,7 +1,7 @@
 // "Most often heard here": an even grid of plates, each with a ring showing
 // the species' share of calls. Birds first, then frogs in their own row.
 
-import { el, plural } from "./util.js";
+import { el, plural, info } from "./util.js";
 
 const SHOW_FIRST = 12;
 const PLACEHOLDER = `<svg viewBox="0 0 100 100" class="placeholder" aria-hidden="true">
@@ -20,12 +20,12 @@ function tile(sp, total) {
   const pctText = share >= 0.01 ? `${Math.round(share * 100)}%` : "<1%";
   const art = sp.image
     ? el("img", { src: sp.image, alt: "", loading: "lazy" })
-    : el("span", { class: "ph", title: sp.frog ? "No illustration yet" : "No plate yet", html: PLACEHOLDER });
+    : el("span", { class: "ph", role: "img", "aria-label": sp.frog ? "No illustration yet" : "No plate yet", html: PLACEHOLDER });
   const ring = el("div", { class: "ring" }, art);
   ring.style.setProperty("--p", String(Math.max(0.6, share * 100))); // custom properties need setProperty
   return el("li", { class: "tile" },
     ring,
-    el("b", {}, sp.name, sp.checked ? el("i", { class: "tick", title: "Checked by ear" }, " ✓") : null),
+    el("b", {}, sp.name, sp.checked ? el("i", { class: "tick", role: "img", "aria-label": "checked by ear" }, " ✓") : null),
     el("span", {}, `${pctText} of ${sp.frog ? "frog " : ""}calls`));
 }
 
@@ -44,11 +44,12 @@ function grid(list) {
 export function renderSpecies(site) {
   if (!site.species.length) return null;
   const birdsWithPlates = site.birds.filter((s) => s.image).length;
+  const help = info("the species here",
+    el("p", {}, "Every species BirdNET found in the published hours here, most calls first. The ring around each picture shows that species' share of all the calls detected here; ✓ means some of its calls were checked by ear."));
   return el("section", { class: "site-species" },
-    site.birds.length ? [el("h2", {}, "Most often heard here"), grid(site.birds)] : null,
+    site.birds.length ? [el("h2", {}, "Most often heard here", help.button), help.panel, grid(site.birds)] : null,
     site.frogs.length ? [el("h3", { class: "row-label" }, "Frogs heard here"), grid(site.frogs)] : null,
     el("p", { class: "credit" },
-      "Rings show each species' share of the calls detected here. ",
       "Bird plates: hand-cut 1800s plates by Gould and others, from ",
       el("a", { href: "https://github.com/arnegiacomo/fugleramme" }, "Fugleramme"), " (CC BY-SA 4.0, ", el("a", { href: "art/birds/CREDITS.md" }, "credits"), "). ",
       "Frogs: drawn in the same style from photos (CC BY-SA 4.0, ", el("a", { href: "art/frogs/CREDITS.md" }, "credits"), "). ",

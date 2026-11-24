@@ -10,7 +10,7 @@
 // send the headers). Audio from anywhere else plays on a fresh element without
 // the level, because routed through Web Audio it would play silent.
 
-import { el, fmtTime, fmtDay, fmtClock, humanize, clamp } from "./util.js";
+import { el, fmtDay, fmtClock, humanize, clamp } from "./util.js";
 import { loadDetections } from "./data.js";
 
 const NOW_CONFIDENT = 0.7; // "now calling" shows checked calls and ones at least this sure
@@ -276,8 +276,8 @@ class Player extends EventTarget {
     d.levelFill = el("i");
     d.level = el("span", { class: "player-level", "aria-hidden": "true", hidden: true }, d.levelFill);
     d.time = el("div", { class: "player-time" }, d.clock, d.level);
-    d.prev = el("button", { class: "player-skip", type: "button", "aria-label": "Previous hour", title: "Previous hour", html: ICON_PREV, onclick: () => this.prev() && this.load(this.prev(), { autoplay: this.isPlaying || this.wanted }) });
-    d.next = el("button", { class: "player-skip", type: "button", "aria-label": "Next hour", title: "Next hour", html: ICON_NEXT, onclick: () => this.next() && this.load(this.next(), { autoplay: this.isPlaying || this.wanted }) });
+    d.prev = el("button", { class: "player-skip", type: "button", "aria-label": "Previous hour", html: ICON_PREV, onclick: () => this.prev() && this.load(this.prev(), { autoplay: this.isPlaying || this.wanted }) });
+    d.next = el("button", { class: "player-skip", type: "button", "aria-label": "Next hour", html: ICON_NEXT, onclick: () => this.next() && this.load(this.next(), { autoplay: this.isPlaying || this.wanted }) });
     d.msg = el("div", { class: "player-msg", hidden: true });
     d.retry = el("button", { class: "linklike", type: "button", onclick: () => this.retry() }, "Try again");
     d.progress = el("div", { class: "player-progress" });
@@ -321,7 +321,6 @@ class Player extends EventTarget {
     d.clock.innerHTML = "";
     if (!seg) {
       d.title.append(el("span", { class: "player-hint" }, "Choose a place on the map and press ▶ to listen."));
-      d.time.title = "";
     } else {
       const when = `${fmtDay(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;
       // a problem replaces the date line, so the place's name always stays in view
@@ -333,7 +332,6 @@ class Player extends EventTarget {
       const moment = this.moment;
       const seconds = String(new Date(moment).getUTCSeconds()).padStart(2, "0");
       d.clock.append(fmtClock(moment), el("small", {}, `:${seconds}`));
-      d.time.title = `${fmtTime(this.currentTime)} of ${fmtTime(this.duration)} into the hour`;
     }
 
     // the bird calling now: shown while a sure call is under the playhead, faded otherwise

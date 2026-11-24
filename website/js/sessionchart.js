@@ -4,7 +4,7 @@
 // marks the hour shown in detail below. Click anywhere to listen from that
 // moment; drag the window (or use the arrow keys) to move through the hours.
 
-import { el, svg, pct, clamp, fmtClock, fmtDay, fmtInt, plural, showTip, hideTip, HOUR } from "./util.js";
+import { el, svg, pct, clamp, fmtClock, fmtDay, fmtInt, plural, showTip, hideTip, hideTipSoon, HOUR } from "./util.js";
 import { segmentAt, ACTIVITY_BIN_SEC } from "./data.js";
 
 const H = 100; // SVG units; the plot is stretched to its box
@@ -119,39 +119,48 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
     windowEl.style.width = pct(x(seg.end) - x(seg.start), 1);
   };
 
-  let drag = null;
-  plot.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    drag = { x0: event.clientX, onWindow: windowEl.contains(event.target), moved: false, seg: selected };
-    plot.setPointerCapture(event.pointerId);
-  });
-  plot.addEventListener("pointermove", (event) => {
-    const t = tAt(fracAt(event.clientX));
+  // What is under the pointer: the time, and the calls in those five minutes.
+  const readout = (t) => {
     hoverLine.hidden = false;
     hoverLine.style.left = pct(x(t), 1);
     const seg = segmentAt(session, t);
-    if (drag && drag.onWindow) {
-      if (Math.abs(event.clientX - drag.x0) > 4) drag.moved = true;
-      if (drag.moved) {
-        drag.seg = nearestSegment(t);
-        placeWindow(drag.seg);
-        hideTip();
-        return;
-      }
-    }
     let label;
     if (!seg) label = `${fmtClock(t)} · not published`;
     else {
       const i = Math.min(seg.activity.length - 1, Math.floor((t - seg.start) / (ACTIVITY_BIN_SEC * 1000)));
       const n = Math.round(seg.activity[i] || 0);
       const who = seg.top_species.slice(0, 3).map((s) => s.name).join(", ");
-      label = `${fmtClock(t)} · ${session.hasDetections ? `${plural(n, "detection")} in these 5 min · ` : ""}click to listen from here${who ? `\nThis hour: ${who}` : ""}`;
+      label = `${fmtClock(t)}${session.hasDetections ? ` · ${plural(n, "detection")} in these 5 min` : ""}${who ? `\nThis hour: ${who}` : ""}`;
     }
     showTip(label, hoverLine);
+  };
+
+  let drag = null;
+  plot.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    drag = { x0: event.clientX, onWindow: windowEl.contains(event.target), moved: false, seg: selected };
+    plot.setPointerCapture(event.pointerId);
+    if (event.pointerType !== "mouse") readout(tAt(fracAt(event.clientX))); // a tap has no hover before it
   });
-  plot.addEventListener("pointerleave", () => {
+  plot.addEventListener("pointermove", (event) => {
+    const t = tAt(fracAt(event.clientX));
+    if (drag && drag.onWindow) {
+      if (Math.abs(event.clientX - drag.x0) > 4) drag.moved = true;
+      if (drag.moved) {
+        hoverLine.hidden = false;
+        hoverLine.style.left = pct(x(t), 1);
+        drag.seg = nearestSegment(t);
+        placeWindow(drag.seg);
+        hideTip();
+        return;
+      }
+    }
+    readout(t);
+  });
+  plot.addEventListener("pointerleave", (event) => {
     hoverLine.hidden = true;
-    hideTip();
+    if (event.pointerType === "mouse") hideTip();
+    else hideTipSoon(); // after a tap, leave the readout up a moment
   });
   plot.addEventListener("pointerup", (event) => {
     if (!drag) return;

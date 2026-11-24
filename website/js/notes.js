@@ -1,4 +1,5 @@
-// Session notes: a few lines under a session's chart, written from its BirdNET
+// Session notes: a few lines at the end of a session (under its chart and the
+// hour view, which stay together), written from its BirdNET
 // detections, each a moment you can play. Only sure detections count (checked
 // by ear, or at least 70% confident); the lanes still show everything.
 //
@@ -12,7 +13,7 @@
 //
 // The session's detection files load when its notes scroll into view.
 
-import { el, fmtClock, plural, HOUR, MINUTE } from "./util.js";
+import { el, fmtClock, plural, info, HOUR, MINUTE } from "./util.js";
 import { loadDetections, segmentAt, chorusPeak, ACTIVITY_BIN_SEC } from "./data.js";
 import { loadWeather, sessionWeather } from "./weather.js";
 import { hasSupport, supportText } from "./support.js";
@@ -136,7 +137,7 @@ function fill(root, notes, weather, onPlay, site) {
     el("dd", {}, line.items.map((item, i) => [
       i ? el("span", { class: "notes-sep", "aria-hidden": "true" }, " · ") : null,
       item.seg
-        ? el("button", { class: "note-play", type: "button", title: `Listen from ${fmtClock(item.moment)}`, onclick: () => onPlay(item.seg, item.at) },
+        ? el("button", { class: "note-play", type: "button", onclick: () => onPlay(item.seg, item.at) },
           item.timeInText ? el("span", { class: "note-time" }, item.text)
             : [item.text ? `${item.text}, ` : "", el("span", { class: "note-time" }, fmtClock(item.moment))],
           el("span", { class: "note-icon", "aria-hidden": "true" }, " ▶"))
@@ -145,13 +146,17 @@ function fill(root, notes, weather, onPlay, site) {
   ]);
   // a way to give something back, for a listener moved by what they heard
   if (hasSupport(site)) rows.push([el("dt", {}, "Care for this place"), el("dd", {}, supportText(site))]);
-  const credits = [
-    birds ? "Birds and frogs from BirdNET detections that are checked by ear or at least 70% sure." : "",
-    weather ? "Weather from Open-Meteo.com (ERA5 reanalysis, about 25 km grid)." : "",
-  ].filter(Boolean).join(" ");
+  const help = info("the session notes",
+    birds ? el("p", {}, "Written automatically from the BirdNET detections that are checked by ear or at least 70% sure. ",
+      "First bird of the morning: the earliest call around dawn from a species not also heard deep in the night. ",
+      "Chorus at its fullest: the busiest five minutes around sunrise or sunset. ",
+      "In the night: species heard from an hour after sunset until 90 minutes before sunrise. ",
+      "Quietest: the longest near-silent stretch, if it lasts 30 minutes or more.") : null,
+    birds ? el("p", {}, "▶ plays from just before that moment.") : null,
+    weather ? el("p", {}, "Weather from Open-Meteo.com (ERA5 reanalysis, about 25 km grid).") : null);
   root.append(
-    el("h4", { class: "notes-title" }, "Session notes", birds ? el("small", {}, ` · ${plural(notes.species, "species", "species")} heard`) : null),
-    el("dl", { class: "notes-list" }, rows),
-    el("p", { class: "notes-credit" }, credits));
+    el("h4", { class: "notes-title" }, "Session notes", birds ? el("small", {}, ` · ${plural(notes.species, "species", "species")} heard`) : null, help.button),
+    help.panel,
+    el("dl", { class: "notes-list" }, rows));
   root.hidden = false;
 }

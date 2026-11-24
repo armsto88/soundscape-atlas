@@ -26,17 +26,24 @@ the R2 bucket.
   first to its last second, with the start and end labelled, night shaded,
   sunset and sunrise marked, unpublished hours hatched, and an activity curve
   of detections per five minutes. Click anywhere to listen from that moment.
-  Under each chart, **session notes** (`js/notes.js`): first bird of the
+  The hour you are in opens right below the chart (the two work as one): the
+  spectrogram strip and one lane per species, with the species list, zoom, a
+  confident-only filter and the recording notes under "More". Drag the
+  highlighted window or use the arrows to move through the session; during
+  playback the window follows.
+  After the hour, **session notes** (`js/notes.js`): first bird of the
   morning, dawn and evening chorus at their fullest, voices in the night, the
   quietest stretch, most heard birds and the frogs, each moment playable;
   written from sure detections only (checked by ear or at least 70%), loaded
   when the session scrolls into view.
-  The hour you are in opens below the chart: the spectrogram strip and one lane
-  per species, with the species list, zoom, a confident-only filter and the
-  recording notes under "More". Drag the highlighted window or use the arrows
-  to move through the session; during playback the window follows.
   Below the sessions, "Most often heard here": an even grid of plates, each
   with a ring for its share of the calls, birds first, then frogs.
+
+  Help text sits behind small (i) buttons by the headings (Sessions, the hour
+  view, Session notes, Most often heard here; `info()` in `js/util.js`), never
+  in tooltips, so it works by touch too. The only floating labels are
+  readouts of what is under the pointer (the chart's time and calls, a call
+  mark's species and score); a tap shows them for a moment.
 - **About** (`#/about`).
 
 Phones (designed for 375 px wide, the iPhone SE): the map sits above the place

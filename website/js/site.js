@@ -2,7 +2,7 @@
 // a chart to listen from that moment; the hour you are in opens in detail
 // under its chart, and follows the playback from hour to hour.
 
-import { el, plural, humanize, fmtSpan, fmtDuration, hideTip } from "./util.js";
+import { el, plural, humanize, fmtSpan, fmtDuration, hideTip, info } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
@@ -81,9 +81,12 @@ export function render(main, model, params, ctx) {
     }
   };
 
+  const help = info("the session charts",
+    el("p", {}, "Each chart is one recording session, from its first to its last second. Night is shaded, with sunset and sunrise marked, and the curve shows how many BirdNET detections there are in every five minutes. Hatched stretches were recorded but are not published."),
+    el("p", {}, "Click anywhere on a chart to listen from that moment. The hour you're in opens below the chart: drag its highlighted window, or use the arrows, to move through the session. Under the hour, the session notes pick out moments worth hearing."));
   const sessionsEl = el("section", { class: "sessions" },
-    el("h2", {}, "Sessions"),
-    el("p", { class: "muted hint" }, "Click anywhere on a chart to listen from that moment. The hour you're in opens below the chart: drag its highlighted window, or use the arrows, to move through the session."));
+    el("h2", {}, "Sessions", help.button),
+    help.panel);
   for (const session of site.sessions) {
     const chart = createSessionChart(session, {
       maxRate: site.maxRate,
@@ -96,8 +99,8 @@ export function render(main, model, params, ctx) {
         el("h3", {}, fmtSpan(session.start, session.end)),
         el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
       chart.el,
-      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }),
-      slot));
+      slot, // the hour in detail, right under its chart
+      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) })));
     blocks.set(session, { chart, slot });
   }
 

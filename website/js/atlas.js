@@ -178,7 +178,7 @@ export function render(main, model, params, ctx) {
     const bounds = boundsOf(group.sites);
     const hours = group.sites.reduce((n, s) => n + s.hours, 0);
     const pillEl = el("div", { class: "region-marker" },
-      el("span", { class: "region-pill", title: group.name }, el("b", {}, group.name), el("small", {}, `${plural(group.sites.length, "place")} · ${fmtInt(hours)} h`)));
+      el("span", { class: "region-pill" }, el("b", {}, group.name), el("small", {}, `${plural(group.sites.length, "place")} · ${fmtInt(hours)} h`)));
     pillEl.addEventListener("click", () => {
       reveal(group.sites[0]);
       fly(bounds);

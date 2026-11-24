@@ -8,7 +8,7 @@
 // ear, or heard with high confidence, keep a lane even if they called once.
 // Lanes are ordered by most calls or by when each species was first heard.
 
-import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, clamp } from "./util.js";
+import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, hideTipSoon, clamp, info } from "./util.js";
 import { loadDetections } from "./data.js";
 import { loadWeather, hourWeather } from "./weather.js";
 
@@ -61,7 +61,11 @@ export function createDetail(ctx, { onSelect }) {
   const lanesNote = el("p", { class: "lanes-note muted", hidden: true });
   const orderBtns = [["calls", "Most calls"], ["first", "First heard"]].map(([key, label]) =>
     el("button", { class: `seg-btn${prefs.order === key ? " active" : ""}`, type: "button", "aria-pressed": String(prefs.order === key), "data-order": key, onclick: () => setOrder(key) }, label));
-  const lanesBar = el("div", { class: "lanes-bar" },
+  const help = info("the hour view",
+    el("p", {}, "The strip at the top is a spectrogram of the hour: time runs from left to right, pitch rises from 0 to 12 kHz, and louder sound is darker."),
+    el("p", {}, "Below it, each lane is one species, and each mark a call or a run of calls found by BirdNET. Stronger marks are surer; green, full-height marks were checked by ear (✓). Click a mark to hear it, or anywhere else to listen from there."),
+    el("p", {}, "When many species called, the busiest get lanes and the rest fold into “+ N more species”. Order sorts the lanes by most calls or by first heard. More has every species, zoom, a filter and notes on the recording."));
+  const lanesBar = el("div", { class: "lanes-bar" }, help.button,
     el("span", { class: "muted" }, "Order"), el("div", { class: "seg-group", role: "group", "aria-label": "Order of the species lanes" }, orderBtns));
 
   inner.addEventListener("click", (event) => {
@@ -87,7 +91,7 @@ export function createDetail(ctx, { onSelect }) {
         el("div", {}, el("h5", {}, "About the recording"), notes)),
       el("p", { class: "credit" }, BIRDNET_CREDIT)));
 
-  const root = el("div", { class: "detail" }, head, lanesBar, tl, lanesNote, more);
+  const root = el("div", { class: "detail" }, head, lanesBar, help.panel, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -186,13 +190,22 @@ export function createDetail(ctx, { onSelect }) {
           event.stopPropagation();
           player.load(seg, { autoplay: true, at: Math.max(0, start - 2) });
         },
-        onmouseenter: (event) => showTip(label, event.currentTarget),
-        onmouseleave: hideTip,
+        onpointerenter: (event) => {
+          if (event.pointerType === "mouse") showTip(label, event.currentTarget);
+        },
+        onpointerleave: (event) => {
+          if (event.pointerType === "mouse") hideTip();
+        },
+        onpointerdown: (event) => {
+          if (event.pointerType === "mouse") return;
+          showTip(label, event.currentTarget); // a tap plays the call; show what it is for a moment
+          hideTipSoon();
+        },
       }));
     }
     for (const s of ranked) {
       speciesList.append(el("li", {}, el("button", { class: `species-row${focus === s.name ? " focus" : ""}`, type: "button", onclick: () => setFocus(s.name) },
-        el("span", {}, s.name, s.frog ? el("small", {}, " frog") : null, s.checked ? el("i", { class: "tick", title: "Checked by ear" }, " ✓") : null),
+        el("span", {}, s.name, s.frog ? el("small", {}, " frog") : null, s.checked ? el("i", { class: "tick", role: "img", "aria-label": "checked by ear" }, " ✓") : null),
         el("span", { class: "species-count" }, fmtInt(s.calls)))));
     }
     sub.textContent = subText(ranked.length);
