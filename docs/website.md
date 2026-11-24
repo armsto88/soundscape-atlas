@@ -194,23 +194,30 @@ written, so unpublished hours cannot reach the public repository.
 
 - Fill in the `area` column in sites.csv (the Saarland places have no area yet).
 - Plates for the birds that have none, in Fugleramme's style (status 24 Nov 2026):
-  - 14 of the 31 Boomerang Falls birds have no plate. Green Catbird, Mistletoebird
-    and Shining Bronze Cuckoo are coming upstream (Fugleramme issue #406, a
-    contributor in Sydney adding ~70 Australian birds); re-pin
-    `fetch_bird_plates.py` to a newer Fugleramme commit when they land.
-  - Public-domain sources found on Wikimedia Commons (BHL scans of Gould's
-    *The Birds of Australia*) for Albert's Lyrebird, Australian Logrunner,
-    Large-billed Scrubwren, Pacific Emerald Dove, Pale-yellow Robin, Sooty Owl,
-    White-headed Pigeon, White-throated Treecreeper and Wompoo Fruit Dove;
-    Russet-tailed Thrush via Keulemans' *Geocichla papuensis*; Paradise Riflebird
-    still to find (probably under an older name). Internet Archive has the
-    volumes at higher resolution.
-  - Cut them with Fugleramme's `plate-review` skill and `tools/platereview/`
-    (sparse checkout of just those; the whole repository is 1.8 GB), bird at
-    least 600 px, paper halo `#F0ECE5`. Consider offering them upstream on #406.
-  - When the archive drive is back, list every bird detected across all places,
-    not only Boomerang Falls, and cut in order of how often we hear them.
-    Australia has 735 native species; Fugleramme covers 124, ~70 more are coming.
+  - All of NSW (20 sessions, 12 places): 113 bird species; 63 have a picture
+    (Fugleramme at a7848e0, plus our own cuts), covering 93.5% of the
+    detections. Of the 50 without, the 16 most heard bring it to 99.3%:
+    Australian Logrunner, Albert's Lyrebird, Fuscous Honeyeater, Pale-yellow
+    Robin, Pacific Emerald Dove, Russet-tailed Thrush, White-eared Honeyeater,
+    White-headed Pigeon, Rose-crowned Fruit Dove, Green Catbird, Striated
+    Thornbill, Buff-rumped Thornbill, Shining Bronze Cuckoo, Mistletoebird,
+    Wompoo Fruit Dove, Scarlet Robin. Done: White-throated Treecreeper,
+    Australian Logrunner (Prêtre's plate in Temminck: Gould's has a painted
+    landscape behind the birds, which does not cut cleanly). The
+    rest have under 20 calls each; listen to them before cutting (some will be
+    BirdNET mistakes).
+  - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is
+    landing in batches; re-pin `fetch_bird_plates.py` when new ones arrive.
+  - Our own cuts: Fugleramme's `tools/platereview` (sparse checkout in
+    `~/Documents/projects/fugleramme-tools/`, outside this repository) cuts the
+    bird from a public-domain scan; each plate is recorded in
+    `scripts/bird_plates.json` (scan, artist, the cutting spec) and
+    `fetch_bird_plates.py` credits it under "Cut for this site". Keep the
+    whole vignette; check the cut on a loud ground and at ring size.
+  - Sources: Gould's *The Birds of Australia* on the Internet Archive; the
+    State Library of New South Wales copy (`birdsaustralia4goula` and its
+    sibling volumes) has cleaner paper than the BHL copy, whose plates show
+    the facing text through. Wikimedia's image server rate-limits scripts hard.
 - Redraw the frogs, and a frog entry for each new frog.
 - Spectrograms for the hours not drawn yet (`scripts/make_spectrograms.py`).
 - A species index across the atlas: where and when a species was heard.

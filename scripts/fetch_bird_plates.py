@@ -7,8 +7,11 @@ Gould, the von Wright brothers, Audubon and others, and shared under
 CC BY-SA 4.0. This script reads the species in the website's data.json, finds
 each bird's plate by scientific name (through Fugleramme's BirdNET alias map),
 saves a small WebP per species, and writes CREDITS.md with each plate's source.
-Birds without a plate are listed, so they can be cut later. It also writes
-manifest.json, listing the bird and frog images that exist, for the website.
+Birds without a plate are listed, so they can be cut later. Plates cut for
+this site in the same style (scripts/bird_plates.json, which records the scan
+and how each was cut) are kept, never replaced by a download, and credited in
+their own section. It also writes manifest.json, listing the bird and frog
+images that exist, for the website.
 
     python3 scripts/fetch_bird_plates.py --data prototype/api/data.json --art prototype/art
 
@@ -29,8 +32,9 @@ from pathlib import Path
 from PIL import Image
 
 REPO = "arnegiacomo/fugleramme"
-DEFAULT_REF = "a3739660e7d8a7f812583df1cabbcdc5f63c3fb1"  # pinned so credits stay accurate
+DEFAULT_REF = "a7848e0d9e673a06c4465ec304b7ee3e5147281e"  # pinned so credits stay accurate (24 Nov 2026: +6 Australian birds)
 ART = "assets/artwork/classic"
+OWN_PLATES = Path(__file__).with_name("bird_plates.json")  # plates cut for this site
 USER_AGENT = "soundscape-atlas-art/1.0"
 SOURCE_NAMES = {
     "gould": "John Gould and collaborators",
@@ -42,6 +46,7 @@ SOURCE_NAMES = {
     "wilson": "Alexander Wilson, American Ornithology",
     "keulemans": "J. G. Keulemans",
     "gronvold": "Henrik Grønvold",
+    "pretre": "Jean-Gabriel Prêtre",
 }
 
 
@@ -88,8 +93,18 @@ def main() -> int:
     art = Path(args.art)
     out_dir = art / "birds"
     out_dir.mkdir(parents=True, exist_ok=True)
-    found, missing = [], []
+    own_plates = {k: v for k, v in json.loads(OWN_PLATES.read_text(encoding="utf-8")).items() if not k.startswith("_")} \
+        if OWN_PLATES.exists() else {}
+    found, own, missing = [], [], []
     for key, sp in sorted(birds.items()):
+        entry = own_plates.get(sp["scientific"])
+        if entry and (out_dir / f"{key}.webp").exists():
+            # cut for this site (scripts/bird_plates.json): never replaced by a download
+            own.append((key, sp, entry))
+            print(f"{key + '.webp':40} {sp['name']} (cut for this site)")
+            continue
+        if entry:
+            print(f"warning: {sp['name']} is in {OWN_PLATES.name} but {key}.webp is missing", file=sys.stderr)
         names = [key] + ([slug(aliases[sp["scientific"]])] if sp["scientific"] in aliases else [])
         path = next((plates[n][0] for n in names if n in plates), None)
         if not path:
@@ -104,6 +119,12 @@ def main() -> int:
         meta = manifest[path]
         found.append((key, sp, meta))
         print(f"{dest.name:40} {sp['name']} ({meta.get('source')})")
+    # every plate cut for this site is in the folder, shown yet or not, so credit them all
+    credited = {key for key, _, _ in own}
+    for scientific, entry in sorted(own_plates.items()):
+        key = slug(scientific)
+        if key not in credited and (out_dir / f"{key}.webp").exists():
+            own.append((key, {"name": entry.get("name", scientific), "scientific": scientific}, entry))
 
     lines = [
         "# Bird plates",
@@ -120,6 +141,22 @@ def main() -> int:
     for key, sp, meta in found:
         source = SOURCE_NAMES.get(meta.get("source", ""), meta.get("source", ""))
         lines.append(f"| {key}.webp | {sp['name']} (*{sp['scientific']}*) | {source} | [link]({meta.get('url', '')}) |")
+    if own:
+        lines += [
+            "",
+            "## Cut for this site",
+            "",
+            "Cut from public-domain scans in the same style, with Fugleramme's plate-review tools",
+            "(`tools/platereview`), and shared under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).",
+            "How each was cut is recorded in `scripts/bird_plates.json`.",
+            "",
+            "| File | Species | Plate | Original scan |",
+            "|---|---|---|---|",
+        ]
+        for key, sp, entry in own:
+            plate = entry.get("work") or SOURCE_NAMES.get(entry.get("source", ""), entry.get("source", ""))
+            note = f" ({entry['scan_note']})" if entry.get("scan_note") else ""
+            lines.append(f"| {key}.webp | {sp['name']} (*{sp['scientific']}*) | {plate} | [link]({entry.get('scan', '')}){note} |")
     if missing:
         lines += ["", "## Still without a plate", ""]
         lines += [f"- {sp['name']} (*{sp['scientific']}*)" for sp in sorted(missing, key=lambda s: s["name"])]
@@ -130,7 +167,7 @@ def main() -> int:
         "frogs": sorted(p.stem for p in (art / "frogs").glob("*.webp")),
     }
     (art / "manifest.json").write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
-    print(f"{len(found)} plates, {len(missing)} birds without one; {art / 'manifest.json'} lists {len(index['birds'])} birds, {len(index['frogs'])} frogs")
+    print(f"{len(found)} plates from Fugleramme, {len(own)} cut for this site, {len(missing)} birds without one; {art / 'manifest.json'} lists {len(index['birds'])} birds, {len(index['frogs'])} frogs")
     return 0
 
 

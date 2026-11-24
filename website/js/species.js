@@ -51,7 +51,7 @@ export function renderSpecies(site) {
     site.frogs.length ? [el("h3", { class: "row-label" }, "Frogs heard here"), grid(site.frogs)] : null,
     el("p", { class: "credit" },
       "Bird plates: hand-cut 1800s plates by Gould and others, from ",
-      el("a", { href: "https://github.com/arnegiacomo/fugleramme" }, "Fugleramme"), " (CC BY-SA 4.0, ", el("a", { href: "art/birds/CREDITS.md" }, "credits"), "). ",
+      el("a", { href: "https://github.com/arnegiacomo/fugleramme" }, "Fugleramme"), " or cut for this site in the same way (CC BY-SA 4.0, ", el("a", { href: "art/birds/CREDITS.md" }, "credits"), "). ",
       "Frogs: drawn in the same style from photos (CC BY-SA 4.0, ", el("a", { href: "art/frogs/CREDITS.md" }, "credits"), "). ",
       birdsWithPlates < site.birds.length ? `${plural(site.birds.length - birdsWithPlates, "bird")} still without a plate.` : ""));
 }

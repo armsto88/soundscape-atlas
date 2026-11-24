@@ -1,10 +1,10 @@
 # Bird plates
 
-Hand-cut 1800s plates from [Fugleramme](https://github.com/arnegiacomo/fugleramme/tree/a3739660e7d8a7f812583df1cabbcdc5f63c3fb1/assets/artwork/classic)
+Hand-cut 1800s plates from [Fugleramme](https://github.com/arnegiacomo/fugleramme/tree/a7848e0d9e673a06c4465ec304b7ee3e5147281e/assets/artwork/classic)
 (classic style), digitally restored and edited by its contributors and shared under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Resized for this site.
 Each original plate is public domain or openly licensed; see Fugleramme's
-[ATTRIBUTION.md](https://github.com/arnegiacomo/fugleramme/blob/a3739660e7d8a7f812583df1cabbcdc5f63c3fb1/assets/artwork/classic/ATTRIBUTION.md).
+[ATTRIBUTION.md](https://github.com/arnegiacomo/fugleramme/blob/a7848e0d9e673a06c4465ec304b7ee3e5147281e/assets/artwork/classic/ATTRIBUTION.md).
 
 | File | Species | Plate by | Original scan |
 |---|---|---|---|
@@ -26,10 +26,20 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | strepera-graculina.webp | Pied Currawong (*Strepera graculina*) | John Gould and collaborators | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_by_Elizabeth_Gould_for_Birds_of_Australia,_digitally_enhanced_from_rawpixel%27s_own_facsimile_book78.jpg) |
 | symposiachrus-trivirgatus.webp | Spectacled Monarch (*Symposiachrus trivirgatus*) | John Gould and collaborators | [link](https://commons.wikimedia.org/wiki/File:Piezorhynchus_medius_-_The_Birds_of_New_Guinea.jpg) |
 
+## Cut for this site
+
+Cut from public-domain scans in the same style, with Fugleramme's plate-review tools
+(`tools/platereview`), and shared under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+How each was cut is recorded in `scripts/bird_plates.json`.
+
+| File | Species | Plate | Original scan |
+|---|---|---|---|
+| cormobates-leucophaea.webp | White-throated Treecreeper (*Cormobates leucophaea*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Climacteris picumnus" | [link](https://archive.org/details/birdsaustralia4goula/page/n213/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+| orthonyx-temminckii.webp | Australian Logrunner (*Orthonyx temminckii*) | Jean-Gabriel Prêtre, in Temminck & Laugier, Nouveau recueil de planches coloriées d'oiseaux, plate 428 (1820s) | [link](https://archive.org/details/nouveaurecueildv4temm/page/n135/mode/1up) (Musée cantonal de zoologie, Lausanne copy, digitised by the Biodiversity Heritage Library; public domain) |
+
 ## Still without a plate
 
 - Albert's Lyrebird (*Menura alberti*)
-- Australian Logrunner (*Orthonyx temminckii*)
 - Green Catbird (*Ailuroedus crassirostris*)
 - Large-billed Scrubwren (*Sericornis magnirostra*)
 - Mistletoebird (*Dicaeum hirundinaceum*)
@@ -40,5 +50,4 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 - Shining Bronze Cuckoo (*Chalcites lucidus*)
 - Sooty Owl (*Tyto tenebricosa*)
 - White-headed Pigeon (*Columba leucomela*)
-- White-throated Treecreeper (*Cormobates leucophaea*)
 - Wompoo Fruit Dove (*Megaloprepia magnifica*)
