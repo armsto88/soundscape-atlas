@@ -16,15 +16,21 @@ the R2 bucket.
   level. Clicking a place shows a small card with a play button and "Open
   site". The play button plays the place's hour without leaving the map, the
   same for every visit: an hour marked `featured` in segments.csv (from its
-  start); otherwise the liveliest dawn hour (most detections, any session) from
-  half an hour before sunrise, or from its busiest five minutes if earlier;
-  otherwise the liveliest hour from its busiest five minutes
-  (`quickListen()` in `js/data.js`).
+  start); otherwise the session of the liveliest dawn hour (most detections),
+  from half an hour before its dawn chorus is at its fullest (the same moment
+  the session notes show; half an hour before sunrise if there's no real
+  chorus); otherwise the liveliest hour from its busiest five minutes
+  (`quickListen()` and `chorusPeak()` in `js/data.js`).
 - **Place** (`#/site/<site_id>?at=<segment_id>`): description and inset map,
   then one chart per recording session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,
   sunset and sunrise marked, unpublished hours hatched, and an activity curve
   of detections per five minutes. Click anywhere to listen from that moment.
+  Under each chart, **session notes** (`js/notes.js`): first bird of the
+  morning, dawn and evening chorus at their fullest, voices in the night, the
+  quietest stretch, most heard birds and the frogs, each moment playable;
+  written from sure detections only (checked by ear or at least 70%), loaded
+  when the session scrolls into view.
   The hour you are in opens below the chart: the spectrogram strip and one lane
   per species, with the species list, zoom, a confident-only filter and the
   recording notes under "More". Drag the highlighted window or use the arrows

@@ -6,6 +6,7 @@ import { el, plural, humanize, fmtSpan, fmtDuration, hideTip } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
+import { renderNotes } from "./notes.js";
 import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
 
@@ -93,6 +94,7 @@ export function render(main, model, params, ctx) {
         el("h3", {}, fmtSpan(session.start, session.end)),
         el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
       chart.el,
+      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }),
       slot));
     blocks.set(session, { chart, slot });
   }

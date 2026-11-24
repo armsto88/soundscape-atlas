@@ -202,6 +202,20 @@ small { font-size: 0.8em; }
 .sc-end.start { left: 0; }
 .sc-end.end { right: 0; }
 
+/* ---- session notes: marginalia under the chart, each moment playable ---- */
+.notes-block { margin: 0.9rem 0 0.3rem; padding: 0.15rem 0 0.15rem 0.95rem; border-left: 2px solid var(--ochre); }
+.notes-title { font-size: 1rem; margin: 0 0 0.4rem; }
+.notes-title small { font-family: var(--font-sans); font-size: 0.8rem; font-weight: 400; color: var(--ink-3); }
+.notes-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 1.3rem; margin: 0; font-size: 0.9rem; }
+.notes-list dt { color: var(--ink-3); }
+.notes-list dd { margin: 0; min-width: 0; }
+.note-play { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.note-play .note-time { font-variant-numeric: tabular-nums; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.note-play:hover .note-time { text-decoration-color: var(--ochre-deep); }
+.note-play .note-icon { color: var(--ochre-deep); font-size: 0.78em; }
+.notes-sep { color: var(--ink-3); }
+.notes-credit { margin: 0.45rem 0 0; font-size: 0.74rem; color: var(--ink-3); }
+
 /* ---- hour detail ------------------------------------------------------------ */
 .detail { margin-top: 0.9rem; padding: 1rem 1rem 0.6rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-0); }
 .detail-head { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
@@ -388,6 +402,8 @@ small { font-size: 0.8em; }
   .mark.checked { top: 13px; bottom: 1px; }
   .tl.expanded .mark { top: 14px; bottom: 3px; }
   .tl.expanded .mark.checked { top: 12px; bottom: 1px; }
+  .notes-list { grid-template-columns: minmax(0, 1fr); gap: 0.05rem; }
+  .notes-list dt { margin-top: 0.45rem; font-size: 0.78rem; }
   .tl-spec::before { content: "0–12 kHz"; position: absolute; left: 6px; top: 4px; z-index: 1; font-size: 0.65rem; color: var(--ink-3); }
 }
 @media (max-width: 480px) {

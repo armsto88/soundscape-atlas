@@ -238,11 +238,31 @@ export function segmentAt(session, t) {
   return session.segments.find((s) => t >= s.start && t < s.end) || null;
 }
 
+// The busiest five minutes around sunrise ("dawn": an hour before to two after)
+// or sunset ("evening": 90 minutes before to 45 after) in a session, from the
+// chart's activity; null when nothing there reaches a chorus. Used by the
+// session notes and the atlas's play button.
+const CHORUS_MIN = 5; // detections in five minutes
+export function chorusPeak(session, which) {
+  const suns = which === "dawn" ? session.sunrises : session.sunsets;
+  const sun = suns.find((t) => t >= session.start - HOUR && t <= session.end + HOUR);
+  if (!sun) return null;
+  const [from, to] = which === "dawn" ? [sun - HOUR, sun + 2 * HOUR] : [sun - 90 * MINUTE, sun + 45 * MINUTE];
+  let best = null;
+  for (const seg of session.segments) {
+    seg.activity.forEach((count, i) => {
+      const t = seg.start + i * ACTIVITY_BIN_SEC * 1000;
+      if (t >= from && t < to && (!best || count > best.count)) best = { t, count };
+    });
+  }
+  return best && best.count >= CHORUS_MIN ? best : null;
+}
+
 // What the atlas's play button plays at a place, always the same for a place:
 // - an hour marked featured in segments.csv, from its start;
-// - otherwise the liveliest dawn hour (most detections, any session), from half
-//   an hour before sunrise, or from its busiest five minutes if they come
-//   earlier, so the listener hears the chorus build;
+// - otherwise the session of the liveliest dawn hour (most detections), from
+//   half an hour before its dawn chorus is at its fullest, so the listener hears
+//   the chorus build (half an hour before sunrise if it never reaches a chorus);
 // - otherwise the liveliest hour, from its busiest five minutes;
 // - otherwise the latest session, from half an hour before sunrise (or its start).
 // Returns { seg, at (seconds into seg), moment (ms), kind } or null.
@@ -260,8 +280,9 @@ export function quickListen(site) {
   const dawns = hours.filter((s) => s.period === "dawn" && s.detection_count > 0);
   if (dawns.length) {
     const seg = liveliest(dawns);
+    const peak = chorusPeak(seg.session, "dawn");
     const sunrise = seg.session.sunrises.find((t) => t > seg.start - HOUR && t < seg.end + HOUR);
-    const t = Math.min(busiest(seg), sunrise ? sunrise - 30 * MINUTE : seg.start);
+    const t = peak ? peak.t - 30 * MINUTE : sunrise ? sunrise - 30 * MINUTE : seg.start;
     return { ...startFrom(seg.session, t), kind: "dawn" };
   }
   const busy = hours.filter((s) => s.detection_count > 0);
