@@ -1963,5 +1963,65 @@
     [1208, 1872]
    ]
   }
+ },
+ "Petroica boodang": {
+  "name": "Scarlet Robin",
+  "source": "gould",
+  "work": "John Gould, The Birds of Australia, vol. 3 (1848), plate \"Petroica multicolor\" (Scarlet-breasted Robin)",
+  "scan": "https://archive.org/details/birdsaustralia3goul/page/n13/mode/1up",
+  "scan_file": "https://archive.org/download/birdsaustralia3goul/page/n13.jpg",
+  "scan_note": "State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain",
+  "cut": "2026-11-24, Fugleramme plate-review tools at a7848e0 (plate.py cut via cut_multi.py, finish.py): paper balanced to the halo tone; paper_clean 195 (paper 206-213, the white bellies 145-178); two leaves joined to the stem by too faint a line kept with their own seeds; paper between the leaves toned to the page.",
+  "spec": {
+   "box": [550, 550, 4100, 6250],
+   "paper_min": 190,
+   "paper_clean": 195,
+   "seal": 4,
+   "balance": [255, 245, 227],
+   "seed": [
+    [885, 666],
+    [520, 1274],
+    [713, 1492],
+    [748, 1526],
+    [732, 1536]
+   ],
+   "remove": [],
+   "gaps": [
+    [523, 265],
+    [515, 156],
+    [610, 247],
+    [772, 392],
+    [790, 419],
+    [747, 434],
+    [532, 770],
+    [1207, 821],
+    [560, 829],
+    [580, 837],
+    [230, 860],
+    [816, 1079],
+    [865, 1554],
+    [786, 1275],
+    [1083, 1292],
+    [97, 1360],
+    [1096, 1352],
+    [1058, 1404],
+    [886, 1380],
+    [825, 1402],
+    [1001, 1380],
+    [928, 1486],
+    [847, 1479],
+    [764, 1447],
+    [1228, 1530],
+    [1278, 1578],
+    [512, 1841],
+    [1151, 1555],
+    [945, 1625],
+    [862, 1595],
+    [863, 1671],
+    [864, 1691],
+    [995, 1739],
+    [893, 1754]
+   ]
+  }
  }
 }
