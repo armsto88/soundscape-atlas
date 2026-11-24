@@ -203,7 +203,8 @@ written, so unpublished hours cannot reach the public repository.
     Thornbill, Buff-rumped Thornbill, Shining Bronze Cuckoo, Mistletoebird,
     Wompoo Fruit Dove, Scarlet Robin. Done: White-throated Treecreeper,
     Australian Logrunner (Prêtre's plate in Temminck: Gould's has a painted
-    landscape behind the birds, which does not cut cleanly). The
+    landscape behind the birds, which does not cut cleanly), Albert's Lyrebird
+    (Gould's Supplement, 1869). The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is

@@ -35,11 +35,11 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | File | Species | Plate | Original scan |
 |---|---|---|---|
 | cormobates-leucophaea.webp | White-throated Treecreeper (*Cormobates leucophaea*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Climacteris picumnus" | [link](https://archive.org/details/birdsaustralia4goula/page/n213/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+| menura-alberti.webp | Albert's Lyrebird (*Menura alberti*) | John Gould, The Birds of Australia, Supplement (1869), plate "Menura Alberti" | [link](https://archive.org/details/birdsaustraliasuppgoula/page/n49/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | orthonyx-temminckii.webp | Australian Logrunner (*Orthonyx temminckii*) | Jean-Gabriel Prêtre, in Temminck & Laugier, Nouveau recueil de planches coloriées d'oiseaux, plate 428 (1820s) | [link](https://archive.org/details/nouveaurecueildv4temm/page/n135/mode/1up) (Musée cantonal de zoologie, Lausanne copy, digitised by the Biodiversity Heritage Library; public domain) |
 
 ## Still without a plate
 
-- Albert's Lyrebird (*Menura alberti*)
 - Green Catbird (*Ailuroedus crassirostris*)
 - Large-billed Scrubwren (*Sericornis magnirostra*)
 - Mistletoebird (*Dicaeum hirundinaceum*)
