@@ -22,7 +22,8 @@ const prefs = { order: "calls", expanded: false };
 const byCalls = (a, b) => b.calls - a.calls || a.name.localeCompare(b.name);
 const byFirst = (a, b) => a.first - b.first || byCalls(a, b);
 
-export function createDetail(ctx, { onSelect }) {
+// focusName(): the species picked on the page, whose lane each hour opens on.
+export function createDetail(ctx, { onSelect, focusName = () => null }) {
   const player = ctx.player;
   let seg = null;
   let zoom = 1;
@@ -140,7 +141,9 @@ export function createDetail(ctx, { onSelect }) {
     const many = ranked.length > MAX_LANES;
     const folded = many && !prefs.expanded;
     const sure = (s) => (s.checked > 0 || s.best >= CONFIDENT ? 1 : 0);
-    const shown = folded ? [...ranked].sort((a, b) => sure(b) - sure(a) || byCalls(a, b)).slice(0, MAX_LANES - 1) : ranked;
+    // the focused species always keeps its lane
+    const isFocus = (s) => (s.name === focus ? 1 : 0);
+    const shown = folded ? [...ranked].sort((a, b) => isFocus(b) - isFocus(a) || sure(b) - sure(a) || byCalls(a, b)).slice(0, MAX_LANES - 1) : ranked;
     shownNames = new Set(shown.map((s) => s.name));
     const named = [...shown].sort(prefs.order === "first" ? byFirst : byCalls);
     const laneOf = new Map(named.map((s, i) => [s.name, i]));
@@ -264,7 +267,7 @@ export function createDetail(ctx, { onSelect }) {
         weatherLine.textContent = hourWeather(seg);
         weatherLine.hidden = !weatherLine.textContent;
       });
-      focus = null;
+      focus = focusName() || null;
       const list = seg.session.segments;
       const i = list.indexOf(seg);
       const prev = list[i - 1];
@@ -308,11 +311,17 @@ export function createDetail(ctx, { onSelect }) {
       loadDetections(seg).then((list) => {
         if (seg !== current) return;
         detections = list;
+        focus = focus || focusName() || null; // the empty first drawing let go of it
         renderLanes();
       }).catch(() => {
         if (seg === current) lanesNote.textContent = "Could not load the detections for this hour.";
       });
       onState();
+    },
+    // the species picked on the page changed
+    setFocus(name) {
+      focus = name || null;
+      if (seg) renderLanes();
     },
     destroy() {
       player.removeEventListener("state", onState);

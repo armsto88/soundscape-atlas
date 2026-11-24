@@ -4,7 +4,9 @@
 Writes two kinds of file next to --output:
 
   data.json                         index: published segments, plus each site,
-                                    session and species name stored once
+                                    session and species stored once; each
+                                    segment lists the species heard in it, for
+                                    the species search and the session charts
   detections/<SITE>/<SEGMENT>.json  one file per segment with detections,
                                     loaded by the site when that segment is opened;
                                     back-to-back detections of a species are merged
@@ -52,6 +54,8 @@ DETECTIONS_DIR_NAME = "detections"
 BOUT_GAP_SEC = 3.0
 # The activity curve on a site's page counts detections per bin of this many seconds.
 ACTIVITY_BIN_SEC = 300
+# Species whose exact place the search must not show (written by fetch_sensitive_species.py).
+SENSITIVE_SPECIES_CSV = Path(__file__).resolve().parent / "sensitive_species.csv"
 # IDs become file names, so they must not contain path separators or "..".
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
@@ -225,6 +229,60 @@ def activity_bins(segment: dict, rows: List[dict]) -> List[int]:
     return bins
 
 
+def segment_species(rows: List[dict], species_index: Dict[str, int], last_bin: int) -> List[list]:
+    """The species heard in a segment, most calls first, each as
+    [species id, calls, clearest call (second), its confidence, 5-minute bins with calls, checked by ear (0/1)].
+
+    Bins count ACTIVITY_BIN_SEC from the segment's start, like `activity`. The site
+    adds these up per session and place for the species search and the session charts.
+    """
+    found: Dict[str, dict] = {}
+    for row in rows:
+        name = (row.get("common_name") or "Unknown").strip()
+        second = parse_seconds(row.get("start_sec"))
+        confidence = parse_seconds(row.get("confidence")) or 0.0
+        entry = found.setdefault(name, {"calls": 0, "best": None, "confidence": -1.0, "bins": set(), "checked": 0})
+        entry["calls"] += 1
+        if second is not None:
+            entry["bins"].add(min(last_bin, max(0, int(second // ACTIVITY_BIN_SEC))))
+            if confidence > entry["confidence"] or (confidence == entry["confidence"] and second < entry["best"]):
+                entry["confidence"], entry["best"] = confidence, second
+        if (row.get("review_status") or "").strip().lower() == "confirmed":
+            entry["checked"] = 1
+    heard = [
+        [species_index[name], entry["calls"], round(entry["best"] or 0.0, 1), round(max(0.0, entry["confidence"]), 2),
+         sorted(entry["bins"]), entry["checked"]]
+        for name, entry in found.items()
+    ]
+    heard.sort(key=lambda item: (-item[1], item[0]))
+    return heard
+
+
+def name_key(value: str) -> str:
+    """A species name for matching: lower case, letters and single spaces only."""
+    value = (value or "").lower().replace("-", " ").replace("treefrog", "tree frog")
+    return " ".join(re.sub(r"[^a-z ]", " ", value).split())
+
+
+def load_sensitive_species(path: Path) -> Tuple[Dict[str, set], Dict[str, set]]:
+    """Where each listed species' place is kept out of the search, by scientific
+    and by common name: {name key: {"AU-NSW", "AU", ...}}."""
+    by_scientific: Dict[str, set] = defaultdict(set)
+    by_common: Dict[str, set] = defaultdict(set)
+    if not path.is_file():
+        print(f"warning: {path} not found; the species search will show the places of every species", file=sys.stderr)
+        return by_scientific, by_common
+    for row in read_csv(path):
+        where = (row.get("applies_in") or "").strip()
+        if not where:
+            continue
+        if name_key(row.get("scientific_name", "")):
+            by_scientific[name_key(row["scientific_name"])].add(where)
+        if name_key(row.get("common_name", "")):
+            by_common[name_key(row["common_name"])].add(where)
+    return by_scientific, by_common
+
+
 def public_window(session: dict) -> Tuple[Optional[datetime], Optional[datetime]]:
     """The published part of a session: sessions.csv public_start_local / public_end_local.
 
@@ -295,7 +353,7 @@ def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> 
     return segment_sun(start, end, latitude, longitude, tz), ""
 
 
-def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[str, dict]]:
+def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path = SENSITIVE_SPECIES_CSV) -> Tuple[dict, Dict[str, dict]]:
     """Return (index payload, {relative detections path: detections payload})."""
     sites = read_csv(metadata_dir / "sites.csv")
     sessions = read_csv(metadata_dir / "sessions.csv")
@@ -346,15 +404,27 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
             detection = dict(detection, start_sec=f"{start - offset:.2f}", end_sec=f"{end - offset:.2f}")
         detections_by_segment[segment_id].append(detection)
 
-    species_names = sorted(
-        {
-            (detection.get("common_name") or "Unknown").strip()
-            for rows in detections_by_segment.values()
-            for detection in rows
-        },
-        key=str.casefold,
-    )
+    # Every species heard in a published segment, stored once; segments refer to
+    # them by position. A species on a sensitive list (fetch_sensitive_species.py)
+    # carries the countries and states where search shows only the area it was heard in.
+    species_info: Dict[str, dict] = {}
+    for rows in detections_by_segment.values():
+        for detection in rows:
+            name = (detection.get("common_name") or "Unknown").strip()
+            info = species_info.setdefault(name, {"name": name, "scientific": "", "group": ""})
+            info["scientific"] = info["scientific"] or (detection.get("scientific_name") or "").strip()
+            info["group"] = info["group"] or (detection.get("taxon_group") or "").strip()
+    species_names = sorted(species_info, key=str.casefold)
     species_index = {name: index for index, name in enumerate(species_names)}
+    sensitive_by_scientific, sensitive_by_common = load_sensitive_species(sensitive_path)
+    species_list = []
+    for name in species_names:
+        info = dict(species_info[name])
+        where = sensitive_by_scientific.get(name_key(info["scientific"]), set()) | sensitive_by_common.get(name_key(name), set())
+        if where:
+            info["area_only_in"] = sorted(where)
+            print(f"note: species search shows only the area for {name} in {', '.join(sorted(where))} (sensitive list)", file=sys.stderr)
+        species_list.append(info)
 
     index_sites: Dict[str, dict] = {}
     index_sessions: Dict[str, dict] = {}
@@ -491,7 +561,7 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
                 "detection_count": len(rows),
                 "activity": activity,
                 "top_species": top_species,
-                "species_ids": sorted(species_index[name] for name in counts),
+                "species": segment_species(rows, species_index, len(activity) - 1),
                 "detections_url": detections_url,
                 "period": sun["period"] if sun else "",
                 "sunrise": sun["sunrise"] if sun else "",
@@ -510,12 +580,12 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
     # Totals describe only what is published, so hidden recordings are not
     # revealed through the counts either.
     index = {
-        "format": 2,
+        "format": 3,
         "sites_count": len(index_sites),
         "sessions_count": len(index_sessions),
         "segments_count": len(index_segments),
         "detections_count": sum(s["detection_count"] for s in index_segments),
-        "species": species_names,
+        "species": species_list,
         "sites": index_sites,
         "sessions": index_sessions,
         "segments": index_segments,
@@ -591,6 +661,8 @@ def main() -> int:
     parser.add_argument("--metadata-dir", default=os.environ.get("SOUNDSCAPE_METADATA_DIR", "").strip(),
                         help="metadata folder on the archive drive (default: $SOUNDSCAPE_METADATA_DIR)")
     parser.add_argument("--output", default="website/api/data.json", help="index file; detections/ is written beside it")
+    parser.add_argument("--sensitive-species", type=Path, default=SENSITIVE_SPECIES_CSV,
+                        help="species whose place the search hides (default: scripts/sensitive_species.csv)")
     args = parser.parse_args()
     if not args.metadata_dir:
         print(
@@ -609,7 +681,7 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    index, detection_files = build_outputs(metadata_dir, published)
+    index, detection_files = build_outputs(metadata_dir, published, args.sensitive_species)
 
     detections_bytes = replace_detections_dir(output_path.parent / DETECTIONS_DIR_NAME, detection_files)
     index_text = to_json_lines(index)

@@ -91,7 +91,10 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
     if (f > 0.07 && f < 0.93) ticks.append(el("span", { class: "sc-tick", style: { left: pct(f, 1) } }, fmtClock(t)));
   }
 
-  const root = el("div", { class: "sc" }, suns, plot, ticks);
+  // with a species picked: a lane under the plot marking when it called, the
+  // clearest call flagged; clicking the lane listens from there, like the plot
+  const lane = el("div", { class: "sc-lane", hidden: true, "aria-hidden": "true" });
+  const root = el("div", { class: "sc" }, suns, plot, lane, ticks);
 
   // On narrow screens, hide clock ticks that would run into the start and end labels.
   const declutter = () => {
@@ -175,6 +178,11 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
     const seg = segmentAt(session, t);
     if (seg) onSeek(seg, (t - seg.start) / 1000);
   });
+  lane.addEventListener("click", (event) => {
+    const t = tAt(fracAt(event.clientX));
+    const seg = segmentAt(session, t);
+    if (seg) onSeek(seg, (t - seg.start) / 1000);
+  });
   plot.addEventListener("keydown", (event) => {
     const list = session.segments;
     const i = selected ? list.indexOf(selected) : -1;
@@ -200,6 +208,18 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
       const on = moment !== null && moment >= session.start && moment <= session.end;
       playhead.hidden = !on;
       if (on) playhead.style.left = pct(x(moment), 1);
+    },
+    // lens: null, { none: true } (not heard), or { marks: [[from, to]], best: moment, name }
+    setLens(lens) {
+      lane.innerHTML = "";
+      lane.hidden = !lens;
+      if (!lens) return;
+      if (lens.none) {
+        lane.append(el("span", { class: "sc-lane-none" }, "not heard"));
+        return;
+      }
+      for (const [a, b] of lens.marks) lane.append(el("span", { class: "sc-mark", style: { left: pct(x(a), 1), width: pct(x(b) - x(a), 1) } }));
+      if (Number.isFinite(lens.best)) lane.append(el("span", { class: "sc-best", title: `Clearest call of ${lens.name}, ${fmtClock(lens.best)}`, style: { left: pct(x(lens.best), 1) } }));
     },
   };
 }

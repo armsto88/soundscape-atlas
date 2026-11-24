@@ -30,6 +30,7 @@ scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working W
             make_spectrograms.py   one spectrogram PNG per hour, for the hour timeline
             make_frog_plate.py     plate-style frog images from photos (needs OpenCV)
             fetch_bird_plates.py   1800s bird plates from Fugleramme for the species shown
+            fetch_sensitive_species.py  official sensitive-species lists -> sensitive_species.csv (search hides their places)
             preview_site.py        local preview on the real metadata, nothing written to website/
 website/    index.html, styles.css, js/ (modules), art/ (plates), api/ (generated)
 functions/  /api/* endpoints; shared helpers in functions/_lib/
