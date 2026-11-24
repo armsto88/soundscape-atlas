@@ -20,6 +20,8 @@ instead of guessing.
 - `sessions.csv`: one row per continuous recording (written by `ingest_recordings.py`)
 - `segments.csv`: one row per clock-aligned hour (written by `ingest_recordings.py`)
 - `birdnet_detections.csv`: one row per detection (written by `import_birdnet.py`)
+- `acoustic_indices.csv`: one row per minute (written by `compute_indices.py`;
+  not needed to start, and never published)
 
 Every column is described in [schema/metadata_schema.md](../schema/metadata_schema.md).
 

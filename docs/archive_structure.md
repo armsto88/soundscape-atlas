@@ -7,6 +7,7 @@
 | Raw | original recorder files, anywhere on the archive drive | as recorded (e.g. MixPre: 48 kHz / 24-bit / 2–3 ch BWF) | never |
 | Working | `<archive-root>/audio/working_wav/<SITE_ID>/<SEGMENT_ID>.wav` | 48 kHz stereo, source bit depth, one clock hour | never |
 | Listening | `<archive-root>/audio/listening_opus/<SITE_ID>/<SEGMENT_ID>.opus` | Opus 128k constrained VBR, stereo (~58 MB/h) | to R2, same relative path |
+| Public | `<archive-root>/audio/public_opus/<SITE_ID>/<SEGMENT_ID>.opus` (+ `.png`) | as Listening, made from Working by `publish_session.py`: low cut 100 Hz, cut ends, 10 s fades | to R2 instead of the listening copy, under the listening copy's key |
 
 `listening_opus_path` in `segments.csv` is the path relative to `<archive-root>`,
 so the R2 object key can mirror it.
@@ -17,7 +18,7 @@ The metadata lives on the drive as well, never in the public repository:
 <archive-root>/
   metadata/             sites, sessions, segments, birdnet_detections (CSV)
   ingest_manifest.csv   one row per raw recording
-  audio/                working_wav/, listening_opus/
+  audio/                working_wav/, listening_opus/, public_opus/
   birdnet/              BirdNET-Analyzer output
 ```
 
@@ -135,6 +136,69 @@ uses the same pattern for the recording's start.
    python3 scripts/review_birdnet.py apply --dry-run
    ```
 4. Rebuild with `scripts/build_web_metadata.py`.
+
+## Publishing a session
+
+The usual way is one command per session, from the repository folder:
+
+```
+python3 scripts/publish_session.py <SESSION_ID> --dry-run
+python3 scripts/publish_session.py <SESSION_ID> --start 15:38 --except 02:00
+```
+
+It lists every hour with its BirdNET calls, any possible human voice (from
+the raw BirdNET output, 25% or more) and how its audio will be edited, asks,
+and then:
+
+1. marks the hours in `segments.csv` and the cut ends in `sessions.csv`;
+2. makes each published hour's **public copy** from its lossless working WAV,
+   in `audio/public_opus/` with its own spectrogram: low cut at 100 Hz
+   (24 dB/octave), the cut ends removed, 10 s fades wherever the published
+   audio starts or stops (the ends, and either side of a held-back hour),
+   Opus 128k. Each copy records how it was made, so unchanged hours are
+   skipped on a re-run. The listening copies in `audio/listening_opus/` are
+   never changed;
+3. works out the acoustic indices;
+4. checks the metadata, uploads to R2 (the public copies, under the usual
+   keys), rebuilds `website/api` (with weather and bird plates) and serves the
+   preview of exactly what will be public. It prints the two git commands that
+   make it live.
+
+Choosing what is published:
+
+- `--except HOUR` holds an hour back (`15:00`, `15:33` or `15`; a date and
+  time when a session runs over 24 hours); `--include HOUR` publishes it again.
+- `--start TIME` / `--end TIME` cut the recording before / after a local time,
+  for example setting up and packing away; `none` removes a cut.
+- The first run publishes every hour but the `--except` ones; later runs
+  remember held-back hours and cuts, so name only what changes.
+- It refuses sessions that BirdNET has not been run on, and hours with
+  possible voices need a yes after listening.
+
+Other options:
+
+- `--no-upload`: a local try-out; does steps 1 to 3 and serves the preview,
+  but leaves the bucket and `website/` alone.
+- `--unpublish`: takes the whole session off again (removes its files from the
+  bucket after asking, and rebuilds `website/api`).
+
+The website build applies the cut ends too: a cut hour starts or ends at the
+cut, and its BirdNET calls are kept only inside the published part, timed from
+its new start. The steps are described below; they can also be run by hand,
+but then the audio is the plain listening copy (no low cut, cuts or fades).
+
+## Acoustic indices
+
+`scripts/compute_indices.py` works out standard ecoacoustic indices (ACI,
+ADI, AEI, BI, NDSI, acoustic entropy H and the RMS level) for every complete
+clock minute of each hour, from the lossless working WAVs, and keeps them in
+`acoustic_indices.csv` in the metadata folder. They are not published yet; they
+are for describing and comparing places later. About 30 s per hour on an idle
+machine; finished hours are skipped. The script's header describes each index.
+
+```
+python3 scripts/compute_indices.py --archive-root <archive-root> --only <SITE_ID> --dry-run
+```
 
 ## Publishing audio to R2
 

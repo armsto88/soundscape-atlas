@@ -20,6 +20,8 @@ scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working W
             run_birdnet.py         BirdNET+ V3 on the working WAVs, per session
             import_birdnet.py      BirdNET results -> detections CSV
             review_birdnet.py      check detections by ear -> review status, thresholds
+            compute_indices.py     acoustic indices per minute (ACI, ADI, BI, NDSI, H, ...)
+            publish_session.py     publish one session in one go (steps 3-5 below)
             upload_to_r2.py        published Opus copies and spectrograms -> R2, sets public_url
             setup_r2_remote.sh     one-time rclone setup for the R2 bucket
             build_web_metadata.py  CSVs -> website/api/data.json + detections/
@@ -46,11 +48,17 @@ In short:
 1. `ingest_recordings.py scan` a folder of raw recordings, fill `site_id` and
    `timezone` in the manifest, then `ingest_recordings.py process`.
 2. `run_birdnet.py` (BirdNET+ V3) on the working WAVs, then `import_birdnet.py`.
-3. Set `published=true` on segments to make them public, and draw their
-   spectrograms with `make_spectrograms.py`.
+3. Set `published=true` on segments to make them public, draw their
+   spectrograms with `make_spectrograms.py` and work out their acoustic indices
+   with `compute_indices.py`.
 4. `upload_to_r2.py` to put their audio and spectrograms in R2.
 5. `validate_metadata.py`, `build_web_metadata.py`, `fetch_weather.py`, `fetch_bird_plates.py`,
    check with `preview_site.py --published-only`, then commit and push.
+
+`publish_session.py <SESSION_ID> [--start 15:38] [--except 02:00]` does steps 3
+to 5 for one session, after showing each hour's calls and possible voices and
+asking. It also makes the public copy of each hour (low cut at 100 Hz, cut
+ends, 10 s fades).
 
 Only published segments reach the website, and site coordinates are rounded
 as configured. See [metadata_template/README.md](metadata_template/README.md).

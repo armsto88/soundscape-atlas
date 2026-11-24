@@ -1,6 +1,6 @@
 # Metadata schema
 
-The archive's metadata is four CSV files (UTF-8, header row first) kept on the
+The archive's metadata is four CSV files, plus the acoustic indices (UTF-8, header row first) kept on the
 archive drive, in the folder named by `SOUNDSCAPE_METADATA_DIR`. Empty templates
 are in `metadata_template/`. `scripts/validate_metadata.py` checks that the columns below exist and
 that the IDs link up. What reaches the public website is described in
@@ -38,6 +38,7 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `sample_rate_hz`, `bit_depth`, `channels` | Raw audio format |
 | `weather_notes`, `field_notes` | Public free text |
 | `operator`, `copyright_owner`, `license` | Recordist and rights (`all_rights_reserved` by default) |
+| `public_start_local`, `public_end_local` | Optional. The published part of the recording (ISO local date-times); blank = from its start / to its end. Set by `publish_session.py --start/--end`; the website leaves out what is outside |
 
 ## segments.csv: one row per clock-aligned hour (written by `ingest_recordings.py process`)
 
@@ -66,6 +67,24 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `model` | e.g. `BirdNET 2.4` |
 | `review_status` | `unreviewed`, or a value you set (kept across re-imports). `review_birdnet.py apply` sets `confirmed` / `rejected`; rejected detections are never published, confirmed ones show as checked by ear |
 | `taxon_group` | BirdNET+ V3 taxon group (`Aves`, `Amphibia`, ...), blank for older results; the website labels frogs |
+
+## acoustic_indices.csv: one row per clock minute (written by `compute_indices.py`)
+
+Not published. Worked out from the working WAV, mixed to mono; only complete
+clock minutes. The method and settings for each index are in the script's header.
+
+| column | meaning |
+|---|---|
+| `segment_id` | Links to `segments.csv` |
+| `minute_start_local` | Start of the minute on the recording's local clock, e.g. `2024-08-23T06:05:00` |
+| `aci` | Acoustic Complexity Index (Pieretti et al. 2011) |
+| `adi`, `aei` | Acoustic Diversity and Evenness Index (Villanueva-Rivera et al. 2011), 1 kHz bands to 10 kHz, -50 dB |
+| `bi` | Bioacoustic Index, 2 to 8 kHz (Boelman et al. 2007) |
+| `ndsi` | Normalised Difference Soundscape Index, -1 to 1 (Kasten et al. 2012) |
+| `h` | Acoustic entropy, 0 to 1 (Sueur et al. 2008) |
+| `rms_dbfs` | RMS level in dB re full scale; not calibrated, compare within a session |
+
+Blank values mean digital silence.
 
 ## D1 database (website accounts)
 

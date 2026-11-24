@@ -6,6 +6,7 @@ serves website/ with three folders laid over it:
 
     /api/...    from .preview/api, instead of website/api (the published data)
     /audio/...  from <archive-root>/audio, so hours play and spectrograms show
+                (an hour's mastered public copy from publish_session.py first)
     /map/...    from .maptiles, the base map (scripts/build_map_tiles.py)
 
 website/api is never written, so unpublished hours cannot end up in the public
@@ -94,7 +95,13 @@ class Handler(SimpleHTTPRequestHandler):
         if clean.startswith("/api/"):
             return str(PREVIEW / "api" / os.path.normpath(clean[len("/api/"):]).lstrip("./"))
         if clean.startswith("/audio/") and self.archive_audio:
-            return str(self.archive_audio / os.path.normpath(clean[len("/audio/"):]).lstrip("./"))
+            relative = os.path.normpath(clean[len("/audio/"):]).lstrip("./")
+            # The mastered public copy (publish_session.py) when there is one, as upload_to_r2.py sends.
+            if relative.startswith("listening_opus/"):
+                mastered = self.archive_audio / "public_opus" / relative[len("listening_opus/"):]
+                if mastered.is_file():
+                    return str(mastered)
+            return str(self.archive_audio / relative)
         if clean.startswith("/map/"):
             return str(REPO / ".maptiles" / os.path.normpath(clean[len("/map/"):]).lstrip("./"))
         return super().translate_path(path)

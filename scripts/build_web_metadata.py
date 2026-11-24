@@ -225,6 +225,45 @@ def activity_bins(segment: dict, rows: List[dict]) -> List[int]:
     return bins
 
 
+def public_window(session: dict) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """The published part of a session: sessions.csv public_start_local / public_end_local.
+
+    Blank means from the recording's start / to its end. scripts/publish_session.py
+    sets them (--start/--end) and cuts the public audio to match.
+    """
+    window = []
+    for key in ("public_start_local", "public_end_local"):
+        value = str(session.get(key) or "").strip()
+        try:
+            window.append(datetime.fromisoformat(value) if value else None)
+        except ValueError:
+            print(f"warning: sessions.csv {session.get('session_id')}: {key}={value!r} is not a date and time; ignored",
+                  file=sys.stderr)
+            window.append(None)
+    return window[0], window[1]
+
+
+def cut_to_window(segment: dict, window: Tuple[Optional[datetime], Optional[datetime]]) -> Tuple[Optional[dict], float, float]:
+    """(the segment as published, seconds cut from its start, published length).
+
+    None when the window leaves nothing of it. A cut segment is a copy with the
+    published start and end, so the timeline matches its cut audio.
+    """
+    try:
+        start = datetime.fromisoformat(str(segment.get("segment_start_local") or ""))
+        end = datetime.fromisoformat(str(segment.get("segment_end_local") or ""))
+    except ValueError:
+        return segment, 0.0, 0.0
+    new_start = max(start, window[0]) if window[0] else start
+    new_end = min(end, window[1]) if window[1] else end
+    if new_end <= new_start:
+        return None, 0.0, 0.0
+    if (new_start, new_end) == (start, end):
+        return segment, 0.0, (end - start).total_seconds()
+    cut = dict(segment, segment_start_local=new_start.isoformat(), segment_end_local=new_end.isoformat())
+    return cut, (new_start - start).total_seconds(), (new_end - new_start).total_seconds()
+
+
 def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> Tuple[Optional[dict], str]:
     """Time-of-day period and that day's sunrise/sunset for a segment.
 
@@ -273,13 +312,39 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
             print(f"warning: sites.csv {site['site_id']}: {warning}", file=sys.stderr)
     no_location = PublicLocation("", "", "", "coarse", True)
 
+    # Only the published part of each session: hours outside it are left out,
+    # and hours it cuts start or end with their cut audio.
+    windows = {session_id: public_window(session) for session_id, session in sessions_by_id.items()}
+    cuts: Dict[str, Tuple[float, float]] = {}  # segment_id -> (seconds cut from the start, published length)
+    windowed = []
+    for segment in segments:
+        window = windows.get(segment.get("session_id", ""), (None, None))
+        if window == (None, None):
+            windowed.append(segment)
+            continue
+        cut, offset, length = cut_to_window(segment, window)
+        if cut is None:
+            continue
+        if cut is not segment:
+            cuts[segment["segment_id"]] = (offset, length)
+        windowed.append(cut)
+    segments = windowed
+
     published_ids = {segment["segment_id"] for segment in segments}
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
     for detection in detections:
         segment_id = detection.get("segment_id", "")
         # Detections rejected by ear are never published.
-        if segment_id in published_ids and (detection.get("review_status") or "").strip().lower() != "rejected":
-            detections_by_segment[segment_id].append(detection)
+        if segment_id not in published_ids or (detection.get("review_status") or "").strip().lower() == "rejected":
+            continue
+        if segment_id in cuts:
+            # Keep calls inside the published part, timed from its start.
+            offset, length = cuts[segment_id]
+            start, end = parse_seconds(detection.get("start_sec")), parse_seconds(detection.get("end_sec"))
+            if start is None or end is None or start < offset or end > offset + length:
+                continue
+            detection = dict(detection, start_sec=f"{start - offset:.2f}", end_sec=f"{end - offset:.2f}")
+        detections_by_segment[segment_id].append(detection)
 
     species_names = sorted(
         {
@@ -326,10 +391,12 @@ def build_outputs(metadata_dir: Path, segments: List[dict]) -> Tuple[dict, Dict[
 
         if session_id not in index_sessions:
             session = sessions_by_id.get(session_id, {})
+            window_start, window_end = windows.get(session_id, (None, None))
             index_sessions[session_id] = {
-                # The whole recording's span, so a site page can show unpublished hours as gaps.
-                "start_local": session.get("start_datetime_local"),
-                "end_local": session.get("end_datetime_local"),
+                # The whole recording's span (less any cut ends), so a site page can show
+                # unpublished hours as gaps.
+                "start_local": window_start.isoformat() if window_start else session.get("start_datetime_local"),
+                "end_local": window_end.isoformat() if window_end else session.get("end_datetime_local"),
                 "timezone": session.get("timezone"),
                 "recorder": session.get("recorder"),
                 "microphones": session.get("microphones"),

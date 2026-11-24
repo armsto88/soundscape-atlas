@@ -9,6 +9,9 @@ Object keys mirror listening_opus_path, e.g.
   audio/listening_opus/AU_NSW_IMBOTA/AU_NSW_IMBOTA_20240413_1715.opus
 Each hour's spectrogram (the .png beside the .opus, from make_spectrograms.py)
 goes up with it when it exists; the website shows it behind the hour's timeline.
+When publish_session.py has made a mastered public copy of an hour (low cut,
+cut ends, fades; in audio/public_opus/ with its own spectrogram), that copy is
+uploaded instead, under the same key.
 
 After uploading, the script lists what is actually in the bucket and sets
 public_url in segments.csv for exactly those published segments; it clears
@@ -51,6 +54,9 @@ sys.dont_write_bytecode = True  # keep scripts/ free of __pycache__
 from ingest_recordings import default_metadata_dir, read_csv, require_metadata_dir, write_csv_atomic  # noqa: E402
 
 AUDIO_PREFIX = "audio/listening_opus/"
+# Mastered public copies (low cut, cut ends, fades) from scripts/publish_session.py.
+# When one exists it is uploaded instead of the listening copy, under the same key.
+PUBLIC_PREFIX = "audio/public_opus/"
 UPLOAD_HEADERS = {
     "audio": ["Content-Type: audio/ogg", "Cache-Control: public, max-age=86400"],
     "spectrogram": ["Content-Type: image/png", "Cache-Control: public, max-age=86400"],
@@ -71,6 +77,17 @@ def is_safe_key(key: str) -> bool:
         and not path.is_absolute()
         and ".." not in path.parts
     )
+
+
+def public_copy(key: str) -> str:
+    """Archive path of the mastered public copy for a bucket key (audio or spectrogram)."""
+    return PUBLIC_PREFIX + key[len(AUDIO_PREFIX):] if key.startswith(AUDIO_PREFIX) else key
+
+
+def local_source(archive_root: Path, key: str) -> Path:
+    """The file to upload for a key: the mastered public copy when there is one."""
+    mastered = archive_root / public_copy(key)
+    return mastered if mastered.is_file() else archive_root / key
 
 
 def run_rclone(args: List[str], capture: bool = False) -> subprocess.CompletedProcess:
@@ -154,18 +171,19 @@ def main() -> int:
             bad_paths.append(f"{row.get('segment_id')}: {key!r}")
             continue
         published_keys[row["segment_id"]] = key
-        if (archive_root / key).is_file():
+        if local_source(archive_root, key).is_file():
             to_upload.append(key)
         else:
             missing_local.append(key)
 
     # Spectrograms sit beside the Opus files; they belong to the same published hours.
     spectrogram_keys = {key[:-len(".opus")] + ".png" for key in published_keys.values()}
-    spectrograms = sorted(k for k in spectrogram_keys if (archive_root / k).is_file())
+    spectrograms = sorted(k for k in spectrogram_keys if local_source(archive_root, k).is_file())
+    mastered = sum(1 for key in to_upload if local_source(archive_root, key) != archive_root / key)
 
     mode = "DRY RUN - nothing will change" if args.dry_run else "Uploading"
     print(f"{mode}: {len(to_upload)} published listening cop{'y' if len(to_upload) == 1 else 'ies'} "
-          f"and {len(spectrograms)} spectrogram(s) from {archive_root} to {destination}")
+          f"({mastered} mastered) and {len(spectrograms)} spectrogram(s) from {archive_root} to {destination}")
     preview("Published but not found locally", missing_local)
     preview("Published with an unusable listening_opus_path (skipped)", bad_paths)
 
@@ -176,9 +194,16 @@ def main() -> int:
                 continue
             upload_list = Path(tmp) / f"upload_{kind}.txt"
             upload_list.write_text("\n".join(keys) + "\n", encoding="utf-8")
+            # A folder of links named by bucket key, each pointing at the file to
+            # send (mastered copy or listening copy); rclone follows them.
+            stage = Path(tmp) / f"stage_{kind}"
+            for key in keys:
+                link = stage / key
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(local_source(archive_root, key))
             command = [
-                "copy", str(archive_root), destination,
-                "--files-from", str(upload_list),
+                "copy", str(stage), destination,
+                "--files-from", str(upload_list), "--copy-links",
                 "--s3-no-check-bucket",
                 # After each upload rclone (1.60) HEADs the new object version
                 # (?versionId=...), which R2 answers with 501 Not Implemented:
