@@ -7,6 +7,7 @@ import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
 import { createMap, tokens } from "./map.js";
+import { Marker } from "../vendor/maplibre-gl.mjs";
 
 // a circle of radius metres around a place, as a GeoJSON polygon
 function circle(lon, lat, metres) {
@@ -114,9 +115,18 @@ export function render(main, model, params, ctx) {
   });
 
   // ---- follow the player -----------------------------------------------------------
+  // while this place is playing, its spot on the inset map breathes
+  const pulse = new Marker({ element: el("div", { class: "place-pulse", "aria-hidden": "true" }), anchor: "center" }).setLngLat([site.longitude, site.latitude]);
+  let pulsing = false;
   const onState = () => {
     const moment = player.segment && player.segment.site === site ? player.moment : null;
     for (const [session, b] of blocks) b.chart.setPlayhead(player.segment && player.segment.session === session ? moment : null);
+    const playingHere = player.isPlaying && player.segment && player.segment.site === site;
+    if (playingHere !== pulsing) {
+      pulsing = playingHere;
+      if (pulsing) pulse.addTo(inset);
+      else pulse.remove();
+    }
   };
   const onChange = (event) => {
     if (event.detail.site === site) select(event.detail, { reveal: false });

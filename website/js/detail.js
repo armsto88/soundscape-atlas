@@ -2,6 +2,11 @@
 // through the session's hours, the spectrogram strip and one lane per species
 // with its calls. Species list, zoom, the confident-only filter and the
 // recording notes sit in a collapsed "More" section.
+//
+// With many species, the busiest few get lanes and the rest fold into one
+// "+ N more species" lane that opens into a lane for each. Species checked by
+// ear, or heard with high confidence, keep a lane even if they called once.
+// Lanes are ordered by most calls or by when each species was first heard.
 
 import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, clamp } from "./util.js";
 import { loadDetections } from "./data.js";
@@ -11,12 +16,18 @@ const CONFIDENT = 0.9;
 const KHZ_TOP = 12;
 export const BIRDNET_CREDIT = "Species identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology). May contain errors.";
 
+// remembered while the page is open, from hour to hour
+const prefs = { order: "calls", expanded: false };
+const byCalls = (a, b) => b.calls - a.calls || a.name.localeCompare(b.name);
+const byFirst = (a, b) => a.first - b.first || byCalls(a, b);
+
 export function createDetail(ctx, { onSelect }) {
   const player = ctx.player;
   let seg = null;
   let zoom = 1;
   let focus = null;
   let detections = [];
+  let shownNames = new Set(); // species with a lane of their own, as last drawn
 
   // ---- header: arrows, title, play ------------------------------------------
   const prevBtn = el("button", { class: "arrow-btn", type: "button", onclick: () => step(-1) });
@@ -46,6 +57,10 @@ export function createDetail(ctx, { onSelect }) {
   left.append(specAxis, lanesLeft, el("div", { class: "tl-axis-left" }));
   inner.append(spec, lanesRight, axis, playhead);
   const lanesNote = el("p", { class: "lanes-note muted", hidden: true });
+  const orderBtns = [["calls", "Most calls"], ["first", "First heard"]].map(([key, label]) =>
+    el("button", { class: `seg-btn${prefs.order === key ? " active" : ""}`, type: "button", "aria-pressed": String(prefs.order === key), "data-order": key, onclick: () => setOrder(key) }, label));
+  const lanesBar = el("div", { class: "lanes-bar" },
+    el("span", { class: "muted" }, "Order"), el("div", { class: "seg-group", role: "group", "aria-label": "Order of the species lanes" }, orderBtns));
 
   inner.addEventListener("click", (event) => {
     if (!seg || event.target.closest(".mark")) return;
@@ -70,7 +85,7 @@ export function createDetail(ctx, { onSelect }) {
         el("div", {}, el("h5", {}, "About the recording"), notes)),
       el("p", { class: "credit" }, BIRDNET_CREDIT)));
 
-  const root = el("div", { class: "detail" }, head, tl, lanesNote, more);
+  const root = el("div", { class: "detail" }, head, lanesBar, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -95,13 +110,15 @@ export function createDetail(ctx, { onSelect }) {
     const visible = detections.filter((d) => !confidentOnly.checked || d.checked || d.confidence >= CONFIDENT);
     const counts = new Map();
     for (const d of visible) {
-      const e = counts.get(d.common_name) || { name: d.common_name, calls: 0, bouts: 0, checked: 0, frog: d.frog };
+      const e = counts.get(d.common_name) || { name: d.common_name, calls: 0, bouts: 0, checked: 0, frog: d.frog, best: 0, first: Infinity };
       e.calls += d.n;
       e.bouts += 1;
       if (d.checked) e.checked += 1;
+      e.best = Math.max(e.best, d.confidence);
+      e.first = Math.min(e.first, d.start_sec);
       counts.set(d.common_name, e);
     }
-    const ranked = [...counts.values()].sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name));
+    const ranked = [...counts.values()].sort(byCalls);
     if (focus && !counts.has(focus)) focus = null;
     tl.classList.toggle("has-focus", Boolean(focus));
     lanesNote.hidden = true;
@@ -112,14 +129,29 @@ export function createDetail(ctx, { onSelect }) {
       sub.textContent = subText(0);
       return;
     }
-    const named = ranked.slice(0, ranked.length > MAX_LANES ? MAX_LANES - 1 : ranked.length);
+    // which species get a lane: all of them when opened, otherwise the busiest,
+    // with sure ones (checked by ear, or 90% and up) ahead of uncertain ones
+    const many = ranked.length > MAX_LANES;
+    const folded = many && !prefs.expanded;
+    const sure = (s) => (s.checked > 0 || s.best >= CONFIDENT ? 1 : 0);
+    const shown = folded ? [...ranked].sort((a, b) => sure(b) - sure(a) || byCalls(a, b)).slice(0, MAX_LANES - 1) : ranked;
+    shownNames = new Set(shown.map((s) => s.name));
+    const named = [...shown].sort(prefs.order === "first" ? byFirst : byCalls);
     const laneOf = new Map(named.map((s, i) => [s.name, i]));
-    const others = ranked.slice(named.length);
+    const others = ranked.filter((s) => !shownNames.has(s.name));
+    tl.classList.toggle("expanded", many && prefs.expanded);
     const rows = named.map((s) => ({ label: s.name, frog: s.frog, calls: s.calls, name: s.name }));
-    if (others.length) rows.push({ label: plural(others.length, "other species", "other species"), calls: others.reduce((n, s) => n + s.calls, 0), other: true });
+    if (others.length) rows.push({ label: `+ ${plural(others.length, "more species", "more species")}`, calls: others.reduce((n, s) => n + s.calls, 0), fold: true });
+    else if (many) rows.push({ label: "Show fewer", collapse: true });
     for (const row of rows) {
-      lanesLeft.append(el("button", { class: `lane-name${row.other ? " other" : ""}${focus === row.name ? " focus" : ""}`, type: "button", onclick: () => setFocus(row.other ? null : row.name) },
-        el("span", {}, row.label, row.frog ? el("small", {}, "frog") : null), el("b", {}, fmtInt(row.calls))));
+      const toggle = row.fold || row.collapse;
+      lanesLeft.append(el("button", {
+        class: `lane-name${toggle ? " fold" : ""}${focus === row.name ? " focus" : ""}`,
+        type: "button",
+        "data-name": row.name || null,
+        "aria-expanded": toggle ? String(Boolean(row.collapse)) : null,
+        onclick: () => (toggle ? setExpanded(Boolean(row.fold)) : setFocus(row.name)),
+      }, el("span", {}, row.label, row.frog ? el("small", {}, "frog") : null), row.calls != null ? el("b", {}, fmtInt(row.calls)) : null));
       lanesRight.append(el("div", { class: "lane-track" }));
     }
     const tracks = lanesRight.children;
@@ -153,6 +185,20 @@ export function createDetail(ctx, { onSelect }) {
   }
   function setFocus(name) {
     focus = focus === name ? null : name;
+    if (focus && !shownNames.has(focus)) prefs.expanded = true; // picked from the list: give it its own lane
+    renderLanes();
+  }
+  function setExpanded(value) {
+    prefs.expanded = value;
+    renderLanes();
+  }
+  function setOrder(key) {
+    prefs.order = key;
+    for (const b of orderBtns) {
+      const on = b.dataset.order === key;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    }
     renderLanes();
   }
   function subText(nSpecies) {
@@ -166,6 +212,9 @@ export function createDetail(ctx, { onSelect }) {
     playBtn.textContent = mine && player.isPlaying ? "Pause" : "Play this hour";
     playBtn.disabled = !seg.public_url;
     playhead.hidden = !mine;
+    // the lanes of the species calling right now take on a little ochre
+    const now = new Set(mine ? player.calling.map((d) => d.common_name) : []);
+    for (const b of lanesLeft.children) b.classList.toggle("calling", now.has(b.dataset.name));
     if (!mine) return;
     const frac = seg.durationSec ? clamp(player.currentTime / seg.durationSec, 0, 1) : 0;
     playhead.style.left = `${(frac * 100).toFixed(3)}%`;

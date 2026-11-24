@@ -56,8 +56,15 @@ website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
 website/vendor/         MapLibre GL JS 6.17.0, pmtiles 4.5.0, @protomaps/basemaps 5.7.2, licences
 ```
 
-The audio element has no `crossorigin` attribute, so audio plays from any host
-without CORS rules.
+While audio plays, the player bar shows the recording's own clock (the time of
+day at the place), a thin sound-level line and, quietly, the bird calling now
+(checked by ear or at least 70% sure, with its plate); the lanes of the species
+calling take on a little ochre, and the place's dot on the atlas and inset map
+breathes. The level line uses Web Audio, which needs the audio fetched with
+CORS: the player does that only for audio from this site or
+`media.soundscapeatlas.com` (whose bucket sends the headers). Audio from any
+other host plays on a fresh element without the level line, because through
+Web Audio it would play silent.
 
 ## The map
 
@@ -149,8 +156,25 @@ written, so unpublished hours cannot reach the public repository.
 ## Still to do
 
 - Fill in the `area` column in sites.csv (the Saarland places have no area yet).
-- Plates for the birds that have none (cut from Gould's *Birds of Australia*,
-  following Fugleramme's guide), and a frog entry for each new frog.
+- Plates for the birds that have none, in Fugleramme's style (status 24 Nov 2026):
+  - 14 of the 31 Boomerang Falls birds have no plate. Green Catbird, Mistletoebird
+    and Shining Bronze Cuckoo are coming upstream (Fugleramme issue #406, a
+    contributor in Sydney adding ~70 Australian birds); re-pin
+    `fetch_bird_plates.py` to a newer Fugleramme commit when they land.
+  - Public-domain sources found on Wikimedia Commons (BHL scans of Gould's
+    *The Birds of Australia*) for Albert's Lyrebird, Australian Logrunner,
+    Large-billed Scrubwren, Pacific Emerald Dove, Pale-yellow Robin, Sooty Owl,
+    White-headed Pigeon, White-throated Treecreeper and Wompoo Fruit Dove;
+    Russet-tailed Thrush via Keulemans' *Geocichla papuensis*; Paradise Riflebird
+    still to find (probably under an older name). Internet Archive has the
+    volumes at higher resolution.
+  - Cut them with Fugleramme's `plate-review` skill and `tools/platereview/`
+    (sparse checkout of just those; the whole repository is 1.8 GB), bird at
+    least 600 px, paper halo `#F0ECE5`. Consider offering them upstream on #406.
+  - When the archive drive is back, list every bird detected across all places,
+    not only Boomerang Falls, and cut in order of how often we hear them.
+    Australia has 735 native species; Fugleramme covers 124, ~70 more are coming.
+- Redraw the frogs, and a frog entry for each new frog.
 - Spectrograms for the hours not drawn yet (`scripts/make_spectrograms.py`).
 - A species index across the atlas: where and when a species was heard.
 - A slot for a site photo once there are photos.

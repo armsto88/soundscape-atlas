@@ -236,6 +236,19 @@ export function render(main, model, params, ctx) {
     updatePills();
   });
 
+  // ---- the place that is playing breathes ------------------------------------
+  const pulse = new Marker({ element: el("div", { class: "place-pulse", "aria-hidden": "true" }), anchor: "center" });
+  let pulsing = null;
+  const onPlayer = () => {
+    const site = ctx.player.isPlaying && ctx.player.segment ? ctx.player.segment.site : null;
+    if (site === pulsing) return;
+    pulsing = site;
+    if (site) pulse.setLngLat([site.longitude, site.latitude]).addTo(map);
+    else pulse.remove();
+  };
+  ctx.player.addEventListener("state", onPlayer);
+  onPlayer();
+
   const focus = params && params.focus ? model.sites.get(params.focus) : ctx.state.atlasSelected && model.sites.get(ctx.state.atlasSelected);
   if (focus) {
     if (params && params.focus && !saved) map.jumpTo({ center: [focus.longitude, focus.latitude], zoom: 10 });
@@ -243,5 +256,10 @@ export function render(main, model, params, ctx) {
     openCard(focus);
   }
 
-  return { destroy: () => map.remove() };
+  return {
+    destroy() {
+      ctx.player.removeEventListener("state", onPlayer);
+      map.remove();
+    },
+  };
 }
