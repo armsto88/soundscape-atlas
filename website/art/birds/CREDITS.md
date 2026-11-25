@@ -34,6 +34,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 
 | File | Species | Plate | Original scan |
 |---|---|---|---|
+| ailuroedus-crassirostris.webp | Green Catbird (*Ailuroedus crassirostris*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilonorhynchus Smithii" (Cat Bird) | [link](https://archive.org/details/birdsaustralia4goula/page/n37/mode/1up) (State Library of New South Wales colourist's copy, digitised by the Biodiversity Heritage Library; public domain) |
 | chalcites-lucidus.webp | Shining Bronze Cuckoo (*Chalcites lucidus*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Chrysococcyx lucidus" (Shining Cuckoo) | [link](https://archive.org/details/birdsaustralia4goula/page/n195/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | chalcophaps-longirostris.webp | Pacific Emerald Dove (*Chalcophaps longirostris*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Chalcophaps chrysochlora" (Little Green Pigeon) | [link](https://archive.org/details/birdsaustralia5goul/page/n137/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | columba-leucomela.webp | White-headed Pigeon (*Columba leucomela*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Carpophaga leucomela" | [link](https://archive.org/details/birdsaustralia5goul/page/n131/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
@@ -52,7 +53,3 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | petroica-boodang.webp | Scarlet Robin (*Petroica boodang*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Petroica multicolor" (Scarlet-breasted Robin) | [link](https://archive.org/details/birdsaustralia3goul/page/n13/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilinopus-regina.webp | Rose-crowned Fruit Dove (*Ptilinopus regina*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Ptilinopus Swainsonii" (Swainson's Fruit Pigeon) | [link](https://archive.org/details/birdsaustralia5goul/page/n123/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilotula-fusca.webp | Fuscous Honeyeater (*Ptilotula fusca*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis fuscus" | [link](https://archive.org/details/birdsaustralia4goula/page/n105/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
-
-## Still without a plate
-
-- Green Catbird (*Ailuroedus crassirostris*)
