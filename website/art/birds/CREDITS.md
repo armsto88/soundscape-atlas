@@ -56,4 +56,3 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 - Mistletoebird (*Dicaeum hirundinaceum*)
 - Paradise Riflebird (*Ptiloris paradiseus*)
 - Shining Bronze Cuckoo (*Chalcites lucidus*)
-- Sooty Owl (*Tyto tenebricosa*)
