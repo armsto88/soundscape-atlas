@@ -10,6 +10,7 @@
 
 import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, hideTipSoon, clamp, info } from "./util.js";
 import { loadDetections } from "./data.js";
+import { createSaveControl } from "./library.js";
 import { loadWeather, hourWeather } from "./weather.js";
 
 const MAX_LANES = 8;
@@ -92,7 +93,8 @@ export function createDetail(ctx, { onSelect, focusName = () => null }) {
         el("div", {}, el("h5", {}, "About the recording"), notes)),
       el("p", { class: "credit" }, BIRDNET_CREDIT)));
 
-  const root = el("div", { class: "detail" }, head, lanesBar, help.panel, tl, lanesNote, more);
+  const save = createSaveControl("hour");
+  const root = el("div", { class: "detail" }, head, save.el, lanesBar, help.panel, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -261,6 +263,7 @@ export function createDetail(ctx, { onSelect, focusName = () => null }) {
     show(next) {
       if (seg === next) return;
       seg = next;
+      save.show(next.segment_id);
       weatherLine.hidden = true;
       loadWeather(seg.session).then(() => {
         if (seg !== next) return;

@@ -7,8 +7,8 @@ BirdNET species detections of each hour laid out beneath.
 
 - **Website**: static HTML/JS (Leaflet) on Cloudflare Pages, in `website/`; see
   [docs/website.md](docs/website.md)
-- **Accounts, likes, comments**: Cloudflare Pages Functions + D1, in `functions/`
-  (parked: the current site does not use them)
+- **Listening library and session comments**: Cloudflare Pages Functions + D1,
+  in `functions/`
 - **Audio**: Opus listening copies in a public Cloudflare R2 bucket
 - **Metadata**: CSV files on the archive drive (never in this repo), built into `website/api/`
 
@@ -87,5 +87,9 @@ Cloudflare Pages serves `website/` and `functions/`. The first time: create
 the D1 database and apply the schema files, and set the `ADMIN_RESET_KEY`
 secret (both in `wrangler.toml`). Then set up the R2 bucket
 ([docs/archive_structure.md](docs/archive_structure.md#one-time-r2-setup)).
+For the listening library and administration, apply `schema/d1_library.sql`
+and `schema/d1_admin.sql` in that order before deploying the website changes.
+See [Administration](docs/website.md#administration) to grant access to an
+existing account.
 
 Never commit audio or ingest manifests; `.gitignore` covers both.

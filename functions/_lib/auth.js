@@ -154,6 +154,11 @@ export async function getSessionUser(request, env) {
   return row.user_name;
 }
 
+export async function isAdministrator(env, name) {
+  const row = await env.DB.prepare("SELECT 1 FROM administrators WHERE user_name = ?").bind(name).first();
+  return Boolean(row);
+}
+
 export async function endSession(request, env) {
   const token = readCookie(request, SESSION_COOKIE);
   if (/^[0-9a-f]{64}$/.test(token)) {

@@ -7,6 +7,8 @@ import { el } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
 import { startAnalytics, trackPage } from "./analytics.js";
+import { renderLibrary } from "./library.js";
+import { renderAdmin } from "./admin.js";
 import * as atlas from "./atlas.js";
 import * as site from "./site.js";
 
@@ -45,7 +47,7 @@ function render() {
   main.innerHTML = "";
   document.body.dataset.screen = route.name;
   for (const link of document.querySelectorAll(".topbar nav a")) {
-    link.classList.toggle("active", link.dataset.route === (route.name === "about" ? "about" : "atlas"));
+    link.classList.toggle("active", link.dataset.route === (route.name === "site" ? "atlas" : route.name));
   }
   if (!state.model) return;
 
@@ -62,11 +64,21 @@ function render() {
     title = "About · Soundscape Atlas";
     path = "/about";
     window.scrollTo(0, 0);
+  } else if (route.name === "library") {
+    renderLibrary(main, state.model, route.params);
+    title = "My library · Soundscape Atlas";
+    path = "/library";
+    window.scrollTo(0, 0);
+  } else if (route.name === "admin") {
+    renderAdmin(main, state.model);
+    title = "Administration · Soundscape Atlas";
+    path = null;
+    window.scrollTo(0, 0);
   } else {
     state.current = atlas.render(main, state.model, route.params, ctx);
   }
   document.title = title;
-  trackPage(path, title);
+  if (path !== null) trackPage(path, title);
 }
 
 function renderAbout(main) {

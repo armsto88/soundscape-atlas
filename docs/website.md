@@ -66,9 +66,10 @@ the R2 bucket.
   it called, with its clearest call flagged in red, and a line underneath
   ("153 calls in 7 hours, between about 16:00 and 09:30" and a button for the
   clearest call); sessions without it fade back; and the hour in detail opens
-  with its lane focused. Pressing a plate scrolls to the open session if it
-  contains the species, or to the newest session that does. The × on the
-  card clears the selection.
+  with its lane focused. Pressing a plate jumps to the open session if it
+  contains the species, or to the newest session that does. It keeps the open
+  hour when the species was heard there and otherwise shows the hour of its
+  clearest call. The × on the card clears the selection.
 
   Help text sits behind small (i) buttons by the headings (Sessions, the hour
   view, Session notes, Heard here; `info()` in `js/util.js`), never
@@ -76,6 +77,9 @@ the R2 bucket.
   readouts of what is under the pointer (the chart's time and calls, a call
   mark's species and score); a tap shows them for a moment.
 - **About** (`#/about`).
+- **Library** (`#/library`): create an account or sign in with a username and
+  password. The library opens saved sessions and hours at their recording and
+  lets the listener remove favourites.
 
 Phones (designed for 375 px wide, the iPhone SE): the map sits above the place
 list and its card shows only the essentials; the map's credits start folded
@@ -93,9 +97,26 @@ to the next published hour of the session by itself. Old `#/hour/<segment_id>`
 links, and `?segment=<id>` links from the previous site, open the place at
 that hour.
 
-Accounts, likes and comments are parked: `functions/` still holds their API,
-but the site does not use it. They come back as species validation (votes on
-detections) later.
+Save session and Save hour add favourites to the signed-in listener's library.
+Saved recordings are visible to the listener and site administrators. Session
+comments shows the 50 latest public comments and lets signed-in
+listeners add comments and delete their own. Session favourites and comments
+use `schema/d1_library.sql`. The original hour likes remain available.
+
+## Administration
+
+Apply `schema/d1_admin.sql` after `schema/d1_library.sql`. To grant access,
+run this in the D1 console with the exact username of an existing account.
+
+```sql
+INSERT OR IGNORE INTO administrators (user_name)
+SELECT name FROM users WHERE name = 'your-existing-username';
+```
+
+Sign in with that account and open **Administration** from the library.
+Select an account to see when it joined, its saved hours and sessions, and
+its public comments. Access follows the `administrators` table and can be
+revoked by deleting the account's row there.
 
 ## Analytics
 

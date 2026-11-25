@@ -2,17 +2,29 @@
  * GET  /api/comments?segment_id=X — public: all comments on a segment
  * GET  /api/comments?mine=1        — the signed-in user's comments (for My Library)
  * POST /api/comments               — { segment_id, text, sec } as the signed-in user
+ * Use session_id to read or post comments on a recording session.
  */
 
 import { getSessionUser, handle, jsonResponse, notSignedIn, readJson } from "../_lib/auth.js";
+import { isPublishedRecording, RECORDING_ID } from "../_lib/recordings.js";
 
-const SEGMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}$/;
 const MAX_TEXT = 2000;
 const COLUMNS = "id, segment_id, user, text, sec, created_at";
 
-export const onRequestGet = handle(async ({ request, env }) => {
+export const onRequestGet = handle(async (context) => {
+  const { request, env } = context;
   const url = new URL(request.url);
+  const sessionId = url.searchParams.get("session_id");
   const segmentId = url.searchParams.get("segment_id");
+
+  if (sessionId !== null) {
+    if (!RECORDING_ID.test(sessionId)) return jsonResponse({ error: "A session ID is required" }, 400);
+    if (!await isPublishedRecording(context, "session_id", sessionId)) return jsonResponse({ error: "Session not found" }, 404);
+    const { results } = await env.DB.prepare(
+      "SELECT id, session_id, user, text, created_at FROM session_comments WHERE session_id = ? ORDER BY created_at DESC LIMIT 50"
+    ).bind(sessionId).all();
+    return jsonResponse(results);
+  }
 
   if (segmentId) {
     const { results } = await env.DB.prepare(
@@ -35,7 +47,8 @@ export const onRequestGet = handle(async ({ request, env }) => {
   return jsonResponse({ error: "segment_id or mine=1 is required" }, 400);
 });
 
-export const onRequestPost = handle(async ({ request, env }) => {
+export const onRequestPost = handle(async (context) => {
+  const { request, env } = context;
   const user = await getSessionUser(request, env);
   if (!user) {
     return notSignedIn();
@@ -45,10 +58,12 @@ export const onRequestPost = handle(async ({ request, env }) => {
   if (!body) {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
-  const { segment_id: segmentId, text, sec } = body;
+  const { segment_id: segmentId, session_id: sessionId, text, sec } = body;
 
-  if (typeof segmentId !== "string" || !SEGMENT_ID_PATTERN.test(segmentId)) {
-    return jsonResponse({ error: "segment_id is required" }, 400);
+  const idField = sessionId !== undefined ? "session_id" : "segment_id";
+  const recordingId = body[idField];
+  if (typeof recordingId !== "string" || !RECORDING_ID.test(recordingId)) {
+    return jsonResponse({ error: "A recording ID is required" }, 400);
   }
   if (typeof text !== "string" || text.trim().length === 0) {
     return jsonResponse({ error: "Comment text is required" }, 400);
@@ -58,6 +73,14 @@ export const onRequestPost = handle(async ({ request, env }) => {
   const secNum = Number.isFinite(Number(sec)) ? Math.max(0, Number(sec)) : 0;
   const id = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();
+
+  if (sessionId !== undefined) {
+    if (!await isPublishedRecording(context, idField, recordingId)) return jsonResponse({ error: "Session not found" }, 404);
+    await env.DB.prepare(
+      "INSERT INTO session_comments (id, session_id, user, text, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(id, sessionId, user, cleanText, createdAt).run();
+    return jsonResponse({ id, session_id: sessionId, user, text: cleanText, created_at: createdAt }, 201);
+  }
 
   await env.DB.prepare(
     "INSERT INTO comments (id, segment_id, user, text, sec, created_at) VALUES (?, ?, ?, ?, ?, ?)"

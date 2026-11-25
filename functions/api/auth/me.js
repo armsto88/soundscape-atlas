@@ -1,9 +1,9 @@
 /**
  * GET /api/auth/me — the signed-in user, from the session cookie.
- * 200 { name, created_at } or 401.
+ * 200 { name, created_at, is_admin } or 401.
  */
 
-import { getSessionUser, handle, jsonResponse, notSignedIn } from "../../_lib/auth.js";
+import { getSessionUser, handle, isAdministrator, jsonResponse, notSignedIn } from "../../_lib/auth.js";
 
 export const onRequestGet = handle(async ({ request, env }) => {
   const name = await getSessionUser(request, env);
@@ -14,5 +14,5 @@ export const onRequestGet = handle(async ({ request, env }) => {
   if (!user) {
     return notSignedIn();
   }
-  return jsonResponse({ name: user.name, created_at: user.created_at });
+  return jsonResponse({ name: user.name, created_at: user.created_at, is_admin: await isAdministrator(env, user.name) });
 });

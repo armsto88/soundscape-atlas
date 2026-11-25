@@ -13,6 +13,8 @@ import { renderSpecies } from "./species.js";
 import { findSpecies } from "./data.js";
 import { createSpeciesSearch, lensCard } from "./search.js";
 import { renderNotes } from "./notes.js";
+import { createSaveControl } from "./library.js";
+import { sessionComments } from "./comments.js";
 import { supportBlock } from "./support.js";
 import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
@@ -78,6 +80,7 @@ export function render(main, model, params, ctx) {
   let active = null;        // the hour shown in detail
   let detail = null;
   let detailSession = null;
+  let initialReveal = 0;
   const address = () => {
     const query = new URLSearchParams();
     if (active) query.set("at", active.segment_id);
@@ -86,7 +89,7 @@ export function render(main, model, params, ctx) {
     return `#/site/${encodeURIComponent(site.id)}${text ? `?${text}` : ""}`;
   };
 
-  const select = (seg, { play = false, at = null, reveal = true } = {}) => {
+  const select = (seg, { play = false, at = null, reveal = true, followPlayback = true } = {}) => {
     // Update the page first: starting the player announces the new hour, which
     // calls back into select() and must find the page already showing it.
     if (active !== seg) {
@@ -111,7 +114,7 @@ export function render(main, model, params, ctx) {
       ctx.replace(address());
     }
     if (play) player.load(seg, { autoplay: true, at });
-    else if (player.segment && player.segment.session === seg.session && player.segment !== seg && (player.isPlaying || player.wanted)) {
+    else if (followPlayback && player.segment && player.segment.session === seg.session && player.segment !== seg && (player.isPlaying || player.wanted)) {
       player.load(seg, { autoplay: true }); // moving the window while listening moves the listening too
     }
   };
@@ -130,15 +133,19 @@ export function render(main, model, params, ctx) {
     });
     const slot = el("div", { class: "detail-slot" });
     const lensText = el("p", { class: "sc-lens-text", hidden: true });
+    const save = createSaveControl("session");
+    save.show(session.id);
     const titleId = `session-title-${session.id}`;
     const article = el("article", { class: "session", tabindex: "-1", "aria-labelledby": titleId },
       el("header", { class: "session-head" },
         el("h3", { id: titleId }, fmtSpan(session.start, session.end)),
-        el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
+        el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`),
+        save.el),
       chart.el,
       lensText, // the species picked, in this session
       slot, // the hour in detail, right under its chart
-      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }));
+      renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }),
+      sessionComments(session));
     sessionsEl.append(article);
     blocks.set(session, { chart, slot, article, lensText });
   }
@@ -150,13 +157,19 @@ export function render(main, model, params, ctx) {
     },
     picked: () => picked,
     onPick: (sp) => {
+      clearTimeout(initialReveal);
       if (picked !== sp) setPicked(sp);
       const current = active?.session;
       const match = current?.heard.has(sp) ? current : site.heard.get(sp).sessions[0].session;
+      if (!active?.heard.some((entry) => entry.sp === sp)) {
+        select(match.heard.get(sp).best.seg, { reveal: false, followPlayback: false });
+      }
       const article = blocks.get(match).article;
-      article.focus({ preventScroll: true });
-      const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-      article.scrollIntoView({ block: "start", behavior });
+      requestAnimationFrame(() => {
+        if (!article.isConnected) return;
+        article.focus({ preventScroll: true });
+        article.scrollIntoView({ block: "start", behavior: "instant" });
+      });
     },
   });
   main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl));
@@ -255,12 +268,13 @@ export function render(main, model, params, ctx) {
   if (start && start.site === site) {
     select(start, { reveal: false });
     // after the inset map and fonts have settled, so the jump lands where it should
-    setTimeout(() => blocks.get(start.session).slot.parentElement.scrollIntoView({ block: "start" }), 150);
+    initialReveal = setTimeout(() => blocks.get(start.session).article.scrollIntoView({ block: "start" }), 150);
   }
   onState();
 
   return {
     destroy() {
+      clearTimeout(initialReveal);
       player.removeEventListener("state", onState);
       player.removeEventListener("change", onChange);
       if (detail) detail.destroy();

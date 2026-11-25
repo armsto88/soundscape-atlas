@@ -15,7 +15,8 @@ export const onRequestDelete = handle(async ({ request, env, params }) => {
     return jsonResponse({ error: "Comment id is required" }, 400);
   }
 
-  const existing = await env.DB.prepare("SELECT user FROM comments WHERE id = ?").bind(id).first();
+  const table = new URL(request.url).searchParams.get("scope") === "session" ? "session_comments" : "comments";
+  const existing = await env.DB.prepare(`SELECT user FROM ${table} WHERE id = ?`).bind(id).first();
   if (!existing) {
     return jsonResponse({ error: "Not found" }, 404);
   }
@@ -23,6 +24,6 @@ export const onRequestDelete = handle(async ({ request, env, params }) => {
     return jsonResponse({ error: "You can only delete your own comments" }, 403);
   }
 
-  await env.DB.prepare("DELETE FROM comments WHERE id = ?").bind(id).run();
+  await env.DB.prepare(`DELETE FROM ${table} WHERE id = ? AND user = ?`).bind(id, user).run();
   return jsonResponse({ deleted: true });
 });

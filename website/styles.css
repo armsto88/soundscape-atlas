@@ -153,6 +153,26 @@ small { font-size: 0.8em; }
 /* ---- pages ------------------------------------------------------------- */
 .page { max-width: 1120px; margin: 0 auto; padding: 1.6rem 1.25rem 3rem; }
 .prose { max-width: 64ch; }
+.account-form { display: grid; justify-items: start; gap: 0.75rem; margin: 0.8rem 0; }
+.account-form label { display: grid; gap: 0.25rem; width: 100%; max-width: 30rem; }
+.account-form input, .account-form textarea, .account-form select {
+  width: 100%; padding: 0.55rem 0.7rem; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper-0); color: var(--ink); font: inherit;
+}
+.account-form textarea { resize: vertical; }
+.account-form p, .account-form .actions { margin: 0; }
+.account-error { color: var(--red); }
+.account-error:empty { display: none; }
+.save-control, .library-account, .comment-author { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.detail > .save-control { margin: 0.5rem 0; }
+.save-btn { border-color: var(--rule); padding: 0.3rem 0.65rem; font-size: 0.82rem; }
+.save-btn[aria-pressed="true"] { border-color: var(--ochre-deep); background: var(--ochre-2); }
+.library-list, .comment-list { padding: 0; list-style: none; }
+.library-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; padding: 0.55rem 0; border-top: 1px solid var(--rule); }
+.session-comments { margin: 1rem 0; }
+.session-comments summary { cursor: pointer; font-weight: 500; }
+.comment-list li { padding: 0.6rem 0; border-top: 1px solid var(--rule); overflow-wrap: anywhere; }
+.comment-list p { margin: 0.3rem 0 0; white-space: pre-wrap; }
 .site-head { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; align-items: start; }
 .inset-map { height: 220px; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-2); margin-top: 1.4rem; }
 /* (i) help: a small round button by a heading, opening a note under it (util.js info()) */
@@ -528,7 +548,8 @@ small { font-size: 0.8em; }
 @media (max-width: 480px) {
   .page { padding: 1.2rem 1rem 2.5rem; }
   .topbar { padding: 0 0.9rem; }
-  .topbar nav a { margin-left: 0.9rem; }
+  .topbar nav { white-space: nowrap; }
+  .topbar nav a { margin-left: 0.7rem; }
   .wordmark { font-size: 1.12rem; gap: 0.45rem; }
   .wordmark-mark { width: 24px; height: 24px; }
   .maplibregl-ctrl-scale { display: none; }
@@ -553,6 +574,10 @@ small { font-size: 0.8em; }
   .sc-tick { font-size: 0.66rem; }
   .arrow-btn { min-height: 42px; padding: 0 0.7rem; }
   .detail-title { font-size: 1.25rem; }
+}
+@media (max-width: 360px) {
+  .topbar { padding: 0 0.6rem; }
+  .topbar nav a { margin-left: 0.45rem; font-size: 0.87rem; }
 }
 
 /* ---- the place that is playing breathes ------------------------------------ */

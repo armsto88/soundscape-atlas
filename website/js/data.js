@@ -161,6 +161,7 @@ export function buildModel(raw, art = {}) {
     segments,
     segmentsById,
     sessions,
+    sessionsById,
     tree,
     species,
     speciesByKey: new Map(species.map((sp) => [sp.key, sp])),
