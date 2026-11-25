@@ -21,7 +21,17 @@
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="vendor/maplibre-gl.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
+    <!-- Refresh modules that may still be cached from before the library. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "./js/data.js": "./js/data.js?v=2",
+          "./js/detail.js": "./js/detail.js?v=2",
+          "./js/site.js": "./js/site.js?v=2"
+        }
+      }
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -35,6 +45,6 @@
     <main id="main"></main>
     <div id="player"></div>
     <script src="vendor/pmtiles.js"></script>
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/app.js?v=2"></script>
   </body>
 </html>
