@@ -38,6 +38,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | chalcophaps-longirostris.webp | Pacific Emerald Dove (*Chalcophaps longirostris*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Chalcophaps chrysochlora" (Little Green Pigeon) | [link](https://archive.org/details/birdsaustralia5goul/page/n137/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | columba-leucomela.webp | White-headed Pigeon (*Columba leucomela*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Carpophaga leucomela" | [link](https://archive.org/details/birdsaustralia5goul/page/n131/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | cormobates-leucophaea.webp | White-throated Treecreeper (*Cormobates leucophaea*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Climacteris picumnus" | [link](https://archive.org/details/birdsaustralia4goula/page/n213/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+| dicaeum-hirundinaceum.webp | Mistletoebird (*Dicaeum hirundinaceum*) | John Gould, The Birds of Australia, vol. 2 (1848), plate "Dicaeum hirundinaceum" (Swallow Dicaeum) | [link](https://archive.org/details/birdsaustralia2goul/page/n87/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | eopsaltria-capito.webp | Pale-yellow Robin (*Eopsaltria capito*) | John Gould, The Birds of Australia, Supplement (1869), plate "Eopsaltria Capito" (Large-headed Robin) | [link](https://archive.org/details/birdsaustraliasuppgoula/page/n45/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | megaloprepia-magnifica.webp | Wompoo Fruit Dove (*Megaloprepia magnifica*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Carpophaga magnifica" | [link](https://archive.org/details/birdsaustralia5goul/page/n129/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | menura-alberti.webp | Albert's Lyrebird (*Menura alberti*) | John Gould, The Birds of Australia, Supplement (1869), plate "Menura Alberti" | [link](https://archive.org/details/birdsaustraliasuppgoula/page/n49/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
@@ -54,5 +55,4 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 ## Still without a plate
 
 - Green Catbird (*Ailuroedus crassirostris*)
-- Mistletoebird (*Dicaeum hirundinaceum*)
 - Paradise Riflebird (*Ptiloris paradiseus*)
