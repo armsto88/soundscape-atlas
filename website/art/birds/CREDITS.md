@@ -42,6 +42,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | megaloprepia-magnifica.webp | Wompoo Fruit Dove (*Megaloprepia magnifica*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Carpophaga magnifica" | [link](https://archive.org/details/birdsaustralia5goul/page/n129/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | menura-alberti.webp | Albert's Lyrebird (*Menura alberti*) | John Gould, The Birds of Australia, Supplement (1869), plate "Menura Alberti" | [link](https://archive.org/details/birdsaustraliasuppgoula/page/n49/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | orthonyx-temminckii.webp | Australian Logrunner (*Orthonyx temminckii*) | Jean-Gabriel Prêtre, in Temminck & Laugier, Nouveau recueil de planches coloriées d'oiseaux, plate 428 (1820s) | [link](https://archive.org/details/nouveaurecueildv4temm/page/n135/mode/1up) (Musée cantonal de zoologie, Lausanne copy, digitised by the Biodiversity Heritage Library; public domain) |
+| sericornis-magnirostra.webp | Large-billed Scrubwren (*Sericornis magnirostra*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Sericornis magnirostris" (Large-billed Sericornis) | [link](https://archive.org/details/birdsaustralia3goul/page/n117/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | zoothera-heinei.webp | Russet-tailed Thrush (*Zoothera heinei*) | J. G. Keulemans, in Seebohm & Sharpe, A Monograph of the Turdidae, vol. 1 (1898-1902), pl. VI: fig. 1 "Geocichla heinii" (this species), fig. 2 "G. papuensis" (its New Guinea race) | [link](https://archive.org/details/mobot31753003757629/page/n364/mode/1up) (Harvard Museum of Comparative Zoology copy, digitised by the Biodiversity Heritage Library; public domain (Keulemans died 1912)) |
 | acanthiza-lineata.webp | Striated Thornbill (*Acanthiza lineata*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Acanthiza lineata" | [link](https://archive.org/details/birdsaustralia3goul/page/n135/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | acanthiza-reguloides.webp | Buff-rumped Thornbill (*Acanthiza reguloides*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Acanthiza reguloides" | [link](https://archive.org/details/birdsaustralia3goul/page/n137/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
@@ -53,6 +54,5 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 ## Still without a plate
 
 - Green Catbird (*Ailuroedus crassirostris*)
-- Large-billed Scrubwren (*Sericornis magnirostra*)
 - Mistletoebird (*Dicaeum hirundinaceum*)
 - Paradise Riflebird (*Ptiloris paradiseus*)
