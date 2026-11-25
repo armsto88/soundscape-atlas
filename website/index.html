@@ -21,13 +21,14 @@
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="vendor/maplibre-gl.css" />
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=3" />
     <!-- Refresh modules that may still be cached from before the library. -->
     <script type="importmap">
       {
         "imports": {
           "./js/data.js": "./js/data.js?v=2",
           "./js/detail.js": "./js/detail.js?v=2",
+          "./js/library.js": "./js/library.js?v=3",
           "./js/site.js": "./js/site.js?v=2"
         }
       }
@@ -39,12 +40,15 @@
       <nav aria-label="Main">
         <a href="#/" data-route="atlas">Atlas</a>
         <a href="#/about" data-route="about">About</a>
-        <a href="#/library" data-route="library">Library</a>
+        <div class="nav-account">
+          <a href="#/library" data-route="library">Library</a>
+          <span id="account-status" class="account-status" role="status" hidden>Signed in</span>
+        </div>
       </nav>
     </header>
     <main id="main"></main>
     <div id="player"></div>
     <script src="vendor/pmtiles.js"></script>
-    <script type="module" src="js/app.js?v=2"></script>
+    <script type="module" src="js/app.js?v=3"></script>
   </body>
 </html>

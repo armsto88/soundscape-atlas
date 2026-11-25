@@ -1,6 +1,7 @@
 import { el, fmtClock, fmtDay, fmtSpan } from "./util.js";
 
 let accountRequest;
+let userRequest;
 const fields = { hour: "segment_id", session: "session_id" };
 
 export async function requestApi(path, { method = "GET", body } = {}) {
@@ -14,15 +15,50 @@ export async function requestApi(path, { method = "GET", body } = {}) {
   throw Object.assign(new Error(data?.error || "The account service is unavailable."), { status: response.status });
 }
 
+function showAccountStatus(user) {
+  const badge = document.getElementById("account-status");
+  if (!badge) return;
+  badge.hidden = !user;
+  badge.title = user ? `Signed in as ${user.name}` : "";
+}
+
+function resetAccount(user) {
+  accountRequest = undefined;
+  userRequest = user ? undefined : Promise.resolve(null);
+  showAccountStatus(user);
+}
+
+export function currentUser() {
+  if (!userRequest) {
+    const request = requestApi("auth/me").catch((error) => {
+      if (error.status === 401) return null;
+      if (userRequest === request) userRequest = undefined;
+      throw error;
+    }).then((user) => {
+      if (userRequest === request) showAccountStatus(user);
+      return user;
+    });
+    userRequest = request;
+  }
+  return userRequest;
+}
+
 export function account() {
-  accountRequest ??= requestApi("auth/me").then(async (user) => {
-    const [hours, sessions] = await Promise.all([requestApi("likes"), requestApi("likes?scope=session")]);
-    return { user, hour: new Set(hours.map((h) => h.segment_id)), session: new Set(sessions.map((s) => s.session_id)) };
-  }).catch((error) => {
-    if (error.status === 401) return null;
-    accountRequest = undefined;
-    throw error;
-  });
+  if (!accountRequest) {
+    const request = currentUser().then(async (user) => {
+      if (!user) return null;
+      const [hours, sessions] = await Promise.all([requestApi("likes"), requestApi("likes?scope=session")]);
+      return { user, hour: new Set(hours.map((h) => h.segment_id)), session: new Set(sessions.map((s) => s.session_id)) };
+    }).catch((error) => {
+      if (accountRequest === request) {
+        if (error.status === 401) resetAccount(null);
+        else accountRequest = undefined;
+      }
+      if (error.status === 401) return null;
+      throw error;
+    });
+    accountRequest = request;
+  }
   return accountRequest;
 }
 
@@ -82,8 +118,9 @@ export function createSaveControl(scope) {
     pending = true;
     status.textContent = "";
     render();
+    const request = account();
     try {
-      library = await account();
+      library = await request;
       if (!library) {
         location.hash = libraryHref();
         return;
@@ -91,7 +128,7 @@ export function createSaveControl(scope) {
       await setSaved(library, scope, target, !library[scope].has(target));
     } catch (error) {
       if (error.status === 401) {
-        accountRequest = undefined;
+        if (accountRequest === request) resetAccount(null);
         location.hash = libraryHref();
       } else {
         status.textContent = error.message;
@@ -123,8 +160,8 @@ export function renderLibrary(main, model, params) {
       signIn.disabled = register.disabled = true;
       status.textContent = "";
       try {
-        await requestApi("users", { method: "POST", body: { name: name.value, password: password.value, mode: event.submitter?.value } });
-        accountRequest = undefined;
+        const user = await requestApi("users", { method: "POST", body: { name: name.value, password: password.value, mode: event.submitter?.value } });
+        resetAccount(user);
         await load();
       } catch (error) {
         status.textContent = error.message;
@@ -170,7 +207,7 @@ export function renderLibrary(main, model, params) {
         status.textContent = "";
         try {
           await requestApi("auth/logout", { method: "POST" });
-          accountRequest = undefined;
+          resetAccount(null);
           showForm();
         } catch (error) {
           status.textContent = error.message;

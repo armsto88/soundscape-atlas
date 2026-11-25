@@ -7,7 +7,7 @@ import { el } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
 import { startAnalytics, trackPage } from "./analytics.js";
-import { renderLibrary } from "./library.js";
+import { currentUser, renderLibrary } from "./library.js";
 import { renderAdmin } from "./admin.js";
 import * as atlas from "./atlas.js";
 import * as site from "./site.js";
@@ -100,6 +100,7 @@ function renderAbout(main) {
 
 async function boot() {
   startAnalytics();
+  currentUser().catch(() => {});
   player.mount(document.getElementById("player"));
   window.addEventListener("hashchange", render);
   try {
