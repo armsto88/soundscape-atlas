@@ -3170,5 +3170,61 @@
     [1452, 2284]
    ]
   }
+ },
+ "Ptiloris paradiseus": {
+  "name": "Paradise Riflebird",
+  "source": "gould",
+  "work": "John Gould, The Birds of Australia, vol. 4 (1848), plate \"Ptiloris paradiseus\" (Rifle Bird)",
+  "scan": "https://archive.org/details/birdsaustralia4goula/page/n217/mode/1up",
+  "scan_file": "https://archive.org/download/birdsaustralia4goula/page/n217.jpg",
+  "scan_note": "State Library of New South Wales colourist's copy, digitised by the Biodiversity Heritage Library; public domain",
+  "cut": "2026-11-25, Fugleramme plate-review tools at a7848e0 (plate.py cut via cut_multi.py, finish.py), via cutplate.py: two males and a female on a broken stump, a seed each; paper balanced to the halo tone; paper_clean 186 (the yellowed top of the page is 188-200, the stump's brightest wood at most 180); the colourist's pencil notes and corner marks dropped or removed; where a crack in the paper runs on below the stump's base it is removed (the crack inside the painted stump is left as scanned); paper between leaves toned to the page.",
+  "spec": {
+   "box": [80, 0, 4600, 7250],
+   "paper_min": 181,
+   "paper_clean": 186,
+   "seal": 4,
+   "balance": [248, 234, 217],
+   "seed": [
+    [622, 622],
+    [939, 1286],
+    [749, 1839]
+   ],
+   "remove": [
+    [
+     [257, 2291],
+     [415, 2291],
+     [415, 2400],
+     [257, 2400]
+    ],
+    [
+     [1300, 0],
+     [1496, 0],
+     [1496, 90],
+     [1300, 90]
+    ]
+   ],
+   "gaps": [
+    [1011, 140],
+    [1010, 212],
+    [1012, 286],
+    [1382, 523],
+    [134, 586],
+    [184, 1436],
+    [502, 809],
+    [1101, 815],
+    [1271, 1726],
+    [1093, 1050],
+    [333, 1301],
+    [1146, 1392],
+    [248, 1550],
+    [1096, 1522],
+    [250, 1672],
+    [219, 1901],
+    [1240, 1716],
+    [244, 1855],
+    [672, 2339]
+   ]
+  }
  }
 }
