@@ -11,20 +11,36 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | acanthiza-pusilla.webp | Brown Thornbill (*Acanthiza pusilla*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285944) |
 | alisterus-scapularis.webp | Australian King Parrot (*Alisterus scapularis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13828) |
 | cacatua-galerita.webp | Sulphur-crested Cockatoo (*Cacatua galerita*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48400934) |
+| cacomantis-flabelliformis.webp | Fan-tailed Cuckoo (*Cacomantis flabelliformis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13986) |
+| colluricincla-harmonica.webp | Grey Shrikethrush (*Colluricincla harmonica*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14870) |
 | corvus-orru.webp | Torresian Crow (*Corvus orru*) | Henrik Grønvold | [link](https://archive.org/details/birdsaustraliaxiimath/page/n531/mode/1up) |
+| cracticus-torquatus.webp | Grey Butcherbird (*Cracticus torquatus*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav2Goul/page/n215/mode/1up) |
 | dacelo-novaeguineae.webp | Laughing Kookaburra (*Dacelo novaeguineae*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48200560) |
+| entomyzon-cyanotis.webp | Blue-faced Honeyeater (*Entomyzon cyanotis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14054) |
 | eolophus-roseicapilla.webp | Galah (*Eolophus roseicapilla*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48400946) |
+| eopsaltria-australis.webp | Eastern Yellow Robin (*Eopsaltria australis*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285759) |
+| gallinula-tenebrosa.webp | Dusky Moorhen (*Gallinula tenebrosa*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav6Goul/page/n299/mode/1up) |
 | gerygone-mouki.webp | Brown Gerygone (*Gerygone mouki*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14782) |
+| gymnorhina-tibicen.webp | Australian Magpie (*Gymnorhina tibicen*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14990) |
+| leucosarcia-melanoleuca.webp | Wonga Pigeon (*Leucosarcia melanoleuca*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13644) |
 | macropygia-phasianella.webp | Brown Cuckoo-Dove (*Macropygia phasianella*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48401230) |
+| manorina-melanocephala.webp | Noisy Miner (*Manorina melanocephala*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48703119) |
 | meliphaga-lewinii.webp | Lewin's Honeyeater (*Meliphaga lewinii*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav4Goul/page/n139/mode/1up) |
 | myzomela-sanguinolenta.webp | Scarlet Myzomela (*Myzomela sanguinolenta*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14078) |
 | ninox-boobook.webp | Australian Boobook (*Ninox boobook*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/15208) |
 | pachycephala-pectoralis.webp | Australian Golden Whistler (*Pachycephala pectoralis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14918) |
 | pardalotus-punctatus.webp | Spotted Pardalote (*Pardalotus punctatus*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav2Goul/page/n147/mode/1up) |
+| philemon-corniculatus.webp | Noisy Friarbird (*Philemon corniculatus*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14098) |
+| pitta-versicolor.webp | Noisy Pitta (*Pitta versicolor*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14330) |
 | psophodes-olivaceus.webp | Eastern Whipbird (*Psophodes olivaceus*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285739) |
 | rhipidura-albiscapa.webp | Grey Fantail (*Rhipidura albiscapa*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav2Goul/page/n339/mode/1up) |
 | strepera-graculina.webp | Pied Currawong (*Strepera graculina*) | John Gould and collaborators | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_by_Elizabeth_Gould_for_Birds_of_Australia,_digitally_enhanced_from_rawpixel%27s_own_facsimile_book78.jpg) |
 | symposiachrus-trivirgatus.webp | Spectacled Monarch (*Symposiachrus trivirgatus*) | John Gould and collaborators | [link](https://commons.wikimedia.org/wiki/File:Piezorhynchus_medius_-_The_Birds_of_New_Guinea.jpg) |
+| trichoglossus-chlorolepidotus.webp | Scaly-breasted Lorikeet (*Trichoglossus chlorolepidotus*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13696) |
+| trichoglossus-moluccanus.webp | Rainbow Lorikeet (*Trichoglossus moluccanus*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48401122) |
+| vanellus-miles.webp | Masked Lapwing (*Vanellus miles*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13470) |
+| zanda-funerea.webp | Yellow-tailed Black Cockatoo (*Zanda funerea*) | John Gould and collaborators | [link](https://www.gutenberg.org/files/62524/62524-h/62524-h.htm#FUNEREUS) |
+| zosterops-lateralis.webp | Silvereye (*Zosterops lateralis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14006) |
 
 ## Cut for this site
 
@@ -53,3 +69,10 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | petroica-boodang.webp | Scarlet Robin (*Petroica boodang*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Petroica multicolor" (Scarlet-breasted Robin) | [link](https://archive.org/details/birdsaustralia3goul/page/n13/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilinopus-regina.webp | Rose-crowned Fruit Dove (*Ptilinopus regina*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Ptilinopus Swainsonii" (Swainson's Fruit Pigeon) | [link](https://archive.org/details/birdsaustralia5goul/page/n123/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilotula-fusca.webp | Fuscous Honeyeater (*Ptilotula fusca*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis fuscus" | [link](https://archive.org/details/birdsaustralia4goula/page/n105/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+
+## Still without a plate
+
+- Little Shrikethrush (*Colluricincla megarhyncha*)
+- Red-backed Fairywren (*Malurus melanocephalus*)
+- Shining Flycatcher (*Myiagra alecto*)
+- White-throated Gerygone (*Gerygone olivacea*)

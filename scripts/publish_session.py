@@ -73,7 +73,9 @@ from typing import Dict, List, Optional, Sequence, Tuple
 sys.dont_write_bytecode = True  # keep scripts/ free of __pycache__
 import compute_indices  # noqa: E402
 from import_birdnet import HUMAN_VOICE_CLASSES, parse_results  # noqa: E402
-from ingest_recordings import default_metadata_dir, read_csv, require_metadata_dir, write_csv_atomic  # noqa: E402
+from ingest_recordings import (  # noqa: E402
+    IngestError, default_metadata_dir, read_csv, require_metadata_dir, run_ffprobe, write_csv_atomic,
+)
 from make_spectrograms import DEFAULT_SIZE, render  # noqa: E402
 from upload_to_r2 import public_copy  # noqa: E402
 
@@ -394,6 +396,18 @@ def publish(args: argparse.Namespace) -> int:
     missing = [segment_id for segment_id in edits if not wavs[segment_id].is_file()]
     if missing:
         raise Stop(f"no working WAV for {', '.join(missing)}; the public copies are made from them")
+
+    # The CSV clock is rounded to seconds. With no end cut, fade to the last sample of the WAV.
+    tail_id = segments[-1]["segment_id"]
+    if window[1] is None and tail_id in edits:
+        tail = edits[tail_id]
+        try:
+            duration = float(run_ffprobe(wavs[tail_id])["format"]["duration"])
+        except (IngestError, KeyError, TypeError, ValueError) as exc:
+            raise Stop(f"could not read the duration of {wavs[tail_id].name}") from exc
+        tail.length = duration - tail.cut_from
+        if not 0 < tail.length < float("inf"):
+            raise Stop(f"invalid duration for {wavs[tail_id].name}")
 
     # ---- the plan
     print(f"\n{site_name}  ({session['site_id']})")
