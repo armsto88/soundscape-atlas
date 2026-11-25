@@ -56,4 +56,3 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 - Large-billed Scrubwren (*Sericornis magnirostra*)
 - Mistletoebird (*Dicaeum hirundinaceum*)
 - Paradise Riflebird (*Ptiloris paradiseus*)
-- Sooty Owl (*Tyto tenebricosa*)
