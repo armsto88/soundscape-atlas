@@ -212,10 +212,20 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
     },
     setCommentMarks(marks) {
       commentLane.hidden = marks.length === 0;
-      commentLane.replaceChildren(...marks.map(({ moment, label, open }) => el("button", {
-        type: "button", class: "sc-comment-mark", "aria-label": label, title: label, onclick: open,
-        style: { left: `clamp(15px, ${pct(x(moment), 1)}, calc(100% - 15px))` },
-      })));
+      commentLane.replaceChildren(...marks.map(({ moment, label, preview, open }) => {
+        const show = (event) => showTip(preview, event.currentTarget, { interactive: true });
+        return el("button", {
+          type: "button", class: "sc-comment-mark", "aria-label": label,
+          onclick: () => { hideTip(); open(); },
+          onpointerenter: (event) => { if (event.pointerType !== "touch") show(event); },
+          onpointerleave: (event) => {
+            if (event.pointerType !== "touch" && document.activeElement !== event.currentTarget) hideTipSoon(180);
+          },
+          onfocus: show,
+          onblur: hideTip,
+          style: { left: `clamp(15px, ${pct(x(moment), 1)}, calc(100% - 15px))` },
+        });
+      }));
     },
     // lens: null, { none: true } (not heard), or { marks: [[from, to]], best: moment, name }
     setLens(lens) {

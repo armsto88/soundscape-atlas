@@ -101,28 +101,43 @@ export function pct(part, whole) {
   return `${((part / whole) * 100).toFixed(4)}%`;
 }
 
-// One floating readout for the whole page: what is under the pointer (a time,
-// a call). Help text never goes here; it sits behind an (i), see info().
+// One floating readout for the whole page: a recording time, call or comment.
 let tip = null;
 let tipTimer = 0;
-export function showTip(text, anchor) {
+let tipAnchor = null;
+export function showTip(content, anchor, { interactive = false } = {}) {
   clearTimeout(tipTimer);
   if (!tip) {
-    tip = el("div", { class: "tooltip", role: "tooltip" });
+    tip = el("div", { class: "tooltip", id: "atlas-tooltip", role: "tooltip",
+      onpointerenter: () => clearTimeout(tipTimer),
+      onpointerleave: () => { if (tipAnchor !== document.activeElement) hideTipSoon(180); } });
     document.body.append(tip);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && tipAnchor) hideTip();
+    });
   }
-  tip.textContent = text;
+  tipAnchor?.removeAttribute("aria-describedby");
+  tipAnchor = interactive ? anchor : null;
+  tipAnchor?.setAttribute("aria-describedby", tip.id);
+  tip.classList.toggle("tooltip-interactive", interactive);
+  tip.style.maxHeight = "";
+  tip.replaceChildren(content);
   tip.hidden = false;
   const r = anchor.getBoundingClientRect();
+  const above = r.top - 16;
+  const below = window.innerHeight - r.bottom - 16;
+  const useAbove = tip.offsetHeight <= above || (interactive && above >= below);
+  if (interactive) tip.style.maxHeight = `${Math.max(0, useAbove ? above : below)}px`;
   const w = tip.offsetWidth;
   const left = clamp(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8);
-  let top = r.top - tip.offsetHeight - 8;
-  if (top < 8) top = r.bottom + 8;
+  const top = useAbove ? r.top - tip.offsetHeight - 8 : r.bottom + 8;
   tip.style.left = `${left}px`;
   tip.style.top = `${top + window.scrollY}px`;
 }
 export function hideTip() {
   clearTimeout(tipTimer);
+  tipAnchor?.removeAttribute("aria-describedby");
+  tipAnchor = null;
   if (tip) tip.hidden = true;
 }
 // A tap has no hover to end, so a readout shown by touch stays up a moment.

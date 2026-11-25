@@ -6,7 +6,7 @@
 // With many species, the busiest few get lanes and the rest fold into one
 // "+ N more species" lane that opens into a lane for each. Species checked by
 // ear, or heard with high confidence, keep a lane even if they called once.
-// Lanes are ordered by most calls or by when each species was first heard.
+// Lanes are ordered by call count.
 
 import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, hideTipSoon, clamp, info } from "./util.js";
 import { loadDetections } from "./data.js";
@@ -19,9 +19,8 @@ const KHZ_TOP = 12;
 export const BIRDNET_CREDIT = "Species identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology). May contain errors.";
 
 // remembered while the page is open, from hour to hour
-const prefs = { order: "calls", expanded: false };
+let expanded = false;
 const byCalls = (a, b) => b.calls - a.calls || a.name.localeCompare(b.name);
-const byFirst = (a, b) => a.first - b.first || byCalls(a, b);
 
 // focusName(): the species picked on the page, whose lane each hour opens on.
 export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => null }) {
@@ -61,14 +60,10 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   left.append(specAxis, lanesLeft, el("div", { class: "tl-axis-left" }));
   inner.append(spec, lanesRight, axis, playhead);
   const lanesNote = el("p", { class: "lanes-note muted", hidden: true });
-  const orderBtns = [["calls", "Most calls"], ["first", "First heard"]].map(([key, label]) =>
-    el("button", { class: `seg-btn${prefs.order === key ? " active" : ""}`, type: "button", "aria-pressed": String(prefs.order === key), "data-order": key, onclick: () => setOrder(key) }, label));
   const help = info("the hour view",
     el("p", {}, "The strip at the top is a spectrogram of the hour: time runs from left to right, pitch rises from 0 to 12 kHz, and louder sound is darker."),
     el("p", {}, "Below it, each lane is one species, and each mark a call or a run of calls found by BirdNET. Stronger marks are surer; green, full-height marks were checked by ear (✓). Click a mark to hear it, or anywhere else to listen from there."),
-    el("p", {}, "When many species called, the busiest get lanes and the rest fold into “+ N more species”. Order sorts the lanes by most calls or by first heard. More has every species, zoom, a filter and notes on the recording."));
-  const lanesBar = el("div", { class: "lanes-bar" }, help.button,
-    el("span", { class: "muted" }, "Order"), el("div", { class: "seg-group", role: "group", "aria-label": "Order of the species lanes" }, orderBtns));
+    el("p", {}, "Lanes run from most to fewest calls. When many species called, some fold into “+ N more species”. More has every species, zoom, a filter and notes on the recording."));
 
   inner.addEventListener("click", (event) => {
     if (!seg || event.target.closest(".mark")) return;
@@ -99,8 +94,8 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     const at = player.segment === seg ? (player.pendingSeek ?? player.currentTime) : 0;
     onCommentTime(seg, at);
   } }, "Comment at time");
-  const actions = el("div", { class: "detail-actions" }, comment, save.el);
-  const root = el("div", { class: "detail" }, head, actions, lanesBar, help.panel, tl, lanesNote, more);
+  const actions = el("div", { class: "detail-actions" }, help.button, comment, save.el);
+  const root = el("div", { class: "detail" }, head, actions, help.panel, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -125,12 +120,11 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     const visible = detections.filter((d) => !confidentOnly.checked || d.checked || d.confidence >= CONFIDENT);
     const counts = new Map();
     for (const d of visible) {
-      const e = counts.get(d.common_name) || { name: d.common_name, calls: 0, bouts: 0, checked: 0, frog: d.frog, best: 0, first: Infinity };
+      const e = counts.get(d.common_name) || { name: d.common_name, calls: 0, bouts: 0, checked: 0, frog: d.frog, best: 0 };
       e.calls += d.n;
       e.bouts += 1;
       if (d.checked) e.checked += 1;
       e.best = Math.max(e.best, d.confidence);
-      e.first = Math.min(e.first, d.start_sec);
       counts.set(d.common_name, e);
     }
     const ranked = [...counts.values()].sort(byCalls);
@@ -147,16 +141,17 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     // which species get a lane: all of them when opened, otherwise the busiest,
     // with sure ones (checked by ear, or 90% and up) ahead of uncertain ones
     const many = ranked.length > MAX_LANES;
-    const folded = many && !prefs.expanded;
+    const folded = many && !expanded;
     const sure = (s) => (s.checked > 0 || s.best >= CONFIDENT ? 1 : 0);
     // the focused species always keeps its lane
     const isFocus = (s) => (s.name === focus ? 1 : 0);
-    const shown = folded ? [...ranked].sort((a, b) => isFocus(b) - isFocus(a) || sure(b) - sure(a) || byCalls(a, b)).slice(0, MAX_LANES - 1) : ranked;
-    shownNames = new Set(shown.map((s) => s.name));
-    const named = [...shown].sort(prefs.order === "first" ? byFirst : byCalls);
+    const named = folded
+      ? [...ranked].sort((a, b) => isFocus(b) - isFocus(a) || sure(b) - sure(a) || byCalls(a, b)).slice(0, MAX_LANES - 1).sort(byCalls)
+      : ranked;
+    shownNames = new Set(named.map((s) => s.name));
     const laneOf = new Map(named.map((s, i) => [s.name, i]));
     const others = ranked.filter((s) => !shownNames.has(s.name));
-    tl.classList.toggle("expanded", many && prefs.expanded);
+    tl.classList.toggle("expanded", many && expanded);
     const rows = named.map((s) => ({ label: s.name, frog: s.frog, calls: s.calls, name: s.name }));
     if (others.length) rows.push({ label: `+ ${plural(others.length, "more species", "more species")}`, calls: others.reduce((n, s) => n + s.calls, 0), fold: true });
     else if (many) rows.push({ label: "Show fewer", collapse: true });
@@ -223,20 +218,11 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   }
   function setFocus(name) {
     focus = focus === name ? null : name;
-    if (focus && !shownNames.has(focus)) prefs.expanded = true; // picked from the list: give it its own lane
+    if (focus && !shownNames.has(focus)) expanded = true; // picked from the list: give it its own lane
     renderLanes();
   }
   function setExpanded(value) {
-    prefs.expanded = value;
-    renderLanes();
-  }
-  function setOrder(key) {
-    prefs.order = key;
-    for (const b of orderBtns) {
-      const on = b.dataset.order === key;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", String(on));
-    }
+    expanded = value;
     renderLanes();
   }
   function subText(nSpecies) {

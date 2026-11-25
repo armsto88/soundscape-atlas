@@ -70,6 +70,9 @@ export function sessionComments(session, { onPlay, onMarks }) {
     if (timed) marks.set(comment.id, {
       moment: seg.start + comment.sec * 1000,
       label: `Comment by ${comment.user} at ${time}`,
+      preview: el("div", { class: "comment-preview" },
+        el("div", { class: "comment-preview-meta" }, el("b", {}, comment.user), el("span", {}, time)),
+        el("p", {}, comment.text)),
       open() {
         root.open = true;
         reveal(row);

@@ -73,9 +73,8 @@ the R2 bucket.
 
   Help text sits behind small (i) buttons by the headings (Sessions, the hour
   view, Session notes, Heard here; `info()` in `js/util.js`), never
-  in tooltips, so it works by touch too. The only floating labels are
-  readouts of what is under the pointer (the chart's time and calls, a call
-  mark's species and score); a tap shows them for a moment.
+  in tooltips, so it works by touch too. Floating labels show the chart time,
+  call details and comment previews.
 - **About** (`#/about`).
 - **Library** (`#/library`): create an account or sign in with a username and
   password. The library opens saved sessions and hours at their recording and
@@ -102,9 +101,10 @@ Saved recordings are visible to the listener and site administrators. Session
 comments shows the 50 latest public comments, with the date and time they
 were posted. Signed-in listeners can post and delete their own comments.
 **Comment at time** starts a comment at the hour's playhead. Adjust the time
-with the slider or remove it to leave a whole-session comment. Timed comments
-appear on the session chart and can play from the marked moment. Session
-comments use `schema/d1_library.sql` and `schema/d1_comment_times.sql`.
+with the slider or remove it to leave a whole-session comment. Hover or focus
+a marker on the session chart to preview its comment. Clicking or tapping
+the marker opens the comment, where its timestamp plays from that moment.
+Session comments use `schema/d1_library.sql` and `schema/d1_comment_times.sql`.
 
 ## Administration
 
