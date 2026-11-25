@@ -12,6 +12,7 @@
 
 import { el, fmtDay, fmtClock, humanize, clamp } from "./util.js";
 import { loadDetections } from "./data.js";
+import { createListeningTracker } from "./analytics.js";
 
 const NOW_CONFIDENT = 0.7; // "now calling" shows checked calls and ones at least this sure
 const CORS_HOSTS = ["media.soundscapeatlas.com"];
@@ -32,6 +33,7 @@ const ICON_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 5H
 class Player extends EventTarget {
   constructor() {
     super();
+    this.listening = createListeningTracker();
     this.audio = this.createAudio();
     this.segment = null;
     this.error = "";
@@ -47,6 +49,7 @@ class Player extends EventTarget {
 
     document.addEventListener("keydown", (event) => {
       const t = event.target;
+      if (t instanceof Element && t.closest("dialog[open]")) return;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       if (event.code === "Space" && !(t && t.tagName === "BUTTON")) {
         event.preventDefault();
@@ -79,13 +82,33 @@ class Player extends EventTarget {
       }
     });
     a.addEventListener("error", () => {
+      if (a !== this.audio) return;
+      this.listening.finish();
       this.error = "Couldn't load the audio for this hour.";
       this.emitState();
     });
     a.addEventListener("ended", () => {
-      if (this.next()) this.load(this.next(), { autoplay: true });
+      if (a !== this.audio) return;
+      this.listening.interrupt();
+      const next = this.next();
+      if (next) this.load(next, { autoplay: true });
+      else this.listening.finish();
     });
-    a.addEventListener("playing", () => this.startMeter());
+    a.addEventListener("playing", () => {
+      if (a !== this.audio || a.paused) return;
+      this.startMeter();
+      if (this.segment) this.listening.playing(this.segment.session);
+      if (a.seeking) this.listening.interrupt();
+    });
+    for (const name of ["waiting", "seeking"]) a.addEventListener(name, () => {
+      if (a === this.audio) this.listening.interrupt();
+    });
+    a.addEventListener("seeked", () => {
+      if (a === this.audio && !a.paused && !a.ended && a.readyState >= a.HAVE_FUTURE_DATA) this.listening.resume();
+    });
+    a.addEventListener("pause", () => {
+      if (a === this.audio && a.paused && !a.ended) this.listening.finish();
+    });
     for (const name of ["pause", "ended", "emptied"]) a.addEventListener(name, () => this.stopMeter());
     if (this.container) this.container.prepend(a);
     return a;
@@ -145,6 +168,8 @@ class Player extends EventTarget {
       if (autoplay) this.play();
       return;
     }
+    this.listening.interrupt();
+    if (!autoplay || !segment.public_url || this.segment?.session !== segment.session) this.listening.finish();
     this.segment = segment;
     this.error = "";
     this.pendingSeek = at !== null && at > 0 ? at : null;
@@ -177,7 +202,9 @@ class Player extends EventTarget {
     this.error = "";
     this.ensureGraph();
     if (this.graph && this.graph.ctx.state === "suspended") this.graph.ctx.resume().catch(() => {});
-    this.audio.play().catch((err) => {
+    const { audio, segment } = this;
+    audio.play().catch((err) => {
+      if (audio === this.audio && segment === this.segment && audio.paused) this.listening.finish();
       if (err && err.name === "NotAllowedError") {
         this.error = "Press play to start listening.";
       } else if (!this.audio.error) {
@@ -188,6 +215,7 @@ class Player extends EventTarget {
   }
   pause() {
     this.wanted = false;
+    this.listening.finish();
     this.audio.pause();
   }
   toggle() {

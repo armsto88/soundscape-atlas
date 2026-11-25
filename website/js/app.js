@@ -6,6 +6,7 @@
 import { el } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
+import { startAnalytics, trackPage } from "./analytics.js";
 import * as atlas from "./atlas.js";
 import * as site from "./site.js";
 
@@ -49,19 +50,23 @@ function render() {
   if (!state.model) return;
 
   let title = "Soundscape Atlas";
+  let path = "/";
   if (route.name === "site") {
     state.current = site.render(main, state.model, route.params, ctx);
     const s = state.model.sites.get(route.params.id);
     if (s) title = `${s.site_name} · Soundscape Atlas`;
+    path = s ? `/site/${encodeURIComponent(s.id)}` : "/not-found";
     if (!route.params.at) window.scrollTo(0, 0);
   } else if (route.name === "about") {
     renderAbout(main);
     title = "About · Soundscape Atlas";
+    path = "/about";
     window.scrollTo(0, 0);
   } else {
     state.current = atlas.render(main, state.model, route.params, ctx);
   }
   document.title = title;
+  trackPage(path, title);
 }
 
 function renderAbout(main) {
@@ -77,10 +82,12 @@ function renderAbout(main) {
       ", built from open elevation data including Geoscience Australia (CC BY 4.0), GeoBasis-DE/LVGL-SL (Saarland) and LGL Baden-Württemberg (dl-de/by-2-0). ",
       "Weather at the time of each session from ", el("a", { href: "https://open-meteo.com" }, "Open-Meteo.com"), " (ERA5 reanalysis, CC BY 4.0). ",
       "Fonts: Inter and Fraunces (SIL Open Font License)."),
+    el("p", {}, "GoatCounter measures visits, playback starts and listening duration in ranges for each recording session."),
     el("p", {}, "Recordings by Tom Armstrong. All rights reserved.")));
 }
 
 async function boot() {
+  startAnalytics();
   player.mount(document.getElementById("player"));
   window.addEventListener("hashchange", render);
   try {

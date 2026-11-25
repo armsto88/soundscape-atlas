@@ -239,7 +239,7 @@ export function createDetail(ctx, { onSelect, focusName = () => null }) {
   function onState() {
     if (!seg) return;
     const mine = player.segment === seg;
-    playBtn.textContent = mine && player.isPlaying ? "Pause" : "Play this hour";
+    playBtn.textContent = mine && player.isPlaying ? "Pause" : "Play";
     playBtn.disabled = !seg.public_url;
     playhead.hidden = !mine;
     // the lanes of the species calling right now take on a little ochre

@@ -130,9 +130,10 @@ export function render(main, model, params, ctx) {
     });
     const slot = el("div", { class: "detail-slot" });
     const lensText = el("p", { class: "sc-lens-text", hidden: true });
-    const article = el("article", { class: "session" },
+    const titleId = `session-title-${session.id}`;
+    const article = el("article", { class: "session", tabindex: "-1", "aria-labelledby": titleId },
       el("header", { class: "session-head" },
-        el("h3", {}, fmtSpan(session.start, session.end)),
+        el("h3", { id: titleId }, fmtSpan(session.start, session.end)),
         el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
       chart.el,
       lensText, // the species picked, in this session
@@ -143,9 +144,20 @@ export function render(main, model, params, ctx) {
   }
 
   const speciesEl = renderSpecies(site, {
-    find: (s) => model.speciesByName.get(s.name),
+    find: (s) => {
+      const sp = model.speciesByName.get(s.name);
+      return site.heard.has(sp) ? sp : null;
+    },
     picked: () => picked,
-    onPick: (sp) => setPicked(picked === sp ? null : sp),
+    onPick: (sp) => {
+      if (picked !== sp) setPicked(sp);
+      const current = active?.session;
+      const match = current?.heard.has(sp) ? current : site.heard.get(sp).sessions[0].session;
+      const article = blocks.get(match).article;
+      article.focus({ preventScroll: true });
+      const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      article.scrollIntoView({ block: "start", behavior });
+    },
   });
   main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl));
 
@@ -196,7 +208,7 @@ export function render(main, model, params, ctx) {
     backLink.href = backHref();
     renderLensBar();
     renderSessionsLens();
-    for (const b of speciesEl ? speciesEl.querySelectorAll(".tile-btn") : []) b.setAttribute("aria-pressed", String(Boolean(picked) && b.dataset.name === picked.name));
+    for (const b of speciesEl ? speciesEl.querySelectorAll(".tile-btn") : []) b.setAttribute("aria-current", String(Boolean(picked) && b.dataset.name === picked.name));
     if (detail) detail.setFocus(picked ? picked.name : null);
   }
   renderLensBar();

@@ -1,4 +1,4 @@
-// "Most often heard here": an even grid of plates, each with a ring showing
+// "Heard here": an even grid of plates, each with a ring showing
 // the species' share of calls. Birds first, then frogs in their own row.
 // With a species search on the page, each plate is also a button that picks
 // its species.
@@ -26,13 +26,13 @@ export function speciesThumb(sp, cls = "") {
 
 // opts.find(sp): the searchable species for a plate (or nothing); opts.picked():
 // the species picked now; opts.onPick(species) when a plate is pressed.
-function tile(sp, total, opts) {
+function tile(sp, total, opts, enlarge) {
   const share = total ? sp.calls / total : 0;
   const pctText = share >= 0.01 ? `${Math.round(share * 100)}%` : "<1%";
   const art = sp.image
     ? el("img", { src: sp.image, alt: "", loading: "lazy" })
     : el("span", { class: "ph", role: "img", "aria-label": sp.frog ? "No illustration yet" : "No plate yet", html: PLACEHOLDER });
-  const ring = el("div", { class: "ring" }, art);
+  const ring = el("span", { class: "ring" }, art);
   ring.style.setProperty("--p", String(Math.max(0.6, share * 100))); // custom properties need setProperty
   const body = [
     ring,
@@ -40,23 +40,27 @@ function tile(sp, total, opts) {
     el("span", {}, `${pctText} of ${sp.frog ? "frog " : ""}calls`),
   ];
   const target = opts.onPick && opts.find ? opts.find(sp) : null;
-  if (!target) return el("li", { class: "tile" }, body);
-  return el("li", { class: "tile" }, el("button", {
+  const pick = target ? el("button", {
     class: "tile-btn",
     type: "button",
     "data-name": target.name,
-    "aria-pressed": String(opts.picked() === target),
+    "aria-current": String(opts.picked() === target),
     onclick: () => opts.onPick(target),
-  }, body));
+  }, body) : body;
+  return el("li", { class: "tile" }, pick, sp.image ? el("button", {
+    class: "plate-enlarge btn", type: "button", "aria-haspopup": "dialog",
+    "aria-label": `Enlarge illustration of ${sp.name}`, onclick: () => enlarge(sp),
+  }, "Enlarge") : null);
 }
 
-function grid(list, opts) {
+function grid(list, opts, enlarge) {
   const total = list.reduce((n, s) => n + s.calls, 0);
-  const ul = el("ul", { class: "tiles" }, list.slice(0, SHOW_FIRST).map((s) => tile(s, total, opts)));
+  const makeTile = (s) => tile(s, total, opts, enlarge);
+  const ul = el("ul", { class: "tiles" }, list.slice(0, SHOW_FIRST).map(makeTile));
   if (list.length <= SHOW_FIRST) return [ul];
   const rest = list.slice(SHOW_FIRST);
   const btn = el("button", { class: "btn", type: "button", onclick: () => {
-    ul.append(...rest.map((s) => tile(s, total, opts)));
+    ul.append(...rest.map(makeTile));
     btn.remove();
   } }, `Show all ${plural(list.length, "species", "species")}`);
   return [ul, btn];
@@ -65,12 +69,25 @@ function grid(list, opts) {
 export function renderSpecies(site, opts = {}) {
   if (!site.species.length) return null;
   const birdsWithPlates = site.birds.filter((s) => s.image).length;
+  const plateTitle = el("h3", { id: "plate-title" });
+  const plate = el("img");
+  const dialog = el("dialog", { class: "plate-dialog", "aria-labelledby": plateTitle.id },
+    plateTitle, plate,
+    el("button", { class: "btn", type: "button", autofocus: true, onclick: () => dialog.close() }, "Close"));
+  const enlarge = (sp) => {
+    plateTitle.textContent = sp.name;
+    plate.alt = `Illustration of ${sp.name}`;
+    plate.src = sp.image;
+    dialog.showModal();
+  };
   const help = info("the species here",
     el("p", {}, "Every species BirdNET found in the published hours here, most calls first. The ring around each picture shows that species' share of all the calls detected here; ✓ means some of its calls were checked by ear."),
-    opts.onPick ? el("p", {}, "Press a picture to follow that species through the sessions above: each chart gets a lane marking when it called.") : null);
+    opts.onPick ? el("p", {}, "Press a picture to jump to a matching session. Each chart marks when the species called.") : null);
   return el("section", { class: "site-species" },
-    site.birds.length ? [el("h2", {}, "Most often heard here", help.button), help.panel, grid(site.birds, opts)] : null,
-    site.frogs.length ? [el("h3", { class: "row-label" }, "Frogs heard here"), grid(site.frogs, opts)] : null,
+    el("h2", {}, "Heard here", help.button), help.panel,
+    site.birds.length ? grid(site.birds, opts, enlarge) : null,
+    site.frogs.length ? [el("h3", { class: "row-label" }, "Frogs heard here"), grid(site.frogs, opts, enlarge)] : null,
+    dialog,
     el("p", { class: "credit" },
       "Bird plates: hand-cut 1800s plates by Gould and others, from ",
       el("a", { href: "https://github.com/arnegiacomo/fugleramme" }, "Fugleramme"), " or cut for this site in the same way (CC BY-SA 4.0, ", el("a", { href: "art/birds/CREDITS.md" }, "credits"), "). ",

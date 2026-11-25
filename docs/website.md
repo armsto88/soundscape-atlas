@@ -2,9 +2,9 @@
 
 A static site in `website/`, served by Cloudflare Pages: plain ES modules, no
 build step, a "field notebook" look (paper, ink, Fraunces and Inter) and our own
-map drawn by MapLibre. Everything it loads comes from the site itself or the R2
-bucket: no CDNs, no Google Fonts, no third-party tiles. It reads
-`website/api/data.json` and one detections file per hour, built by
+map drawn by MapLibre. The site serves its own fonts and uses the R2 bucket
+for map tiles. The production site also loads GoatCounter for analytics. The
+atlas reads `website/api/data.json` and one detections file per hour, built by
 `scripts/build_web_metadata.py`; audio, spectrograms and the map file come from
 the R2 bucket.
 
@@ -55,8 +55,9 @@ the R2 bucket.
   quietest stretch, most heard birds and the frogs, each moment playable;
   written from sure detections only (checked by ear or at least 70%), loaded
   when the session scrolls into view.
-  Below the sessions, "Most often heard here": an even grid of plates, each
-  with a ring for its share of the calls, birds first, then frogs.
+  Below the sessions, "Heard here": an even grid of plates, each with a ring
+  for its share of the calls, birds first, then frogs. Enlarge opens the
+  illustration in a dialog.
 
   A species can be followed through the sessions (`&species=`): picked with
   "Find a species heard here" in the header, by pressing its plate, or
@@ -65,11 +66,12 @@ the R2 bucket.
   it called, with its clearest call flagged in red, and a line underneath
   ("153 calls in 7 hours, between about 16:00 and 09:30" and a button for the
   clearest call); sessions without it fade back; and the hour in detail opens
-  with its lane focused. The × on the card, or pressing the plate again,
-  clears it.
+  with its lane focused. Pressing a plate scrolls to the open session if it
+  contains the species, or to the newest session that does. The × on the
+  card clears the selection.
 
   Help text sits behind small (i) buttons by the headings (Sessions, the hour
-  view, Session notes, Most often heard here; `info()` in `js/util.js`), never
+  view, Session notes, Heard here; `info()` in `js/util.js`), never
   in tooltips, so it works by touch too. The only floating labels are
   readouts of what is under the pointer (the chart's time and calls, a call
   mark's species and score); a tap shows them for a moment.
@@ -94,6 +96,20 @@ that hour.
 Accounts, likes and comments are parked: `functions/` still holds their API,
 but the site does not use it. They come back as species validation (votes on
 detections) later.
+
+## Analytics
+
+`js/analytics.js` sends production visits to the existing `tomarmstrong`
+GoatCounter dashboard. Page paths use `/soundscapeatlas.com/` as a prefix,
+and the atlas, place pages and About each have their own path. Visits track
+navigation between those pages.
+
+Filter for `soundscapeatlas.com/listen/` in the dashboard to see a recording
+session's playback starts and listening duration bands. A start is counted
+when audio begins, including resuming from pause. Listening time measures
+active playback, and continuing into another hour in the same recording counts
+as part of the same run. The duration band is sent when the run ends, including
+on pause or when leaving the site. These events use public recording session IDs.
 
 ## Files
 

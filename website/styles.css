@@ -340,7 +340,14 @@ small { font-size: 0.8em; }
 .tile span { font-size: 0.78rem; color: var(--ink-3); }
 .tile-btn { display: block; width: 100%; border: 0; background: none; padding: 0.45rem 0.2rem 0.55rem; border-radius: 12px; cursor: pointer; color: inherit; text-align: center; }
 .tile-btn:hover { background: var(--paper-2); }
-.tile-btn[aria-pressed="true"] { background: var(--ochre-2); box-shadow: inset 0 0 0 1.5px var(--ochre-deep); }
+.tile-btn[aria-current="true"] { background: var(--ochre-2); box-shadow: inset 0 0 0 1.5px var(--ochre-deep); }
+.plate-enlarge { margin-top: 0.25rem; padding: 0.3rem 0.7rem; border-color: var(--rule); font-size: 0.78rem; }
+.plate-dialog {
+  width: min(36rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); padding: 1rem;
+  border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); color: var(--ink); text-align: center;
+}
+.plate-dialog::backdrop { background: color-mix(in srgb, var(--ink) 60%, transparent); }
+.plate-dialog img { display: block; width: 100%; height: min(60dvh, 27rem); object-fit: contain; margin: 0.75rem 0; }
 
 /* ---- species search ---------------------------------------------------- */
 .find { position: relative; }
@@ -369,7 +376,7 @@ small { font-size: 0.8em; }
 .thumb .ph { width: 78%; height: 78%; display: block; }
 .lens { background: var(--ochre-2); border-radius: 10px; padding: 0.75rem 0.85rem 0.8rem; }
 .lens-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; }
-.lens-thumb { width: 54px; height: 54px; }
+.lens-thumb { width: clamp(4.5rem, 19vw, 5.5rem); height: clamp(4.5rem, 19vw, 5.5rem); }
 .lens-name { min-width: 0; line-height: 1.25; }
 .lens-name b { display: block; font-family: var(--font-serif); font-weight: 500; font-size: 1.15rem; }
 .lens-name i { font-size: 0.8rem; color: var(--ink-3); }
