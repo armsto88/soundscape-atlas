@@ -2,14 +2,19 @@
  * GET  /api/comments?segment_id=X — public: all comments on a segment
  * GET  /api/comments?mine=1        — the signed-in user's comments (for My Library)
  * POST /api/comments               — { segment_id, text, sec } as the signed-in user
- * Use session_id to read or post comments on a recording session.
+ * Use session_id for session comments, with an optional segment_id and sec to mark a moment.
  */
 
 import { getSessionUser, handle, jsonResponse, notSignedIn, readJson } from "../_lib/auth.js";
-import { isPublishedRecording, RECORDING_ID } from "../_lib/recordings.js";
+import { isPublishedRecording, publishedRecordings, RECORDING_ID } from "../_lib/recordings.js";
 
 const MAX_TEXT = 2000;
 const COLUMNS = "id, segment_id, user, text, sec, created_at";
+const SESSION_COLUMNS = "id, session_id, segment_id, user, text, sec, created_at";
+
+function wallTime(iso) {
+  return Date.parse(String(iso).slice(0, 19).replace(" ", "T") + "Z");
+}
 
 export const onRequestGet = handle(async (context) => {
   const { request, env } = context;
@@ -21,7 +26,7 @@ export const onRequestGet = handle(async (context) => {
     if (!RECORDING_ID.test(sessionId)) return jsonResponse({ error: "A session ID is required" }, 400);
     if (!await isPublishedRecording(context, "session_id", sessionId)) return jsonResponse({ error: "Session not found" }, 404);
     const { results } = await env.DB.prepare(
-      "SELECT id, session_id, user, text, created_at FROM session_comments WHERE session_id = ? ORDER BY created_at DESC LIMIT 50"
+      `SELECT ${SESSION_COLUMNS} FROM session_comments WHERE session_id = ? ORDER BY created_at DESC LIMIT 50`
     ).bind(sessionId).all();
     return jsonResponse(results);
   }
@@ -75,11 +80,22 @@ export const onRequestPost = handle(async (context) => {
   const createdAt = new Date().toISOString();
 
   if (sessionId !== undefined) {
-    if (!await isPublishedRecording(context, idField, recordingId)) return jsonResponse({ error: "Session not found" }, 404);
+    const segments = (await publishedRecordings(context)).filter((row) => row.session_id === sessionId);
+    if (!segments.length) return jsonResponse({ error: "Session not found" }, 404);
+    const timed = segmentId !== undefined || sec !== undefined;
+    if (timed) {
+      const segment = segments.find((row) => row.segment_id === segmentId);
+      const duration = segment && (wallTime(segment.segment_end_local) - wallTime(segment.segment_start_local)) / 1000;
+      if (!segment || !Number.isFinite(sec) || sec < 0 || !(sec < duration)) {
+        return jsonResponse({ error: "Choose a time within a published hour of this session." }, 400);
+      }
+    }
+    const comment = { id, session_id: sessionId, segment_id: timed ? segmentId : null,
+      user, text: cleanText, sec: timed ? sec : null, created_at: createdAt };
     await env.DB.prepare(
-      "INSERT INTO session_comments (id, session_id, user, text, created_at) VALUES (?, ?, ?, ?, ?)"
-    ).bind(id, sessionId, user, cleanText, createdAt).run();
-    return jsonResponse({ id, session_id: sessionId, user, text: cleanText, created_at: createdAt }, 201);
+      `INSERT INTO session_comments (${SESSION_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, sessionId, comment.segment_id, user, cleanText, comment.sec, createdAt).run();
+    return jsonResponse(comment, 201);
   }
 
   await env.DB.prepare(

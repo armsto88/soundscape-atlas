@@ -99,9 +99,12 @@ that hour.
 
 Save session and Save hour add favourites to the signed-in listener's library.
 Saved recordings are visible to the listener and site administrators. Session
-comments shows the 50 latest public comments and lets signed-in
-listeners add comments and delete their own. Session favourites and comments
-use `schema/d1_library.sql`. The original hour likes remain available.
+comments shows the 50 latest public comments, with the date and time they
+were posted. Signed-in listeners can post and delete their own comments.
+**Comment at time** starts a comment at the hour's playhead. Adjust the time
+with the slider or remove it to leave a whole-session comment. Timed comments
+appear on the session chart and can play from the marked moment. Session
+comments use `schema/d1_library.sql` and `schema/d1_comment_times.sql`.
 
 ## Administration
 

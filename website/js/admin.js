@@ -21,12 +21,20 @@ export function renderAdmin(main, model) {
   function section(title, rows, scope, comments = false) {
     const field = scope === "hour" ? "segment_id" : "session_id";
     return el("section", {}, el("h3", {}, title), rows.length ? el("ul", { class: "comment-list" }, rows.map((row) => {
-      const link = recordingLink(model, scope, row[field]) || el("span", {}, row[field]);
+      const link = recordLink(row, scope, field);
       return el("li", {}, link,
-        comments && scope === "hour" ? ` · ${fmtTime(row.sec)} into the hour` : null,
+        comments && row.segment_id && Number.isFinite(row.sec) ? ` · ${fmtTime(row.sec)} into the hour` : null,
         el("div", { class: "muted" }, el("time", { datetime: row.created_at }, dateLabel(row.created_at))),
         comments ? el("p", {}, row.text) : null);
     })) : el("p", { class: "muted" }, "None yet."));
+  }
+
+  function recordLink(row, scope, field) {
+    if (scope === "session" && row.segment_id) {
+      const hour = recordingLink(model, "hour", row.segment_id);
+      if (hour) return hour;
+    }
+    return recordingLink(model, scope, row[field]) || el("span", {}, row[field]);
   }
 
   let selection = 0;

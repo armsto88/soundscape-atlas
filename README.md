@@ -87,8 +87,9 @@ Cloudflare Pages serves `website/` and `functions/`. The first time: create
 the D1 database and apply the schema files, and set the `ADMIN_RESET_KEY`
 secret (both in `wrangler.toml`). Then set up the R2 bucket
 ([docs/archive_structure.md](docs/archive_structure.md#one-time-r2-setup)).
-For the listening library and administration, apply `schema/d1_library.sql`
-and `schema/d1_admin.sql` in that order before deploying the website changes.
+For the listening library and administration, apply `schema/d1_library.sql`,
+`schema/d1_admin.sql` and `schema/d1_comment_times.sql` in that order before
+deploying the website changes. Apply `d1_comment_times.sql` once per database.
 See [Administration](docs/website.md#administration) to grant access to an
 existing account.
 

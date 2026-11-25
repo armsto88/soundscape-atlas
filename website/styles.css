@@ -85,8 +85,24 @@ small { font-size: 0.8em; }
 .topbar nav { display: flex; align-items: center; gap: 1.25rem; }
 .topbar nav a { color: var(--ink-2); text-decoration: none; font-weight: 500; padding-bottom: 2px; border-bottom: 2px solid transparent; }
 .topbar nav a.active, .topbar nav a:hover { color: var(--ink); border-bottom-color: var(--ochre); }
-.nav-account { display: grid; justify-items: center; gap: 2px; }
-.account-status { color: var(--green); white-space: nowrap; font-size: 0.69rem; font-weight: 600; line-height: 1.1; }
+.account-menu { position: relative; }
+.account-menu summary {
+  display: grid; place-items: center; width: 38px; height: 38px; list-style: none; cursor: pointer;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink);
+}
+.account-menu summary::-webkit-details-marker { display: none; }
+.account-menu summary:hover, .account-menu[open] summary { background: var(--paper-2); }
+.menu-icon { width: 16px; height: 2px; border-radius: 1px; background: currentColor; box-shadow: 0 -5px currentColor, 0 5px currentColor; }
+.account-panel {
+  position: absolute; top: calc(100% + 0.5rem); right: 0; display: grid; gap: 0.45rem;
+  width: min(16rem, calc(100vw - 2rem)); padding: 0.75rem; white-space: normal;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 10px;
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.account-menu:not([open]) .account-panel { display: none; }
+.account-panel p { margin: 0; font-size: 0.88rem; overflow-wrap: anywhere; }
+.account-panel > a, .account-panel > button { justify-self: start; }
+.account-about { display: none; }
 
 /* ---- atlas ------------------------------------------------------------- */
 .atlas { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; height: calc(100dvh - var(--topbar-h) - var(--player-h)); }
@@ -167,15 +183,23 @@ small { font-size: 0.8em; }
 .account-error { color: var(--red); }
 .account-error:empty { display: none; }
 .save-control, .library-account, .comment-author { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.detail > .save-control { margin: 0.5rem 0; }
 .save-btn { border-color: var(--rule); padding: 0.3rem 0.65rem; font-size: 0.82rem; }
-.save-btn[aria-pressed="true"] { border-color: var(--ochre-deep); background: var(--ochre-2); }
+.recording-save, .comment-action { min-height: 38px; padding: 0.45rem 0.8rem; font-size: 0.85rem; }
+.recording-save { border-color: var(--ink-3); background: var(--paper-2); }
+.recording-save:hover { border-color: var(--ochre-deep); background: var(--ochre-2); }
+.recording-save[aria-pressed="true"] { border-color: var(--ochre-deep); background: var(--ochre-2); color: var(--ochre-deep); }
+.bookmark-icon { width: 0.58rem; height: 0.75rem; flex: none; background: currentColor; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%); }
 .library-list, .comment-list { padding: 0; list-style: none; }
 .library-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; padding: 0.55rem 0; border-top: 1px solid var(--rule); }
 .session-comments { margin: 1rem 0; }
 .session-comments summary { cursor: pointer; font-weight: 500; }
 .comment-list li { padding: 0.6rem 0; border-top: 1px solid var(--rule); overflow-wrap: anywhere; }
 .comment-list p { margin: 0.3rem 0 0; white-space: pre-wrap; }
+.comment-date { font-size: 0.8rem; color: var(--ink-3); }
+.comment-timing { display: flex; align-items: center; gap: 0.75rem; width: 100%; max-width: 30rem; }
+.comment-timing label { flex: 1; }
+.comment-timing input { border: 0; padding: 0; background: none; accent-color: var(--ochre-deep); }
+.comment-clock, .comment-time { font-variant-numeric: tabular-nums; }
 .site-head { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; align-items: start; }
 .inset-map { height: 220px; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-2); margin-top: 1.4rem; }
 /* (i) help: a small round button by a heading, opening a note under it (util.js info()) */
@@ -197,11 +221,22 @@ small { font-size: 0.8em; }
 
 /* ---- sessions ------------------------------------------------------------ */
 .session { margin: 1.6rem 0 2.4rem; scroll-margin-top: calc(var(--topbar-h) + 0.8rem); }
-.session-head { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; align-items: baseline; margin-bottom: 0.4rem; }
+.session-head { display: flex; flex-wrap: wrap; gap: 0.45rem 1rem; align-items: center; margin-bottom: 0.4rem; }
+.session-heading { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; align-items: baseline; flex: 1 1 18rem; }
+.session-head > .save-control { margin-left: auto; }
 .session-head h3 { margin: 0; }
 .session-head .muted { font-size: 0.88rem; }
 
 .sc { position: relative; }
+.sc-comment-lane { position: relative; height: 32px; border-top: 1px solid var(--rule); }
+.sc-comment-mark {
+  position: absolute; top: 2px; transform: translateX(-50%); width: 30px; height: 28px;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  border: 1px solid var(--ochre-deep); border-radius: 6px; background: var(--ochre-2); color: var(--ochre-deep);
+}
+.sc-comment-mark::before { content: ""; width: 12px; height: 8px; margin-top: -3px; border: 1.5px solid currentColor; border-radius: 3px; }
+.sc-comment-mark::after { content: ""; position: absolute; width: 3px; height: 3px; top: 16px; left: 10px; border-left: 1.5px solid currentColor; transform: skewY(-35deg); }
+.sc-comment-mark:hover, .sc-comment-mark:focus-visible { z-index: 1; background: var(--paper); }
 .sc-suns { position: relative; height: 1.3rem; }
 .sc-sun { position: absolute; bottom: 0.1rem; transform: translateX(-50%); font-size: 0.72rem; color: var(--ink-3); white-space: nowrap; }
 .sc-plot {
@@ -262,6 +297,7 @@ small { font-size: 0.8em; }
 /* ---- hour detail ------------------------------------------------------------ */
 .detail { margin-top: 0.9rem; padding: 1rem 1rem 0.6rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-0); }
 .detail-head { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
+.detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; }
 .detail-heading { min-width: 0; }
 .detail-title { font-size: 1.5rem; margin: 0; }
 .detail-sub { margin: 0; font-size: 0.88rem; }
@@ -552,6 +588,8 @@ small { font-size: 0.8em; }
   .page { padding: 1.2rem 1rem 2.5rem; }
   .topbar { padding: 0 0.9rem; }
   .topbar nav { gap: 0.7rem; white-space: nowrap; }
+  .topbar nav > [data-route="about"] { display: none; }
+  .account-about { display: inline; }
   .wordmark { font-size: 1.12rem; gap: 0.45rem; }
   .wordmark-mark { width: 24px; height: 24px; }
   .maplibregl-ctrl-scale { display: none; }

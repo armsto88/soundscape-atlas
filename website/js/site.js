@@ -99,7 +99,11 @@ export function render(main, model, params, ctx) {
           detail.destroy();
           detail.el.remove();
         }
-        detail = createDetail(ctx, { onSelect: (s) => select(s), focusName: () => (picked ? picked.name : null) });
+        detail = createDetail(ctx, {
+          onSelect: (s) => select(s),
+          onCommentTime: (s, sec) => blocks.get(s.session).comments.at(s, sec),
+          focusName: () => (picked ? picked.name : null),
+        });
         detailSession = seg.session;
         blocks.get(seg.session).slot.append(detail.el);
         // when it opens low on the screen, bring the chart and its detail up together
@@ -131,6 +135,10 @@ export function render(main, model, params, ctx) {
       onSeek: (seg, at) => select(seg, { play: true, at }),
       onSelect: (seg) => select(seg),
     });
+    const comments = sessionComments(session, {
+      onPlay: (seg, at) => select(seg, { play: true, at }),
+      onMarks: chart.setCommentMarks,
+    });
     const slot = el("div", { class: "detail-slot" });
     const lensText = el("p", { class: "sc-lens-text", hidden: true });
     const save = createSaveControl("session");
@@ -138,16 +146,17 @@ export function render(main, model, params, ctx) {
     const titleId = `session-title-${session.id}`;
     const article = el("article", { class: "session", tabindex: "-1", "aria-labelledby": titleId },
       el("header", { class: "session-head" },
-        el("h3", { id: titleId }, fmtSpan(session.start, session.end)),
-        el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`),
+        el("div", { class: "session-heading" },
+          el("h3", { id: titleId }, fmtSpan(session.start, session.end)),
+          el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
         save.el),
       chart.el,
       lensText, // the species picked, in this session
       slot, // the hour in detail, right under its chart
       renderNotes(session, { onPlay: (seg, at) => select(seg, { play: true, at }) }),
-      sessionComments(session));
+      comments.el);
     sessionsEl.append(article);
-    blocks.set(session, { chart, slot, article, lensText });
+    blocks.set(session, { chart, slot, article, lensText, comments });
   }
 
   const speciesEl = renderSpecies(site, {

@@ -18,8 +18,10 @@ export async function requestApi(path, { method = "GET", body } = {}) {
 function showAccountStatus(user) {
   const badge = document.getElementById("account-status");
   if (!badge) return;
-  badge.hidden = !user;
-  badge.title = user ? `Signed in as ${user.name}` : "";
+  badge.textContent = user ? `Signed in as ${user.name}` : "Signed out";
+  document.getElementById("account-sign-in").hidden = Boolean(user);
+  document.getElementById("account-admin").hidden = !user?.is_admin;
+  document.getElementById("account-sign-out").hidden = !user;
 }
 
 function resetAccount(user) {
@@ -41,6 +43,50 @@ export function currentUser() {
     userRequest = request;
   }
   return userRequest;
+}
+
+async function signOut() {
+  await requestApi("auth/logout", { method: "POST" });
+  resetAccount(null);
+}
+
+export function mountAccountMenu(onSignOut) {
+  const menu = document.getElementById("account-menu");
+  if (!menu) return;
+  const summary = menu.querySelector("summary");
+  const button = document.getElementById("account-sign-out");
+  const error = document.getElementById("account-menu-error");
+  currentUser().catch(() => {
+    document.getElementById("account-status").textContent = "Account status unavailable";
+    document.getElementById("account-sign-in").hidden = false;
+  });
+  menu.addEventListener("click", (event) => {
+    if (event.target.closest("a")) menu.open = false;
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && menu.open) {
+      menu.open = false;
+      summary.focus();
+    }
+  });
+  window.addEventListener("hashchange", () => { menu.open = false; });
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    error.textContent = "";
+    try {
+      await signOut();
+      menu.open = false;
+      summary.focus();
+      onSignOut();
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 export function account() {
@@ -88,12 +134,14 @@ export function createSaveControl(scope) {
   let pending = false;
   const status = el("span", { class: "account-error", role: "status" });
   const label = `Save ${scope}`;
-  const button = el("button", { class: "btn save-btn", type: "button", "aria-label": label, "aria-pressed": "false", onclick: toggle }, label);
+  const text = el("span", {}, label);
+  const button = el("button", { class: "btn recording-save", type: "button", "aria-label": label, "aria-pressed": "false", onclick: toggle },
+    el("span", { class: "bookmark-icon", "aria-hidden": "true" }), text);
   const root = el("div", { class: "save-control", hidden: true }, button, status);
 
   function render() {
     const saved = Boolean(library?.[scope].has(id));
-    button.textContent = saved ? `✓ Saved ${scope}` : label;
+    text.textContent = saved ? `Saved ${scope}` : label;
     button.disabled = pending;
     button.setAttribute("aria-pressed", String(saved));
   }
@@ -202,20 +250,19 @@ export function renderLibrary(main, model, params) {
     try {
       const library = await account();
       if (!library) return showForm();
-      const signOut = el("button", { class: "btn", type: "button", onclick: async () => {
-        signOut.disabled = true;
+      const logout = el("button", { class: "btn", type: "button", onclick: async () => {
+        logout.disabled = true;
         status.textContent = "";
         try {
-          await requestApi("auth/logout", { method: "POST" });
-          resetAccount(null);
+          await signOut();
           showForm();
         } catch (error) {
           status.textContent = error.message;
-          signOut.disabled = false;
+          logout.disabled = false;
         }
       } }, "Sign out");
       const adminLink = library.user.is_admin ? el("a", { class: "btn", href: "#/admin" }, "Administration") : null;
-      content.replaceChildren(el("div", { class: "library-account" }, el("b", {}, library.user.name), adminLink, signOut),
+      content.replaceChildren(el("div", { class: "library-account" }, el("b", {}, library.user.name), adminLink, logout),
         savedList(library, "session"), savedList(library, "hour"));
     } catch (error) {
       status.textContent = error.message;

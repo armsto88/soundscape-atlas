@@ -19,7 +19,7 @@ export const onRequestGet = handle(async ({ request, env }) => {
     env.DB.prepare("SELECT segment_id, created_at FROM likes WHERE user_name = ? ORDER BY created_at DESC").bind(name),
     env.DB.prepare("SELECT session_id, created_at FROM session_favorites WHERE user_name = ? ORDER BY created_at DESC").bind(name),
     env.DB.prepare("SELECT segment_id, text, sec, created_at FROM comments WHERE user = ? ORDER BY created_at DESC").bind(name),
-    env.DB.prepare("SELECT session_id, text, created_at FROM session_comments WHERE user = ? ORDER BY created_at DESC").bind(name),
+    env.DB.prepare("SELECT session_id, segment_id, sec, text, created_at FROM session_comments WHERE user = ? ORDER BY created_at DESC").bind(name),
   ]);
   const row = users.results[0];
   if (!row) return jsonResponse({ error: "Account not found." }, 404);

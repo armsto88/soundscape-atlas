@@ -49,7 +49,7 @@ class Player extends EventTarget {
 
     document.addEventListener("keydown", (event) => {
       const t = event.target;
-      if (t instanceof Element && t.closest("dialog[open]")) return;
+      if (t instanceof Element && t.closest("dialog[open], summary")) return;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       if (event.code === "Space" && !(t && t.tagName === "BUTTON")) {
         event.preventDefault();

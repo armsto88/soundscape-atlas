@@ -94,7 +94,8 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
   // with a species picked: a lane under the plot marking when it called, the
   // clearest call flagged; clicking the lane listens from there, like the plot
   const lane = el("div", { class: "sc-lane", hidden: true, "aria-hidden": "true" });
-  const root = el("div", { class: "sc" }, suns, plot, lane, ticks);
+  const commentLane = el("div", { class: "sc-comment-lane", role: "group", "aria-label": "Timed comments", hidden: true });
+  const root = el("div", { class: "sc" }, suns, plot, lane, ticks, commentLane);
 
   // On narrow screens, hide clock ticks that would run into the start and end labels.
   const declutter = () => {
@@ -208,6 +209,13 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
       const on = moment !== null && moment >= session.start && moment <= session.end;
       playhead.hidden = !on;
       if (on) playhead.style.left = pct(x(moment), 1);
+    },
+    setCommentMarks(marks) {
+      commentLane.hidden = marks.length === 0;
+      commentLane.replaceChildren(...marks.map(({ moment, label, open }) => el("button", {
+        type: "button", class: "sc-comment-mark", "aria-label": label, title: label, onclick: open,
+        style: { left: `clamp(15px, ${pct(x(moment), 1)}, calc(100% - 15px))` },
+      })));
     },
     // lens: null, { none: true } (not heard), or { marks: [[from, to]], best: moment, name }
     setLens(lens) {

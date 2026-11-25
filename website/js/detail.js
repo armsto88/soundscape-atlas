@@ -24,7 +24,7 @@ const byCalls = (a, b) => b.calls - a.calls || a.name.localeCompare(b.name);
 const byFirst = (a, b) => a.first - b.first || byCalls(a, b);
 
 // focusName(): the species picked on the page, whose lane each hour opens on.
-export function createDetail(ctx, { onSelect, focusName = () => null }) {
+export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => null }) {
   const player = ctx.player;
   let seg = null;
   let zoom = 1;
@@ -94,7 +94,13 @@ export function createDetail(ctx, { onSelect, focusName = () => null }) {
       el("p", { class: "credit" }, BIRDNET_CREDIT)));
 
   const save = createSaveControl("hour");
-  const root = el("div", { class: "detail" }, head, save.el, lanesBar, help.panel, tl, lanesNote, more);
+  const comment = el("button", { class: "btn comment-action", type: "button", onclick: () => {
+    if (!seg) return;
+    const at = player.segment === seg ? (player.pendingSeek ?? player.currentTime) : 0;
+    onCommentTime(seg, at);
+  } }, "Comment at time");
+  const actions = el("div", { class: "detail-actions" }, comment, save.el);
+  const root = el("div", { class: "detail" }, head, actions, lanesBar, help.panel, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
