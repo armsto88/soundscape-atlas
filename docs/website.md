@@ -266,8 +266,9 @@ written, so unpublished hours cannot reach the public repository.
     Pacific Emerald Dove, White-headed Pigeon, Wompoo Fruit Dove,
     Rose-crowned Fruit Dove, White-eared Honeyeater, Scarlet Robin,
     Striated Thornbill, Buff-rumped Thornbill, Russet-tailed Thrush (Keulemans,
-    in Seebohm & Sharpe's Monograph of the Turdidae). Left for Fugleramme's
-    coming batch (#406): Green Catbird, Mistletoebird, Shining Bronze Cuckoo. The
+    in Seebohm & Sharpe's Monograph of the Turdidae); on 25 Nov 2026 Green
+    Catbird, Shining Bronze Cuckoo, Mistletoebird, Paradise Riflebird and
+    Large-billed Scrubwren, so every bird at Boomerang Falls has a plate. The
     rest have under 20 calls each; listen to them before cutting (some will be
     BirdNET mistakes).
   - Fugleramme's issue #406 (a contributor adding ~70 Australian birds) is
