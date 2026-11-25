@@ -87,7 +87,7 @@ export function render(main, model, params, ctx) {
     // the species searched for, here (not where only its area may be named)
     const here = picked && site.heard.get(picked);
     const listed = here && here.counts && !here.areaOnly;
-    const openHref = `#/site/${encodeURIComponent(site.id)}${here ? `?species=${encodeURIComponent(picked.key)}` : ""}`;
+    const openHref = `#/site/${encodeURIComponent(site.id)}${listed ? `?species=${encodeURIComponent(picked.key)}` : ""}`;
     append(card, [
       el("button", { class: "site-card-close", type: "button", "aria-label": "Close", onclick: closeCard }, "×"),
       el("p", { class: "eyebrow" }, [site.locality, site.area || site.state].filter(Boolean).join(" · ")),
@@ -154,13 +154,27 @@ export function render(main, model, params, ctx) {
     const around = lensSites(sp);
     if (around.length) fly(boundsOf(around));
   }
-  // the places to show the map around: where the species is listed, or else its areas
+  // Where a species on a sensitive list may be named: its area if the area has more
+  // than one published place, else its state, else its country; a region holding
+  // a single place would name the place. null: too few places to name anything.
+  function safeRegion(site) {
+    const pub = model.publishedSites;
+    const inArea = site.area ? pub.filter((s) => s.country === site.country && s.state === site.state && s.area === site.area) : [];
+    if (inArea.length > 1) return { name: site.area, sites: inArea };
+    const inState = pub.filter((s) => s.country === site.country && s.state === site.state);
+    if (inState.length > 1) return { name: site.state, sites: inState };
+    const inCountry = pub.filter((s) => s.country === site.country);
+    return inCountry.length > 1 ? { name: site.country, sites: inCountry } : null;
+  }
+
+  // the places to show the map around: where the species is listed, or else its regions
   function lensSites(sp) {
     const places = speciesPlaces(sp);
     const shown = places.filter((p) => !p.areaOnly).map((p) => p.site);
     if (shown.length) return shown;
-    const areas = new Set(places.map((p) => `${p.site.state}|${p.site.area}`));
-    return model.publishedSites.filter((s) => areas.has(`${s.state}|${s.area}`));
+    const around = new Set();
+    for (const p of places) for (const s of safeRegion(p.site)?.sites || []) around.add(s);
+    return [...around];
   }
 
   // places grouped as in the accordion: an area, or a state for places without one
@@ -211,7 +225,7 @@ export function render(main, model, params, ctx) {
         el("span", { class: "lens-line" }, el("span", {}, day), el("span", {}, `${plural(e.calls, "call")} · ${e.hours} h`)),
         sessionStrip(e)),
       e.best.seg.public_url ? el("button", {
-        class: "lens-play", type: "button", html: ICON_PLAY, title: `Clearest call, ${fmtClock(e.best.t)}`,
+        class: "lens-play", type: "button", html: ICON_PLAY,
         "aria-label": `Play the clearest call on ${day}, at ${fmtClock(e.best.t)}`,
         onclick: () => ctx.player.load(e.best.seg, { autoplay: true, at: Math.max(0, e.best.sec - 3) }),
       }) : null);
@@ -244,7 +258,7 @@ export function render(main, model, params, ctx) {
     const help = info("the species search",
       el("p", {}, `A place is listed when BirdNET found at least ${MIN_CALLS} calls of the species there, or one was checked by ear. BirdNET names species automatically and can be wrong.`),
       el("p", {}, "The ring around a place on the map shows how many of its published hours had the species. Each session's strip runs from its start to its end, with night shaded and a mark wherever the species called; ▶ plays its clearest call."),
-      el("p", {}, "For species on a sensitive-species list (kept by the NSW and Queensland governments and by BirdLife Australia), only the area is named, to protect their nests and roosts."));
+      el("p", {}, "Species on a sensitive-species list (kept by the NSW and Queensland governments and by BirdLife Australia) are left out wherever a place is mapped more precisely than the list allows; elsewhere only the wider region is named, to protect their nests and roosts."));
     const summary = shown.length ? `Heard at ${plural(shown.length, "place")}, in ${plural(sessionsIn(shown), "session")}`
       : hidden.length ? `Heard in ${plural(sessionsIn(hidden), "session")}`
       : "Not heard often enough at any place to list it.";
@@ -258,9 +272,14 @@ export function render(main, model, params, ctx) {
     }));
     for (const group of byArea(shown)) lensEl.append(el("section", { class: "lens-area" }, el("h3", {}, group.name), group.places.map(placeBlock)));
     if (hidden.length) {
+      const regions = new Map(); // region name ("" when none may be named) -> sessions
+      for (const p of hidden) {
+        const name = safeRegion(p.site)?.name || "";
+        regions.set(name, (regions.get(name) || 0) + p.sessions.length);
+      }
       lensEl.append(el("section", { class: "lens-protected" },
-        el("p", {}, "This species is on a sensitive-species list, so the places where it was heard are not shown, only their areas."),
-        el("ul", {}, byArea(hidden).map((g) => el("li", {}, el("b", {}, g.name), ` · ${plural(sessionsIn(g.places), "session")}`)))));
+        el("p", {}, "This species is on a sensitive-species list, so the places where it was heard are not shown, only the wider region."),
+        el("ul", {}, [...regions].map(([name, n]) => el("li", {}, name ? el("b", {}, name) : "A region not named", ` · ${plural(n, "session")}`)))));
     }
   }
 

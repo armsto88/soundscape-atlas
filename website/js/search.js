@@ -87,7 +87,7 @@ export function lensCard(sp, { onClear, children = [] }) {
     el("div", { class: "lens-top" },
       speciesThumb(sp, "lens-thumb"),
       el("div", { class: "lens-name" }, el("b", {}, sp.name), sp.scientific ? el("i", {}, sp.scientific) : null),
-      el("button", { class: "lens-clear", type: "button", "aria-label": `Clear ${sp.name}`, title: "Clear", onclick: onClear }, "×")),
+      el("button", { class: "lens-clear", type: "button", "aria-label": `Clear ${sp.name}`, onclick: onClear }, "×")),
     children);
 }
 

@@ -64,7 +64,7 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
     for (const p of smooth) d += ` L${(x(p.t) * 1000).toFixed(2)},${yOf(p.v)}`;
     d += ` L${x1},${yOf(smooth[smooth.length - 1].v)} L${x1},${H} Z`;
     plotSvg.append(svg("path", { d, class: "sc-area" }));
-    plotSvg.append(svg("path", { d: d.replace(/ L[\d.]+,100 Z$/, "").replace(/^M[\d.]+,100 /, "M"), class: "sc-line" }));
+    plotSvg.append(svg("path", { d: d.replace(/ L[\d.]+,100 Z$/, "").replace(/^M[\d.]+,100 L/, "M"), class: "sc-line" }));
   }
   for (const [a, b] of session.gaps) plotSvg.append(rect(a, b, "sc-gap", { fill: `url(#hatch-${uid})` }));
 
@@ -219,7 +219,7 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
         return;
       }
       for (const [a, b] of lens.marks) lane.append(el("span", { class: "sc-mark", style: { left: pct(x(a), 1), width: pct(x(b) - x(a), 1) } }));
-      if (Number.isFinite(lens.best)) lane.append(el("span", { class: "sc-best", title: `Clearest call of ${lens.name}, ${fmtClock(lens.best)}`, style: { left: pct(x(lens.best), 1) } }));
+      if (Number.isFinite(lens.best)) lane.append(el("span", { class: "sc-best", style: { left: pct(x(lens.best), 1) } }));
     },
   };
 }

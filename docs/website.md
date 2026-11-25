@@ -34,9 +34,12 @@ the R2 bucket.
   place is ringed by the share of its hours with the species. A place is
   listed only after **3 calls** there, or one checked by ear (`MIN_CALLS` in
   `js/data.js`), so a stray BirdNET detection does not put a bird on the map.
-  For a species on a **sensitive-species list** the search names only the
-  areas, never the places (see "Data the site needs from the build"); place
-  pages are not changed by this.
+  A species on a **sensitive-species list** is left out of the published data
+  at every place published more precisely than the list allows (most places,
+  which are exact): no plate, lane, count or calls there, so place pages and
+  data.json do not name it either. Where it remains (places published coarsely
+  enough), the search names only the area, and only when the area has more
+  than one published place (otherwise the state); see "Sensitive species".
 - **Place** (`#/site/<site_id>?at=<segment_id>`): description and inset map,
   then one chart per recording session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,
@@ -175,10 +178,14 @@ Living Australia's copies of the NSW Sensitive Species List (dr487), the
 Queensland Confidential Species (dr493) and BirdLife Australia's sensitive
 list (dr494); run it again now and then, and when places in a new state or
 country are added (Germany has no list yet). The build matches species by
-scientific or common name and prints a note for each one it marks. As of 24
-Nov 2026 that is Sooty Owl (NSW, Category 3) and, from BirdLife's list,
-Eastern Shriketit (the list names the whole species as well as the northern
-subspecies) and Diamond Firetail, which the 3-call rule already leaves out.
+scientific or common name. Each list entry has a generalisation (10 km, 1 km
+or WITHHOLD): a listed species' detections are published at a place only if
+the place is published at least that coarsely (exact = 0, rounded = about
+1 km, coarse = about 10 km; WITHHOLD never), and the build prints a note for
+every species and place it leaves out (the notes are not published). Its calls
+stay in the audio, unnamed. As of 25 Nov 2026 that leaves out Sooty Owl (NSW,
+10 km) at Boomerang Falls, Minyon Valley and Goonengerry, and, from BirdLife's
+list, Eastern Shriketit and Diamond Firetail at Imbota Dam.
 
 `scripts/fetch_weather.py` then adds `api/weather/<session_id>.json` per
 session: hourly temperature, rain, cloud and wind from Open-Meteo's archive

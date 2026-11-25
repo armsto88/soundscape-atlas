@@ -2,10 +2,11 @@
 """Fetch the official sensitive-species lists into scripts/sensitive_species.csv.
 
 Governments and BirdLife Australia blur the locations of some species in their
-own atlases, to protect nests, roosts and display grounds. The website's species
-search follows the same lists: for a species on one, the search names only the
-area it was heard in, not the place (the place pages are unchanged). The build
-(build_web_metadata.py) reads the CSV this script writes.
+own atlases, to protect nests, roosts and display grounds. The website follows
+the same lists: build_web_metadata.py, which reads the CSV this script writes,
+leaves a listed species out of the published data at every place published more
+precisely than the list's generalisation (most places are exact), and where it
+remains the species search names only its area.
 
 The lists come from the Atlas of Living Australia (ALA), which uses them to
 generalise its own records and refreshes them monthly:

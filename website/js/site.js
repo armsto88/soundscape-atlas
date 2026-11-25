@@ -180,12 +180,14 @@ export function render(main, model, params, ctx) {
       }
       const from = e.marks[0][0];
       const to = e.marks[e.marks.length - 1][1];
-      b.lensText.append(
+      // (native append would write a missing button as the text "null")
+      b.lensText.append(...[
         el("span", {}, el("b", {}, picked.name), `: ${plural(e.calls, "call")} in ${plural(e.hours, "hour")}, between about ${fmtClock(from)} and ${fmtClock(to)}`),
         e.best.seg.public_url ? el("button", {
           class: "lens-call", type: "button",
           onclick: () => select(e.best.seg, { play: true, at: Math.max(0, e.best.sec - 3) }),
-        }, el("span", { class: "lens-call-icon", html: ICON_PLAY, "aria-hidden": "true" }), `Clearest call, ${fmtClock(e.best.t)}`) : null);
+        }, el("span", { class: "lens-call-icon", html: ICON_PLAY, "aria-hidden": "true" }), `Clearest call, ${fmtClock(e.best.t)}`) : null,
+      ].filter(Boolean));
     }
   }
   function setPicked(sp) {

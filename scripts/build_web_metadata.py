@@ -46,6 +46,9 @@ LOCATION_DECIMALS = {"exact": None, "rounded": 2, "coarse": 1}
 PRECISION_NAMES = {None: "exact", 2: "rounded", 1: "coarse"}
 DEFAULT_PRECISION = "rounded"
 SENSITIVE_DECIMALS = 1  # sensitive sites are never more precise than "coarse"
+# How far each published precision blurs a place, compared with a sensitive list's
+# generalisation: 2 decimals is about 1 km, 1 decimal about 11 km.
+PRECISION_KM = {"exact": 0.0, "rounded": 1.0, "coarse": 10.0}
 SENSITIVE_ELEVATION_STEP_M = 100
 
 DETECTIONS_DIR_NAME = "detections"
@@ -264,23 +267,44 @@ def name_key(value: str) -> str:
     return " ".join(re.sub(r"[^a-z ]", " ", value).split())
 
 
-def load_sensitive_species(path: Path) -> Tuple[Dict[str, set], Dict[str, set]]:
-    """Where each listed species' place is kept out of the search, by scientific
-    and by common name: {name key: {"AU-NSW", "AU", ...}}."""
-    by_scientific: Dict[str, set] = defaultdict(set)
-    by_common: Dict[str, set] = defaultdict(set)
+def generalisation_km(value: str) -> float:
+    """A sensitive list's generalisation as km: "10km" -> 10, "WITHHOLD" -> inf
+    (never shown); unknown or blank counts as 10 km, the lists' usual blur."""
+    text = (value or "").strip().lower()
+    if text == "withhold":
+        return math.inf
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*km", text)
+    return float(match.group(1)) if match else 10.0
+
+
+def load_sensitive_species(path: Path) -> Tuple[Dict[str, Dict[str, float]], Dict[str, Dict[str, float]]]:
+    """Each listed species, by scientific and by common name: {name key: {where: km}},
+    where is a country ("AU") or country-state ("AU-NSW") and km the list's blur there."""
+    by_scientific: Dict[str, Dict[str, float]] = defaultdict(dict)
+    by_common: Dict[str, Dict[str, float]] = defaultdict(dict)
     if not path.is_file():
-        print(f"warning: {path} not found; the species search will show the places of every species", file=sys.stderr)
+        print(f"warning: {path} not found; species on sensitive lists will be published like any other", file=sys.stderr)
         return by_scientific, by_common
     for row in read_csv(path):
         where = (row.get("applies_in") or "").strip()
         if not where:
             continue
-        if name_key(row.get("scientific_name", "")):
-            by_scientific[name_key(row["scientific_name"])].add(where)
-        if name_key(row.get("common_name", "")):
-            by_common[name_key(row["common_name"])].add(where)
+        km = generalisation_km(row.get("generalisation", ""))
+        for table, key in ((by_scientific, name_key(row.get("scientific_name", ""))), (by_common, name_key(row.get("common_name", "")))):
+            if key:
+                table[key][where] = max(km, table[key].get(where, 0.0))
     return by_scientific, by_common
+
+
+def sensitive_km(scientific: str, common: str, site: dict, lists: Tuple[dict, dict]) -> Optional[float]:
+    """How far a species' records must be blurred at this site under the sensitive
+    lists (the strictest list that applies), or None when no list applies."""
+    by_scientific, by_common = lists
+    wheres = {str(site.get("country_code") or "").strip()}
+    wheres.add(f"{site.get('country_code', '')}-{site.get('region_code', '')}".strip())
+    found = [km for table, key in ((by_scientific, name_key(scientific)), (by_common, name_key(common)))
+             for where, km in table.get(key, {}).items() if where in wheres]
+    return max(found) if found else None
 
 
 def public_window(session: dict) -> Tuple[Optional[datetime], Optional[datetime]]:
@@ -389,11 +413,32 @@ def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path
     segments = windowed
 
     published_ids = {segment["segment_id"] for segment in segments}
+    site_of = {segment["segment_id"]: segment.get("site_id", "") for segment in segments}
+    # A species on a sensitive list (fetch_sensitive_species.py) is left out of a
+    # place entirely when the place is published more precisely than the list's
+    # blur allows: not in its species, lanes, counts or activity curve. Its calls
+    # stay in the audio, unnamed.
+    sensitive_lists = load_sensitive_species(sensitive_path)
+    blur_cache: Dict[Tuple[str, str], bool] = {}
+    withheld: Counter = Counter()
+
+    def withhold(detection: dict, site_id: str) -> bool:
+        common = (detection.get("common_name") or "").strip()
+        key = (common, site_id)
+        if key not in blur_cache:
+            need = sensitive_km(detection.get("scientific_name") or "", common, sites_by_id.get(site_id, {}), sensitive_lists)
+            have = PRECISION_KM.get(locations.get(site_id, no_location).precision, 0.0)
+            blur_cache[key] = need is not None and have < need
+        return blur_cache[key]
+
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
     for detection in detections:
         segment_id = detection.get("segment_id", "")
         # Detections rejected by ear are never published.
         if segment_id not in published_ids or (detection.get("review_status") or "").strip().lower() == "rejected":
+            continue
+        if withhold(detection, site_of.get(segment_id, "")):
+            withheld[(site_of.get(segment_id, ""), (detection.get("common_name") or "").strip())] += 1
             continue
         if segment_id in cuts:
             # Keep calls inside the published part, timed from its start.
@@ -416,11 +461,17 @@ def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path
             info["group"] = info["group"] or (detection.get("taxon_group") or "").strip()
     species_names = sorted(species_info, key=str.casefold)
     species_index = {name: index for index, name in enumerate(species_names)}
-    sensitive_by_scientific, sensitive_by_common = load_sensitive_species(sensitive_path)
+    for (site_id, name), count in sorted(withheld.items()):
+        precision = locations.get(site_id, no_location).precision
+        print(f"note: left out {count} detection(s) of {name} at {site_id} (sensitive list; the place is published as {precision})",
+              file=sys.stderr)
+    # What remains of a listed species is at places published coarsely enough; the
+    # search still names only their area.
+    sensitive_by_scientific, sensitive_by_common = sensitive_lists
     species_list = []
     for name in species_names:
         info = dict(species_info[name])
-        where = sensitive_by_scientific.get(name_key(info["scientific"]), set()) | sensitive_by_common.get(name_key(name), set())
+        where = set(sensitive_by_scientific.get(name_key(info["scientific"]), {})) | set(sensitive_by_common.get(name_key(name), {}))
         if where:
             info["area_only_in"] = sorted(where)
             print(f"note: species search shows only the area for {name} in {', '.join(sorted(where))} (sensitive list)", file=sys.stderr)
