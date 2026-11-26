@@ -742,6 +742,7 @@ small { font-size: 0.8em; }
      box over the map's canvas as covering it, and skips the canvas under a mirror image
      of that box (a blank strip above the sheet). */
   .atlas-index > .atlas-find { flex: none; position: static; margin: 0; padding: 0 0.75rem 0.6rem; background: none; }
+  .atlas-index .find-list { max-height: 36svh; } /* above the keyboard on a small phone */
   .atlas .site-card { bottom: calc(var(--sheet-h) + 8px); z-index: 4; transition: bottom 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
   .atlas .maplibregl-ctrl-bottom-right, .atlas .maplibregl-ctrl-bottom-left { bottom: var(--sheet-h); transition: bottom 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
   .atlas.sheet-dragging .atlas-index, .atlas.sheet-dragging .site-card,

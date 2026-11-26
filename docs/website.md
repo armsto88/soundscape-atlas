@@ -103,7 +103,10 @@ in `js/util.js` matches the CSS, and the page is drawn again when it changes):
   at three heights: peek (the search field), half, full. Drag its handle, or
   tap it to step through them. A place's card sits on the sheet, which steps
   down to peek while the card is open; flying to a place keeps it in the part
-  of the map left showing. The map's credits move up with the sheet.
+  of the map left showing. Tapping the search field closes the card and opens
+  the sheet full, so the suggestions have room above the keyboard; picking a
+  species brings it back to half, with the map showing where it was heard. The
+  map's credits move up with the sheet.
   The search field has no background of its own: Chrome treats an opaque,
   square box over the map's WebGL canvas as covering it and skips the canvas
   under a vertically mirrored copy of the box (a blank strip on the map).

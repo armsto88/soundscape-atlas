@@ -221,6 +221,14 @@ export function render(main, model, params, ctx) {
   if (phone) {
     index.append(findWrap, el("div", { class: "sheet-body" }, lensEl, accEl)); // the field stays at the top, the list scrolls
     sheet = createSheet(atlasEl, index, ctx.state);
+    // Searching needs room: the suggestions open under the field, inside the
+    // sheet, which a place's card had pushed down to its smallest height.
+    // (the field is added to findWrap a little later, so listen on the wrap)
+    findWrap.addEventListener("focusin", (event) => {
+      if (!event.target.matches(".find-input")) return;
+      if (!card.hidden) closeCard();
+      sheet.set("full");
+    });
     // the name of the site, on the map where the top bar would be (it opens About)
     const brand = document.querySelector(".topbar .wordmark")?.cloneNode(true);
     if (brand) {
@@ -254,6 +262,7 @@ export function render(main, model, params, ctx) {
   }
 
   function pick(sp) {
+    if (sheet) sheet.set("half"); // phones: the map with the species' places shows above the sheet
     picked = sp;
     ctx.replace(sp ? `#/?species=${encodeURIComponent(sp.key)}` : "#/");
     renderLens();
