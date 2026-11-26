@@ -227,6 +227,14 @@ stay in the audio, unnamed. As of 25 Nov 2026 that leaves out Sooty Owl (NSW,
 10 km) at Boomerang Falls, Minyon Valley and Goonengerry, and, from BirdLife's
 list, Eastern Shriketit and Diamond Firetail at Imbota Dam.
 
+**Species from elsewhere.** BirdNET sometimes names a species that does not
+live in the country at all (its location filter lets some frogs through).
+`scripts/out_of_range_species.csv` lists them with the countries where they do
+not occur (`not_in`, e.g. `AU DE`) and why; the build leaves their detections
+out there like detections rejected by ear, and prints a note for each place.
+Add a species when one turns up. First entry (26 Nov 2026): Bokermann's
+Tarauaca Tree Frog, an Amazonian frog, one call at Rocky Creek Dam.
+
 `scripts/fetch_weather.py` then adds `api/weather/<session_id>.json` per
 session: hourly temperature, rain, cloud and wind from Open-Meteo's archive
 (ERA5 reanalysis; coordinates rounded to 0.1° before sending, answers cached

@@ -10,7 +10,9 @@ Writes two kinds of file next to --output:
   detections/<SITE>/<SEGMENT>.json  one file per segment with detections,
                                     loaded by the site when that segment is opened;
                                     back-to-back detections of a species are merged
-                                    into calling bouts, rejected ones are left out
+                                    into calling bouts, rejected ones are left out,
+                                    and so are species listed in
+                                    out_of_range_species.csv for the site's country
 
 Keeping detections out of the index keeps it small: one file of everything
 grows past Cloudflare Pages' 25 MiB per-file limit after a few weeks of audio.
@@ -59,6 +61,9 @@ BOUT_GAP_SEC = 3.0
 ACTIVITY_BIN_SEC = 300
 # Species whose exact place the search must not show (written by fetch_sensitive_species.py).
 SENSITIVE_SPECIES_CSV = Path(__file__).resolve().parent / "sensitive_species.csv"
+# Species BirdNET named in a country where they do not live, so misidentifications:
+# left out there like detections rejected by ear.
+OUT_OF_RANGE_CSV = Path(__file__).resolve().parent / "out_of_range_species.csv"
 # IDs become file names, so they must not contain path separators or "..".
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
@@ -296,6 +301,21 @@ def load_sensitive_species(path: Path) -> Tuple[Dict[str, Dict[str, float]], Dic
     return by_scientific, by_common
 
 
+def load_out_of_range(path: Path) -> Dict[str, set]:
+    """{name key: country codes}: each species in out_of_range_species.csv, by
+    scientific and by common name, with the countries where it does not live."""
+    countries: Dict[str, set] = defaultdict(set)
+    if not path.is_file():
+        print(f"warning: {path} not found; no species are left out as misidentifications", file=sys.stderr)
+        return countries
+    for row in read_csv(path):
+        where = set((row.get("not_in") or "").upper().split())
+        for key in (name_key(row.get("scientific_name", "")), name_key(row.get("common_name", ""))):
+            if key and where:
+                countries[key] |= where
+    return countries
+
+
 def sensitive_km(scientific: str, common: str, site: dict, lists: Tuple[dict, dict]) -> Optional[float]:
     """How far a species' records must be blurred at this site under the sensitive
     lists (the strictest list that applies), or None when no list applies."""
@@ -377,7 +397,8 @@ def segment_sun_info(segment: dict, location: PublicLocation, session: dict) -> 
     return segment_sun(start, end, latitude, longitude, tz), ""
 
 
-def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path = SENSITIVE_SPECIES_CSV) -> Tuple[dict, Dict[str, dict]]:
+def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path = SENSITIVE_SPECIES_CSV,
+                  out_of_range_path: Path = OUT_OF_RANGE_CSV) -> Tuple[dict, Dict[str, dict]]:
     """Return (index payload, {relative detections path: detections payload})."""
     sites = read_csv(metadata_dir / "sites.csv")
     sessions = read_csv(metadata_dir / "sessions.csv")
@@ -431,11 +452,23 @@ def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path
             blur_cache[key] = need is not None and have < need
         return blur_cache[key]
 
+    # A species that does not live in the site's country is a misidentification.
+    out_of_range_lists = load_out_of_range(out_of_range_path)
+    misidentified: Counter = Counter()
+
+    def out_of_range(detection: dict, site_id: str) -> bool:
+        country = str(sites_by_id.get(site_id, {}).get("country_code") or "").strip().upper()
+        return any(country in out_of_range_lists.get(name_key(detection.get(field) or ""), ())
+                   for field in ("scientific_name", "common_name"))
+
     detections_by_segment: Dict[str, List[dict]] = defaultdict(list)
     for detection in detections:
         segment_id = detection.get("segment_id", "")
         # Detections rejected by ear are never published.
         if segment_id not in published_ids or (detection.get("review_status") or "").strip().lower() == "rejected":
+            continue
+        if out_of_range(detection, site_of.get(segment_id, "")):
+            misidentified[(site_of.get(segment_id, ""), (detection.get("common_name") or "").strip())] += 1
             continue
         if withhold(detection, site_of.get(segment_id, "")):
             withheld[(site_of.get(segment_id, ""), (detection.get("common_name") or "").strip())] += 1
@@ -465,6 +498,8 @@ def build_outputs(metadata_dir: Path, segments: List[dict], sensitive_path: Path
         precision = locations.get(site_id, no_location).precision
         print(f"note: left out {count} detection(s) of {name} at {site_id} (sensitive list; the place is published as {precision})",
               file=sys.stderr)
+    for (site_id, name), count in sorted(misidentified.items()):
+        print(f"note: left out {count} detection(s) of {name} at {site_id} (out_of_range_species.csv)", file=sys.stderr)
     # What remains of a listed species is at places published coarsely enough; the
     # search still names only their area.
     sensitive_by_scientific, sensitive_by_common = sensitive_lists
@@ -714,6 +749,8 @@ def main() -> int:
     parser.add_argument("--output", default="website/api/data.json", help="index file; detections/ is written beside it")
     parser.add_argument("--sensitive-species", type=Path, default=SENSITIVE_SPECIES_CSV,
                         help="species whose place the search hides (default: scripts/sensitive_species.csv)")
+    parser.add_argument("--out-of-range-species", type=Path, default=OUT_OF_RANGE_CSV,
+                        help="species left out as misidentifications where they do not live (default: scripts/out_of_range_species.csv)")
     args = parser.parse_args()
     if not args.metadata_dir:
         print(
@@ -732,7 +769,7 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    index, detection_files = build_outputs(metadata_dir, published, args.sensitive_species)
+    index, detection_files = build_outputs(metadata_dir, published, args.sensitive_species, args.out_of_range_species)
 
     detections_bytes = replace_detections_dir(output_path.parent / DETECTIONS_DIR_NAME, detection_files)
     index_text = to_json_lines(index)
