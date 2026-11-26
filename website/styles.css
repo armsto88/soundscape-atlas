@@ -382,7 +382,9 @@ small { font-size: 0.8em; }
 .site-species { margin-top: 2.6rem; }
 .row-label { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-family: var(--font-sans); font-weight: 600; margin: 1.8rem 0 0.8rem; }
 .tiles { list-style: none; margin: 0.8rem 0 1rem; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.4rem 1rem; }
-.tile { text-align: center; }
+/* a column as tall as its row, so the Enlarge buttons line up however the names wrap */
+.tile { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+.tile-info { align-self: stretch; }
 .ring {
   --p: 50; position: relative; width: 136px; height: 136px; margin: 0 auto 0.45rem; border-radius: 50%;
   background: conic-gradient(var(--ochre) calc(var(--p) * 1%), var(--rule) 0); display: grid; place-items: center;
@@ -398,7 +400,7 @@ small { font-size: 0.8em; }
 .tile-btn { display: block; width: 100%; border: 0; background: none; padding: 0.45rem 0.2rem 0.55rem; border-radius: 12px; cursor: pointer; color: inherit; text-align: center; }
 .tile-btn:hover { background: var(--paper-2); }
 .tile-btn[aria-current="true"] { background: var(--ochre-2); box-shadow: inset 0 0 0 1.5px var(--ochre-deep); }
-.plate-enlarge { margin-top: 0.25rem; padding: 0.3rem 0.7rem; border-color: var(--rule); font-size: 0.78rem; }
+.plate-enlarge { margin-top: auto; padding: 0.3rem 0.7rem; border-color: var(--rule); font-size: 0.78rem; }
 .plate-dialog {
   width: min(36rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); padding: 1rem;
   border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); color: var(--ink); text-align: center;

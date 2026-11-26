@@ -46,7 +46,7 @@ function tile(sp, total, opts, enlarge) {
     "data-name": target.name,
     "aria-current": String(opts.picked() === target),
     onclick: () => opts.onPick(target),
-  }, body) : body;
+  }, body) : el("div", { class: "tile-info" }, body);
   return el("li", { class: "tile" }, pick, sp.image ? el("button", {
     class: "plate-enlarge btn", type: "button", "aria-haspopup": "dialog",
     "aria-label": `Enlarge illustration of ${sp.name}`, onclick: () => enlarge(sp),

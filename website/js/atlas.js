@@ -15,7 +15,10 @@ import { quickListen, speciesPlaces, findSpecies, callingHours, mostlyWhen, MIN_
 import { hasSupport, supportLink } from "./support.js";
 import { createSpeciesSearch, lensCard, whenStrip } from "./search.js";
 
-const PILL_RADIUS_PX = 44; // a group's sites closer than this on screen collapse into one pill
+// An area's pill gives way to its places as soon as they have room on screen: once
+// the group is spread wider than its places would need, packed this far apart
+// (a dot is 20 px across). Two places split at about 37 px apart.
+const DOT_SPACING_PX = 26;
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const PLACE_LAYERS = ["places-label", "places-dot", "places-ring"];
@@ -50,6 +53,7 @@ export function render(main, model, params, ctx) {
     setState(selected, { selected: false });
     selected = id;
     setState(selected, { selected: true });
+    updatePills(); // the place picked is never hidden under its area's pill
   };
 
   // ---- the card ------------------------------------------------------------
@@ -387,15 +391,17 @@ export function render(main, model, params, ctx) {
       properties: { id: site.id, name: site.site_name, approx: site.public_location_precision !== "exact" },
     }))),
   });
-  const updatePills = () => {
+  function updatePills() {
     let changed = false;
     for (const entry of entries) {
       let collapse = false;
-      if (entry.group.sites.length > 1) {
-        const px = entry.group.sites.map((s) => map.project([s.longitude, s.latitude]));
+      const sites = entry.group.sites;
+      if (sites.length > 1 && !sites.some((s) => s.id === selected)) {
+        const px = sites.map((s) => map.project([s.longitude, s.latitude]));
         const cx = px.reduce((n, p) => n + p.x, 0) / px.length;
         const cy = px.reduce((n, p) => n + p.y, 0) / px.length;
-        collapse = Math.max(...px.map((p) => Math.hypot(p.x - cx, p.y - cy))) < PILL_RADIUS_PX;
+        const spread = Math.max(...px.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+        collapse = spread < (DOT_SPACING_PX * Math.sqrt(sites.length)) / 2;
       }
       if (entry.collapsed === collapse) continue;
       entry.collapsed = collapse;
@@ -406,8 +412,9 @@ export function render(main, model, params, ctx) {
     if (changed && ready) {
       map.getSource("places").setData(placesData());
       applyLens();
+      setState(selected, { selected: true }); // mark the picked place among the places just shown
     }
-  };
+  }
 
   map.on("load", () => {
     const t = tokens();
