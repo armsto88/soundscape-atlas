@@ -3,7 +3,7 @@
 // With a species search on the page, each plate is also a button that picks
 // its species.
 
-import { el, plural, info } from "./util.js";
+import { el, plural, info, isPhone } from "./util.js";
 
 const SHOW_FIRST = 12;
 const PLACEHOLDER = `<svg viewBox="0 0 100 100" class="placeholder" aria-hidden="true">
@@ -40,6 +40,15 @@ function tile(sp, total, opts, enlarge) {
     el("span", {}, `${pctText} of ${sp.frog ? "frog " : ""}calls`),
   ];
   const target = opts.onPick && opts.find ? opts.find(sp) : null;
+  // Phones: one press on a plate opens it large, with what can be done with the
+  // species there; no row of Enlarge buttons.
+  if (isPhone()) {
+    return el("li", { class: "tile" }, el("button", {
+      class: "tile-btn", type: "button", "aria-haspopup": "dialog", "data-name": target ? target.name : sp.name,
+      "aria-current": String(Boolean(target) && opts.picked() === target),
+      onclick: () => enlarge(sp, target),
+    }, body));
+  }
   const pick = target ? el("button", {
     class: "tile-btn",
     type: "button",
@@ -70,14 +79,29 @@ export function renderSpecies(site, opts = {}) {
   if (!site.species.length) return null;
   const birdsWithPlates = site.birds.filter((s) => s.image).length;
   const plateTitle = el("h3", { id: "plate-title" });
+  const plateSub = el("p", { class: "plate-sub muted" });
   const plate = el("img");
+  const plateActions = el("div", { class: "plate-actions" });
   const dialog = el("dialog", { class: "plate-dialog", "aria-labelledby": plateTitle.id },
-    plateTitle, plate,
+    plateTitle, plateSub, plate, plateActions,
     el("button", { class: "btn", type: "button", autofocus: true, onclick: () => dialog.close() }, "Close"));
-  const enlarge = (sp) => {
+  // target: the species as the place page can follow it (phones show what to do with it)
+  const enlarge = (sp, target = null) => {
     plateTitle.textContent = sp.name;
-    plate.alt = `Illustration of ${sp.name}`;
-    plate.src = sp.image;
+    plateSub.textContent = [sp.scientific, `${plural(sp.calls, "call")} here`].filter(Boolean).join(" · ");
+    plateSub.hidden = !target && !isPhone();
+    plate.hidden = !sp.image;
+    if (sp.image) {
+      plate.alt = `Illustration of ${sp.name}`;
+      plate.src = sp.image;
+    }
+    plateActions.replaceChildren(...(target ? [
+      el("button", { class: "btn btn-primary", type: "button", onclick: () => {
+        dialog.close();
+        opts.onPick(target);
+      } }, "Follow it in the sessions"),
+      el("a", { class: "btn", href: `#/?species=${encodeURIComponent(target.key)}`, onclick: () => dialog.close() }, "Where else it was heard"),
+    ] : []));
     dialog.showModal();
   };
   const help = info("the species here",

@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Soundscape Atlas</title>
     <meta name="description" content="A listening archive of dusk-till-dawn field recordings." />
-    <meta name="theme-color" content="#fcfaf5" />
-    <meta name="color-scheme" content="only light" />
+    <meta name="theme-color" content="#fcfaf5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- the listener's own choice of light or dark (Library), before anything is drawn -->
+    <script>try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Soundscape Atlas" />
     <meta property="og:title" content="Soundscape Atlas" />
@@ -25,22 +28,27 @@
     <meta name="apple-mobile-web-app-title" content="Soundscape" />
     <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="vendor/maplibre-gl.css" />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
     <!-- Refresh modules that browsers may still have cached from earlier releases. -->
     <script type="importmap">
       {
         "imports": {
           "./js/admin.js": "./js/admin.js?v=4",
-          "./js/atlas.js": "./js/atlas.js?v=2",
+          "./js/atlas.js": "./js/atlas.js?v=3",
           "./js/comments.js": "./js/comments.js?v=5",
           "./js/data.js": "./js/data.js?v=2",
-          "./js/detail.js": "./js/detail.js?v=5",
-          "./js/library.js": "./js/library.js?v=4",
-          "./js/nowplaying.js": "./js/nowplaying.js?v=1",
+          "./js/detail.js": "./js/detail.js?v=6",
+          "./js/library.js": "./js/library.js?v=5",
+          "./js/map.js": "./js/map.js?v=2",
+          "./js/notes.js": "./js/notes.js?v=2",
+          "./js/species.js": "./js/species.js?v=2",
+          "./js/nowplaying.js": "./js/nowplaying.js?v=2",
+          "./js/speciesindex.js": "./js/speciesindex.js?v=1",
+          "./js/theme.js": "./js/theme.js?v=1",
           "./js/player.js": "./js/player.js?v=6",
           "./js/sessionchart.js": "./js/sessionchart.js?v=5",
-          "./js/site.js": "./js/site.js?v=5",
-          "./js/util.js": "./js/util.js?v=6"
+          "./js/site.js": "./js/site.js?v=6",
+          "./js/util.js": "./js/util.js?v=7"
         }
       }
     </script>
@@ -50,6 +58,7 @@
       <a class="wordmark" href="#/"><svg class="wordmark-mark" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M60.15 33C60.51 37.44 58.38 43.24 55.77 46.96C53.16 50.68 48.52 53.47 44.49 55.33C40.46 57.18 35.82 58.23 31.6 58.1C27.38 57.97 22.7 56.7 19.15 54.56C15.61 52.43 12.6 48.88 10.32 45.28C8.05 41.69 6.11 37.44 5.51 33C4.9 28.56 4.7 22.7 6.7 18.62C8.69 14.55 13.33 10.19 17.48 8.54C21.63 6.89 27.38 7.9 31.6 8.74C35.82 9.58 39.15 11.64 42.82 13.57C46.49 15.5 50.72 17.06 53.6 20.3C56.49 23.53 59.79 28.56 60.15 33Z"/><path d="M52.07 31.7C52.28 34.7 50.92 38.53 49.2 41.05C47.47 43.57 44.44 45.54 41.74 46.83C39.04 48.12 35.87 48.86 33 48.78C30.13 48.71 26.94 47.84 24.52 46.39C22.1 44.94 20 42.54 18.47 40.09C16.94 37.64 15.7 34.7 15.35 31.7C15 28.7 15.02 24.83 16.39 22.11C17.75 19.38 20.79 16.51 23.55 15.34C26.32 14.17 30.13 14.62 33 15.1C35.87 15.58 38.28 16.91 40.77 18.23C43.27 19.56 46.07 20.83 47.95 23.07C49.83 25.31 51.86 28.7 52.07 31.7Z"/><path d="M44.47 30.6C44.55 32.22 43.88 34.23 42.98 35.61C42.08 36.99 40.52 38.14 39.08 38.87C37.63 39.6 35.88 40.03 34.3 40C32.72 39.97 30.96 39.5 29.62 38.7C28.28 37.91 27.08 36.59 26.26 35.24C25.44 33.89 24.81 32.22 24.68 30.6C24.55 28.98 24.7 26.95 25.46 25.5C26.22 24.04 27.78 22.54 29.25 21.86C30.73 21.17 32.72 21.2 34.3 21.39C35.88 21.57 37.34 22.22 38.71 22.97C40.07 23.72 41.54 24.59 42.5 25.87C43.46 27.14 44.39 28.98 44.47 30.6Z"/></g><circle cx="35.0" cy="30.1" r="4.3" stroke="currentColor" stroke-width="1.4"/></svg>Soundscape Atlas</a>
       <nav aria-label="Main">
         <a href="#/" data-route="atlas">Atlas</a>
+        <a href="#/species" data-route="species">Species</a>
         <a href="#/about" data-route="about">About</a>
         <a href="#/library" data-route="library">Library</a>
         <details id="account-menu" class="account-menu">
@@ -67,7 +76,13 @@
     </header>
     <main id="main"></main>
     <div id="player"></div>
+    <!-- phones: the main sections at thumb height instead of the top bar -->
+    <nav class="tabbar" aria-label="Main">
+      <a href="#/" data-tab="atlas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg><span>Atlas</span></a>
+      <a href="#/species" data-tab="species"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><span>Species</span></a>
+      <a href="#/library" data-tab="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10v17l-5-3.5-5 3.5z"/></svg><span>Library</span></a>
+    </nav>
     <script src="vendor/pmtiles.js"></script>
-    <script type="module" src="js/app.js?v=5"></script>
+    <script type="module" src="js/app.js?v=6"></script>
   </body>
 </html>

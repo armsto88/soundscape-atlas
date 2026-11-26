@@ -13,7 +13,7 @@
 //
 // The session's detection files load when its notes scroll into view.
 
-import { el, fmtClock, plural, info, HOUR, MINUTE } from "./util.js";
+import { el, fmtClock, plural, info, HOUR, MINUTE, isPhone } from "./util.js";
 import { loadDetections, segmentAt, chorusPeak, ACTIVITY_BIN_SEC } from "./data.js";
 import { loadWeather, sessionWeather } from "./weather.js";
 import { hasSupport, supportText } from "./support.js";
@@ -154,9 +154,23 @@ function fill(root, notes, weather, onPlay, site) {
       "Quietest: the longest near-silent stretch, if it lasts 30 minutes or more.") : null,
     birds ? el("p", {}, "▶ plays from just before that moment.") : null,
     weather ? el("p", {}, "Weather from Open-Meteo.com (ERA5 reanalysis, about 25 km grid).") : null);
-  root.append(
-    el("h4", { class: "notes-title" }, "Session notes", birds ? el("small", {}, ` · ${plural(notes.species, "species", "species")} heard`) : null, help.button),
-    help.panel,
-    el("dl", { class: "notes-list" }, rows));
+  const title = el("h4", { class: "notes-title" }, "Session notes", birds ? el("small", {}, ` · ${plural(notes.species, "species", "species")} heard`) : null, help.button);
   root.hidden = false;
+  if (!isPhone()) {
+    root.append(title, help.panel, el("dl", { class: "notes-list" }, rows));
+    return;
+  }
+  // Phones: the playable moments as a row of buttons to swipe through; the
+  // rest (weather, most heard, frogs, care for the place) folded under them.
+  const chips = lines.flatMap((line) => line.items.filter((item) => item.seg).map((item) =>
+    el("button", { class: "moment", type: "button", onclick: () => onPlay(item.seg, item.at) },
+      el("small", {}, line.label),
+      el("span", {}, item.timeInText ? el("b", {}, item.text) : [item.text ? `${item.text} ` : "", el("b", {}, fmtClock(item.moment))], " ▶"))));
+  const rest = rows.filter((_, i) => i >= lines.length || !lines[i].items.some((item) => item.seg));
+  const restLabels = rest.map(([dt]) => dt.textContent);
+  root.append(title, help.panel,
+    chips.length ? el("div", { class: "moments", role: "group", "aria-label": "Moments to play" }, chips) : null,
+    rest.length ? el("details", { class: "notes-more" },
+      el("summary", {}, restLabels.join(" · ")),
+      el("dl", { class: "notes-list" }, rest)) : null);
 }

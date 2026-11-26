@@ -53,6 +53,11 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export const pad = (n) => String(n).padStart(2, "0");
 
+// The phone layout (tab bar, Now Playing, shorter place pages): the same width
+// as the small-screen rules in styles.css. Pages are drawn again when it changes.
+export const PHONE_MEDIA = "(max-width: 860px)";
+export const isPhone = () => window.matchMedia(PHONE_MEDIA).matches;
+
 export function fmtDay(ms, { weekday = true, month = true, year = true } = {}) {
   if (!Number.isFinite(ms)) return "";
   const d = new Date(ms);

@@ -6,7 +6,7 @@
 // the atlas): each chart then gets a lane marking when it called, sessions
 // without it fade back, and the hour in detail opens on its lane.
 
-import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, fmtDay, hideTip, info } from "./util.js";
+import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, fmtDay, fmtInt, hideTip, info, isPhone } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
@@ -21,6 +21,16 @@ import { Marker } from "../vendor/maplibre-gl.mjs";
 
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
+
+// "22–23 Aug 2024", a session's days in few words (phones)
+function shortSpan(start, end) {
+  const a = new Date(start);
+  const b = new Date(end);
+  if (fmtDay(start) === fmtDay(end)) return fmtDay(start, { weekday: false });
+  const sameMonth = a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear();
+  const sameYear = a.getUTCFullYear() === b.getUTCFullYear();
+  return `${fmtDay(start, { weekday: false, month: !sameMonth, year: !sameYear })}–${fmtDay(end, { weekday: false })}`;
+}
 
 // a circle of radius metres around a place, as a GeoJSON polygon
 function circle(lon, lat, metres) {
@@ -82,20 +92,35 @@ export function render(main, model, params, ctx) {
     listenIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
     listen.setAttribute("aria-label", playing ? "Pause" : here ? "Carry on listening" : `Listen: ${listenLabel}`);
   };
-  const head = el("header", { class: "site-head" },
-    el("div", {},
+  const about = [
+    site.description ? el("p", { class: "lede" }, site.description) : null,
+    supportBlock(site),
+    site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
+    el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
+      (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified")),
+  ];
+  // Phones: the name, one line of facts and Play; sessions next; the description,
+  // counts and map at the end under "About this place". Plates pick species there.
+  const phone = isPhone();
+  const head = phone
+    ? el("header", { class: "site-head" }, el("div", {},
       el("p", { class: "back" }, backLink),
-      el("p", { class: "eyebrow" }, [site.locality, site.area, site.state, site.country].filter(Boolean).join(" · ")),
+      el("p", { class: "eyebrow" }, [site.locality, site.area || site.state].filter(Boolean).join(" · ")),
       el("h1", {}, site.site_name),
-      el("p", { class: "facts" }, facts.join(" · ")),
-      listen,
-      site.description ? el("p", { class: "lede" }, site.description) : null,
-      supportBlock(site),
-      site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
-      el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
-        (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified")),
-      find ? el("div", { class: "site-find" }, find.el) : null),
-    insetEl);
+      el("p", { class: "facts" }, [humanize(site.habitat), site.elevation_m ? `${fmtInt(site.elevation_m)} m` : "",
+        site.species.length ? plural(site.species.length, "species", "species") : ""].filter(Boolean).join(" · ")),
+      listen))
+    : el("header", { class: "site-head" },
+      el("div", {},
+        el("p", { class: "back" }, backLink),
+        el("p", { class: "eyebrow" }, [site.locality, site.area, site.state, site.country].filter(Boolean).join(" · ")),
+        el("h1", {}, site.site_name),
+        el("p", { class: "facts" }, facts.join(" · ")),
+        listen,
+        about,
+        find ? el("div", { class: "site-find" }, find.el) : null),
+      insetEl);
+  const aboutEl = phone ? el("section", { class: "site-about" }, el("h2", {}, "About this place"), about, insetEl) : null;
   const lensBar = el("div", { class: "site-lens", hidden: true });
 
   // ---- sessions --------------------------------------------------------------
@@ -170,8 +195,9 @@ export function render(main, model, params, ctx) {
     const article = el("article", { class: "session", tabindex: "-1", "aria-labelledby": titleId },
       el("header", { class: "session-head" },
         el("div", { class: "session-heading" },
-          el("h3", { id: titleId }, fmtSpan(session.start, session.end)),
-          el("span", { class: "muted" }, `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
+          el("h3", { id: titleId }, phone ? shortSpan(session.start, session.end) : fmtSpan(session.start, session.end)),
+          el("span", { class: "muted" }, phone ? `${fmtDuration(session.end - session.start)} · ${humanize(session.season).toLowerCase()}`
+            : `${fmtDuration(session.end - session.start)} · ${humanize(session.season)} · ${sessionSummary(session)}`)),
         save.el),
       chart.el,
       lensText, // the species picked, in this session
@@ -204,7 +230,7 @@ export function render(main, model, params, ctx) {
       });
     },
   });
-  main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl));
+  main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl, aboutEl));
 
   // ---- the species picked ------------------------------------------------------------
   function renderLensBar() {

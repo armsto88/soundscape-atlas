@@ -45,6 +45,8 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   const head = el("div", { class: "detail-head" }, prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), playBtn, nextBtn);
 
   // ---- timeline ----------------------------------------------------------------
+  // (touch: a sideways swipe on the header, or on the spectrogram when not
+  // zoomed, moves to the next or previous hour; see swipeHours below)
   const left = el("div", { class: "tl-left" });
   const inner = el("div", { class: "tl-inner" });
   const scroll = el("div", { class: "tl-scroll" }, inner);
@@ -58,6 +60,27 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   const axis = el("div", { class: "tl-axis" });
   const playhead = el("div", { class: "playhead", hidden: true });
   left.append(specAxis, lanesLeft, el("div", { class: "tl-axis-left" }));
+
+  // touch: swipe the hour sideways, like turning a page
+  const swipeHours = (zone, enabled = () => true) => {
+    let x0 = null;
+    let y0 = 0;
+    zone.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || !enabled()) return;
+      x0 = event.clientX;
+      y0 = event.clientY;
+    });
+    zone.addEventListener("pointerup", (event) => {
+      if (x0 === null) return;
+      const dx = event.clientX - x0;
+      const dy = event.clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
+    });
+    zone.addEventListener("pointercancel", () => { x0 = null; });
+  };
+  swipeHours(head);
+  swipeHours(spec, () => zoom === 1);
   inner.append(spec, lanesRight, axis, playhead);
   const lanesNote = el("p", { class: "lanes-note muted", hidden: true });
   const help = info("the hour view",
@@ -101,6 +124,7 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     const r = scroll.getBoundingClientRect();
     const centre = (scroll.scrollLeft + r.width / 2) / inner.getBoundingClientRect().width;
     zoom = z;
+    tl.classList.toggle("zoomed", z > 1); // zoomed, the spectrogram scrolls sideways instead of swiping hours
     inner.style.width = `${z * 100}%`;
     zoomBtns.forEach((b, i) => b.classList.toggle("active", [1, 2, 4, 8][i] === z));
     scroll.scrollLeft = centre * inner.getBoundingClientRect().width - r.width / 2;

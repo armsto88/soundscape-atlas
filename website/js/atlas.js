@@ -8,7 +8,7 @@
 // address), dims the other places and rings each place by how many of its
 // hours had the species.
 
-import { el, append, plural, fmtInt, humanize, fmtDay, fmtClock, info, svg } from "./util.js";
+import { el, append, plural, fmtInt, humanize, fmtDay, fmtClock, info, svg, isPhone } from "./util.js";
 import { LngLatBounds, Marker, NavigationControl, ScaleControl } from "../vendor/maplibre-gl.mjs";
 import { createMap, tokens, mix, FONTS } from "./map.js";
 import { quickListen, speciesPlaces, findSpecies, callingHours, mostlyWhen, MIN_CALLS } from "./data.js";
@@ -23,11 +23,86 @@ const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v1
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const PLACE_LAYERS = ["places-label", "places-dot", "places-ring"];
 
+// Phones: the list is a sheet over a full-screen map, as in a maps app. It rests
+// at three heights (peek: just the search field; half; full); drag its handle,
+// or tap it to step through them. A place's card sits on top of the sheet.
+function createSheet(atlasEl, sheetEl, state) {
+  const grab = el("div", { class: "sheet-grab", role: "button", tabindex: "0", "aria-label": "Show more or less of the list" }, el("span"));
+  sheetEl.prepend(grab);
+  const heights = () => {
+    const h = atlasEl.clientHeight || 500;
+    return { peek: 88, half: Math.round(h * 0.46), full: Math.max(200, h - 64) };
+  };
+  const ORDER = ["peek", "half", "full"];
+  let current = state.atlasSheet || "half";
+  const apply = () => atlasEl.style.setProperty("--sheet-h", `${heights()[current]}px`);
+  const api = {
+    get state() { return current; },
+    before: null, // where it was before a card pushed it down
+    height: () => heights()[current],
+    set(name) {
+      current = name;
+      state.atlasSheet = name;
+      atlasEl.dataset.sheet = name;
+      apply();
+    },
+  };
+  // a tap steps up (and from full back to half); a drag follows the finger and lands on the nearest height
+  let y0 = null;
+  let h0 = 0;
+  let moved = 0;
+  let t0 = 0;
+  grab.addEventListener("pointerdown", (event) => {
+    y0 = event.clientY;
+    h0 = heights()[current];
+    moved = 0;
+    t0 = performance.now();
+    grab.setPointerCapture(event.pointerId);
+    atlasEl.classList.add("sheet-dragging");
+  });
+  grab.addEventListener("pointermove", (event) => {
+    if (y0 === null) return;
+    moved = y0 - event.clientY;
+    const { peek, full } = heights();
+    atlasEl.style.setProperty("--sheet-h", `${Math.min(full, Math.max(peek, h0 + moved))}px`);
+  });
+  const end = () => {
+    if (y0 === null) return;
+    y0 = null;
+    atlasEl.classList.remove("sheet-dragging");
+    if (Math.abs(moved) < 6) {
+      api.set(current === "full" ? "half" : ORDER[ORDER.indexOf(current) + 1]);
+      return;
+    }
+    const speed = moved / Math.max(1, performance.now() - t0); // px per ms, up is positive
+    const aim = h0 + moved + speed * 180;
+    const hs = heights();
+    api.set(ORDER.reduce((best, name) => (Math.abs(hs[name] - aim) < Math.abs(hs[best] - aim) ? name : best), "peek"));
+  };
+  grab.addEventListener("pointerup", end);
+  grab.addEventListener("pointercancel", end);
+  grab.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    api.set(current === "full" ? "half" : ORDER[ORDER.indexOf(current) + 1]);
+  });
+  // the player bar appearing changes the room: keep the same resting height
+  new ResizeObserver(apply).observe(atlasEl);
+  api.set(current);
+  return api;
+}
+
 export function render(main, model, params, ctx) {
+  const phone = isPhone();
   const index = el("nav", { class: "atlas-index", "aria-label": "Places" });
   const mapEl = el("div", { class: "atlas-map", "aria-label": "Map of recording places" });
   const card = el("div", { class: "site-card", hidden: true });
-  main.append(el("section", { class: "atlas" }, index, el("div", { class: "atlas-mapwrap" }, mapEl, card)));
+  const mapWrap = el("div", { class: "atlas-mapwrap" }, mapEl, card);
+  const atlasEl = el("section", { class: "atlas" }, index, mapWrap);
+  main.append(atlasEl);
+  let sheet = null; // phones: the list as a sheet (made below)
+  // how much of the map's bottom the sheet and the card cover (phones)
+  const covered = () => (sheet ? sheet.height() + (card.hidden ? 0 : card.offsetHeight + 8) : 0);
 
   const map = createMap(mapEl);
   map.addControl(new NavigationControl({ showCompass: false }), "top-left");
@@ -40,8 +115,10 @@ export function render(main, model, params, ctx) {
   const longestName = Math.max(0, ...model.publishedSites.map((s) => (s.site_name || "").length));
   const framing = (base) => {
     const width = mapEl.clientWidth || 600;
+    const height = mapEl.clientHeight || 400;
     const right = Math.min(base + 16 + longestName * 7.5, width * 0.45); // 12.5 px Inter: about 7.5 px a letter
-    return { top: base, bottom: base, left: base, right: Math.max(base, right) };
+    const bottom = Math.min(base + covered(), height * 0.6); // above the sheet on phones
+    return { top: base, bottom, left: base, right: Math.max(base, right) };
   };
   const fly = (bounds, duration = 800) => {
     if (bounds.isEmpty()) return;
@@ -91,6 +168,10 @@ export function render(main, model, params, ctx) {
       el("div", { class: "card-listen-text" }, el("b", {}, label), el("span", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`)));
   };
   const openCard = (site) => {
+    if (sheet && sheet.state !== "peek") {
+      sheet.before = sheet.state;
+      sheet.set("peek");
+    }
     card.innerHTML = "";
     cardPlay = null;
     cardSite = site;
@@ -119,6 +200,10 @@ export function render(main, model, params, ctx) {
     ctx.state.atlasSelected = site.id;
   };
   function closeCard() {
+    if (sheet && sheet.before) {
+      sheet.set(sheet.before);
+      sheet.before = null;
+    }
     card.hidden = true;
     cardSite = null;
     select(null);
@@ -133,7 +218,20 @@ export function render(main, model, params, ctx) {
   const findWrap = el("div", { class: "atlas-find" });
   const lensEl = el("div", { class: "lens-results", hidden: true });
   const accEl = el("div", { class: "acc" });
-  index.append(findWrap, lensEl, accEl);
+  if (phone) {
+    index.append(findWrap, el("div", { class: "sheet-body" }, lensEl, accEl)); // the field stays at the top, the list scrolls
+    sheet = createSheet(atlasEl, index, ctx.state);
+    // the name of the site, on the map where the top bar would be (it opens About)
+    const brand = document.querySelector(".topbar .wordmark")?.cloneNode(true);
+    if (brand) {
+      brand.className = "atlas-brand";
+      brand.href = "#/about";
+      brand.setAttribute("aria-label", "About Soundscape Atlas");
+      mapWrap.append(brand);
+    }
+  } else {
+    index.append(findWrap, lensEl, accEl);
+  }
   const searchable = model.species.filter((sp) => speciesPlaces(sp).length > 0);
   const sessionsIn = (places) => places.reduce((n, p) => n + p.sessions.length, 0);
   if (searchable.length) {
@@ -321,8 +419,9 @@ export function render(main, model, params, ctx) {
 
   const siteRow = (site) => {
     const row = el("button", { class: "acc-site", type: "button", onclick: () => {
-      map.flyTo({ center: [site.longitude, site.latitude], zoom: Math.max(map.getZoom(), 10), duration: 800 });
       openCard(site);
+      // on phones, into the middle of the map left showing above the sheet and card
+      map.flyTo({ center: [site.longitude, site.latitude], zoom: Math.max(map.getZoom(), 10), duration: 800, offset: [0, -covered() / 2] });
     } }, el("span", {}, site.site_name), el("small", {}, `${plural(site.sessions.length, "session")} · ${fmtInt(site.hours)} h`));
     rowsBySite.set(site.id, row);
     return el("li", {}, row);
@@ -487,6 +586,7 @@ export function render(main, model, params, ctx) {
     if (!site) return closeCard();
     reveal(site);
     openCard(site);
+    if (sheet) map.easeTo({ center: [site.longitude, site.latitude], offset: [0, -covered() / 2], duration: 500 });
   });
   map.on("mousemove", (event) => {
     const hit = ready && map.queryRenderedFeatures(event.point, { layers: PLACE_LAYERS })[0];
@@ -541,6 +641,7 @@ export function render(main, model, params, ctx) {
     if (params && params.focus && !saved) map.jumpTo({ center: [focus.longitude, focus.latitude], zoom: 10 });
     reveal(focus);
     openCard(focus);
+    if (sheet && params && params.focus && !saved) map.easeTo({ center: [focus.longitude, focus.latitude], offset: [0, -covered() / 2], duration: 0 });
   }
 
   return {

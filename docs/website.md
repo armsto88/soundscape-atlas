@@ -82,25 +82,53 @@ the R2 bucket.
   view, Session notes, Heard here; `info()` in `js/util.js`), never
   in tooltips, so it works by touch too. Floating labels show the chart time,
   call details and comment previews.
+- **Species** (`#/species`, `js/speciesindex.js`): every bird and frog heard
+  so far, most calls first, with a field that narrows the list as you type.
+  Each opens on the atlas with the places it was heard at (`#/?species=`), as
+  if picked in the atlas search; species on a sensitive list count sessions.
 - **About** (`#/about`).
 - **Library** (`#/library`): create an account or sign in with a username and
   password. The library opens saved sessions and hours at their recording and
-  lets the listener remove favourites.
+  lets the listener remove favourites. Under it, **Appearance** (Auto, Light,
+  Dark; also in the account menu on wide screens) and a link to About, which
+  the phone's tab bar has no room for.
 
-Phones (designed for 375 px wide, the iPhone SE): the map sits above the place
-list and its card shows only the essentials; the map's credits start folded
-and the scale bar is hidden. In the hour view each species lane carries its
-own name across the top (no name column), on a paper backing the playhead
-passes behind, and plates sit three to a row. The player bar appears only once
-something has played. Text fields are 16 px, or iOS zooms into them.
+**Phones** (up to 860 px wide, designed for the 375 px iPhone SE; `isPhone()`
+in `js/util.js` matches the CSS, and the page is drawn again when it changes):
+
+- A **tab bar** at the bottom (Atlas, Species, Library) replaces the top bar;
+  the player bar sits on top of it, and appears only once something has played.
+- **Atlas**: a full-screen map with the site's name on it (opens About) and
+  the list in a **sheet** over it (`createSheet` in `js/atlas.js`) that rests
+  at three heights: peek (the search field), half, full. Drag its handle, or
+  tap it to step through them. A place's card sits on the sheet, which steps
+  down to peek while the card is open; flying to a place keeps it in the part
+  of the map left showing. The map's credits move up with the sheet.
+  The search field has no background of its own: Chrome treats an opaque,
+  square box over the map's WebGL canvas as covering it and skips the canvas
+  under a vertically mirrored copy of the box (a blank strip on the map).
+- **Place page**, built differently (`js/site.js`): back link, locality and
+  area, the name, one line of facts (habitat, height, species), the Play
+  button; then the sessions, titled in few words ("22–23 Aug 2024 · 19 h 12
+  min · winter"); then Heard here; and at the end "About this place" with the
+  description, counts and inset map. No species search: the plates do that.
+- **Session notes** (`js/notes.js`): the playable moments as a row of
+  buttons to swipe through; weather, most heard and frogs folded under them.
+- **Hour view**: no weather line (it is in the notes); swipe the header, or
+  the spectrogram when not zoomed, sideways for the next or previous hour.
+  Each species lane carries its own name across the top (no name column), on
+  a paper backing the playhead passes behind.
+- **Plates**: three to a row and no Enlarge buttons. A press opens the plate
+  large with its scientific name and calls here, and "Follow it in the
+  sessions" and "Where else it was heard". The credits line is on About.
+- The map's credits start folded and the scale bar is hidden. Text fields are
+  16 px, or iOS zooms into them.
 
 Touch screens (`pointer: coarse`): controls get a 44 × 44 pt target, Apple's
 minimum, often as an invisible `::after` around a smaller-looking link or
 button. Hover styles apply only to devices that hover (`@media (hover: hover)`),
 so a tap leaves nothing looking hovered. Taps flash ochre; charts and the
-timeline allow no text selection or long-press menu. The page declares
-`color-scheme: only light` so Safari 27.3's "Adaptive Dark Mode" leaves it
-alone until the site has a night theme.
+timeline allow no text selection or long-press menu.
 
 **Care for this place**: if a place has a local conservation group in
 sites.csv (`support_name`, `support_url`, `support_note`), its place page
@@ -201,6 +229,8 @@ website/js/species.js   plate grid with rings (plates are buttons when a species
 website/js/search.js    the species search field, the card for the species picked, the 24-hour strip
 website/js/player.js    the audio element, the player bar, the sleep timer, the lock screen
 website/js/nowplaying.js   Now Playing, the full view behind the player bar on phones
+website/js/speciesindex.js the Species page
+website/js/theme.js     light, dark or the phone's setting
 website/manifest.webmanifest   for the Home Screen app: name, colours, icons
 website/art/            bird plates, frog plates, manifest.json
 website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
@@ -354,6 +384,18 @@ names a colour. Each accent has one job:
 - **red**: now (the playhead, with a small cap, and the progress line), and errors;
 - **slate**: night (and later the map's water); **dusk**: twilight. The chart's
   sky is one gradient from day to dusk at sunset to night an hour later.
+
+**Night paper**, the dark theme, gives every token a dark value with the same
+role (all text pairs at least 4.5:1); it follows the phone's setting, or the
+listener's choice under Appearance (`js/theme.js`, kept in localStorage and
+applied by a line in `index.html` before anything is drawn, as
+`data-theme` on `<html>`). A few tokens exist for it: **plate** (plates keep a
+paper disc in both themes, being ink on paper), **shadow** (shadows stay dark),
+and the spectrogram is inverted and screened instead of multiplied. The map
+takes its colours from the tokens when drawn, so the page is drawn again when
+the theme changes; its hillshade keeps dark shadows at night (`isDark` in
+`js/map.js`). Declaring both schemes also keeps Safari 27.3's "Adaptive Dark
+Mode" from darkening the site on its own.
 
 The mark is three contour lines around an ochre dot: a hill on a map, and
 sound spreading from the recorder. It sits inline in the top bar of

@@ -3,7 +3,7 @@
 // &t=<seconds> also cues the player there), #/about. Old #/hour/<segment id> links, and ?segment=<id> links from the
 // previous site, open the place at that hour.
 
-import { el } from "./util.js";
+import { el, PHONE_MEDIA } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
 import { mountNowPlaying } from "./nowplaying.js";
@@ -12,6 +12,8 @@ import { mountAccountMenu, renderLibrary } from "./library.js";
 import { renderAdmin } from "./admin.js";
 import * as atlas from "./atlas.js";
 import * as site from "./site.js";
+import { renderSpeciesIndex } from "./speciesindex.js";
+import { onThemeChange } from "./theme.js";
 
 const state = { model: null, atlasView: null, atlasOpen: null, atlasSelected: null, current: null };
 const ctx = {
@@ -50,6 +52,14 @@ function render() {
   for (const link of document.querySelectorAll(".topbar nav a")) {
     link.classList.toggle("active", link.dataset.route === (route.name === "site" ? "atlas" : route.name));
   }
+  // the tab bar on phones: a place belongs to the atlas; About and admin live under Library there
+  const tab = { site: "atlas", species: "species", library: "library", about: "library", admin: "library" }[route.name] || "atlas";
+  for (const link of document.querySelectorAll(".tabbar a")) {
+    const on = link.dataset.tab === tab;
+    link.classList.toggle("active", on);
+    if (on) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
   if (!state.model) return;
 
   let title = "Soundscape Atlas";
@@ -64,6 +74,11 @@ function render() {
     renderAbout(main);
     title = "About · Soundscape Atlas";
     path = "/about";
+    window.scrollTo(0, 0);
+  } else if (route.name === "species") {
+    renderSpeciesIndex(main, state.model);
+    title = "Species · Soundscape Atlas";
+    path = "/species";
     window.scrollTo(0, 0);
   } else if (route.name === "library") {
     renderLibrary(main, state.model, route.params);
@@ -106,6 +121,8 @@ async function boot() {
   player.mount(document.getElementById("player"));
   mountNowPlaying(player);
   window.addEventListener("hashchange", render);
+  onThemeChange(render); // maps and charts take their colours when drawn: draw the page again
+  window.matchMedia(PHONE_MEDIA).addEventListener("change", render); // place pages are built differently on phones
   try {
     state.model = await loadModel();
   } catch (err) {

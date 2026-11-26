@@ -10,11 +10,10 @@
 //
 // On wider screens the bar's title stays a link to the place page.
 
-import { el, fmtDay, fmtClock, humanize, plural } from "./util.js";
+import { el, fmtDay, fmtClock, humanize, plural, isPhone } from "./util.js";
 import { createSessionChart } from "./sessionchart.js";
 import { hourPlate, SLEEP_CHOICES } from "./player.js";
 
-const PHONE = "(max-width: 860px)";
 const stroke = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const solid = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="${d}"/></svg>`;
 const ICON = {
@@ -39,7 +38,7 @@ export function mountNowPlaying(player) {
   // the bar's title and clock open the view on phones (the play and skip buttons keep their jobs)
   document.addEventListener("click", (event) => {
     const hit = event.target instanceof Element && event.target.closest(".player-title, .player-time");
-    if (!hit || !player.segment || !window.matchMedia(PHONE).matches) return;
+    if (!hit || !player.segment || !isPhone()) return;
     event.preventDefault();
     open();
   });

@@ -85,6 +85,11 @@ function flavor(t) {
 
 // a #rrggbb colour with an alpha, for MapLibre
 const rgba = (hex, a) => `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${a})`;
+// night paper: the page is darker than its ink
+const isDark = (t) => {
+  const light = (hex) => [1, 3, 5].reduce((n, i) => n + parseInt(hex.slice(i, i + 2), 16), 0);
+  return light(t.paper) < light(t.ink);
+};
 
 export function baseStyle() {
   const t = tokens();
@@ -117,8 +122,9 @@ export function baseStyle() {
           id: `${name}-hillshade`, type: "hillshade", source: `terrain-${name}`,
           paint: {
             "hillshade-method": "igor",
-            "hillshade-shadow-color": rgba(t.ink, 0.34),
-            "hillshade-highlight-color": rgba(t["paper-0"], 0.4),
+            // shadows stay dark and light stays light, whichever paper the map is on
+            "hillshade-shadow-color": isDark(t) ? "rgba(0, 0, 0, 0.55)" : rgba(t.ink, 0.34),
+            "hillshade-highlight-color": isDark(t) ? rgba(t.ink, 0.07) : rgba(t["paper-0"], 0.4),
             "hillshade-exaggeration": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 0.35],
           },
         });

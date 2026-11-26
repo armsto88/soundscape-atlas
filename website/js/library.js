@@ -1,5 +1,6 @@
 import { el, fmtClock, fmtDay, fmtSpan } from "./util.js";
 import { createBotCheck } from "./botcheck.js";
+import { themeControl } from "./theme.js";
 
 let accountRequest;
 let userRequest;
@@ -57,6 +58,7 @@ export function mountAccountMenu(onSignOut) {
   const summary = menu.querySelector("summary");
   const button = document.getElementById("account-sign-out");
   const error = document.getElementById("account-menu-error");
+  menu.querySelector(".account-panel").append(el("div", { class: "account-theme" }, el("span", { class: "muted" }, "Appearance"), themeControl()));
   currentUser().catch(() => {
     document.getElementById("account-status").textContent = "Account status unavailable";
     document.getElementById("account-sign-in").hidden = false;
@@ -195,8 +197,13 @@ export function renderLibrary(main, model, params) {
   const back = params.from?.startsWith("#/site/") ? el("a", { href: params.from }, "← Back to recording") : null;
   const status = el("p", { class: "account-error", role: "status" });
   const content = el("div", {}, el("p", { class: "muted" }, "Loading your library…"));
+  // on phones the tab bar has no About or account menu: both live here
+  const more = el("section", { class: "library-more" },
+    el("h2", {}, "Appearance"),
+    themeControl(),
+    el("p", { class: "library-about" }, el("a", { href: "#/about" }, "About Soundscape Atlas"), " · recordings, plates, credits"));
   const root = el("article", { class: "page prose library" }, back ? el("p", { class: "back" }, back) : null,
-    el("h1", {}, "My library"), status, content);
+    el("h1", {}, "My library"), status, content, more);
   main.append(root);
 
   function showForm() {
