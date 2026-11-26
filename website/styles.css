@@ -211,6 +211,17 @@ small { font-size: 0.8em; }
 .comment-timing label { flex: 1; }
 .comment-timing input { border: 0; padding: 0; background: none; accent-color: var(--ochre-deep); }
 .comment-clock, .comment-time { font-variant-numeric: tabular-nums; }
+/* listening first: the place's best moment, one press away */
+.site-listen {
+  display: inline-flex; align-items: center; gap: 0.75rem; margin: 0.3rem 0 0.9rem; padding: 0.4rem 1.3rem 0.4rem 0.4rem;
+  border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-0); color: var(--ink); text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .site-listen:hover { background: var(--paper-2); } }
+.site-listen-icon { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; }
+.site-listen-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.site-listen-text { display: grid; line-height: 1.25; }
+.site-listen-text b { font-weight: 600; }
+.site-listen-text small { font-size: 0.82rem; color: var(--ink-3); }
 .site-head { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; align-items: start; }
 .inset-map { height: 220px; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-2); margin-top: 1.4rem; }
 /* (i) help: a small round button by a heading, opening a note under it (util.js info()) */
@@ -557,7 +568,65 @@ small { font-size: 0.8em; }
   padding: 0.65rem 0.8rem; background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-radius: 9px;
   box-shadow: 0 5px 16px color-mix(in srgb, var(--ink) 16%, transparent);
 }
+.tooltip-fixed { position: fixed; } /* inside the Now Playing view, which does not scroll with the page */
 .comment-preview { overflow-wrap: anywhere; }
+
+/* ---- Now Playing (phones): the full view behind the player bar ------------- */
+.np {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  background: var(--paper); color: var(--ink); overflow: hidden;
+}
+.np[open] { display: flex; flex-direction: column; animation: np-up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.np::backdrop { background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.np.closing { transform: translateY(100%); transition: transform 0.22s ease-in; }
+.np.dragging { transition: none; }
+@keyframes np-up { from { transform: translateY(100%); } }
+:root:has(dialog.np[open]) { overflow: hidden; }
+.np-top { flex: none; touch-action: none; padding: 0.35rem 0.75rem 0; } /* the part a finger drags down */
+.np-grab { display: block; width: 36px; height: 5px; margin: 0 auto 0.1rem; border-radius: 3px; background: var(--rule); }
+.np-head { display: grid; grid-template-columns: 5.5rem 1fr 5.5rem; align-items: center; }
+.np-label { text-align: center; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.np-place { justify-self: end; min-height: 44px; display: inline-flex; align-items: center; padding: 0 0.3rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.np-icon { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.np-icon svg { width: 26px; height: 26px; }
+.np-icon:disabled { opacity: 0.3; cursor: default; }
+.np-jump { align-content: center; gap: 0; }
+.np-jump svg { width: 24px; height: 24px; }
+.np-jump small { font-size: 0.6rem; font-weight: 600; line-height: 1; margin-top: -1px; }
+.np-ring {
+  --size: min(180px, 26svh); width: var(--size); height: var(--size); margin: 0.2rem auto 0;
+  border-radius: 50%; border: 3px solid var(--rule); background: var(--paper-0); display: grid; place-items: center; overflow: hidden;
+  transition: border-color 0.4s ease;
+}
+.np-ring.calling { border-color: var(--ochre); }
+.np-ring img { width: 80%; height: 80%; object-fit: contain; }
+.np-caption { min-height: 1.4em; margin: 0.35rem 0 0; text-align: center; font-size: 0.86rem; color: var(--ink-2); }
+.np-caption i { color: var(--ochre-deep); }
+.np-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 1rem 1rem; display: flex; flex-direction: column; }
+.np-title { margin: 0; font-size: 1.55rem; }
+.np-when { margin: 0.1rem 0 0.4rem; font-size: 0.88rem; color: var(--ink-2); }
+.np-chart .sc-plot { height: 78px; }
+.np-time { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.np-clock { font-size: 1.3rem; font-weight: 500; }
+.np-clock small { font-size: 0.75em; font-weight: 400; color: var(--ink-3); }
+.np-hour { font-size: 0.85rem; color: var(--ink-3); }
+.np-controls { display: flex; justify-content: space-between; align-items: center; margin: 0.5rem 0; }
+.np-play { flex: none; width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; cursor: pointer; }
+.np-play svg { width: 28px; height: 28px; }
+.np-play:disabled { opacity: 0.3; cursor: default; }
+.np-msg { margin: 0 0 0.4rem; text-align: center; font-size: 0.88rem; color: var(--red); }
+.np-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: auto; }
+.np-chip {
+  min-height: 44px; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 1rem; cursor: pointer;
+  border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); color: var(--ink-2); font-size: 0.88rem;
+}
+.np-chip svg { width: 17px; height: 17px; }
+.np-chip.on, .np-chip[aria-pressed="true"] { border-color: var(--ochre-deep); background: var(--ochre-2); color: var(--ochre-deep); }
+.np-sleep-menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .np[open] { animation: none; }
+  .np.closing { transition: none; }
+}
 .comment-preview-meta {
   display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline;
   padding-bottom: 0.35rem; margin-bottom: 0.45rem; border-bottom: 1px solid var(--rule); white-space: normal;
@@ -589,6 +658,7 @@ small { font-size: 0.8em; }
   .ring img { max-width: 84px; max-height: 78px; }
   .ring .ph { width: 64px; height: 64px; }
   .player-now, .player-level { display: none; }
+  .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
   .player-clock { font-size: 0.95rem; }
   /* nothing has played yet: no player bar, and its space goes to the page */
   body:has(.player[data-state="idle"]) { --player-h: 0px; }
@@ -634,6 +704,7 @@ small { font-size: 0.8em; }
   .card-foot { margin-top: 0.5rem; }
   .card-play { width: 38px; height: 38px; }
   .session-head h3 { font-size: 1rem; }
+  .site-listen { display: flex; width: 100%; }
   .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem 0.5rem; }
   .ring { width: 92px; height: 92px; }
   .ring img { max-width: 74px; max-height: 68px; }

@@ -42,8 +42,11 @@ the R2 bucket.
   data.json do not name it either. Where it remains (places published coarsely
   enough), the search names only the area, and only when the area has more
   than one published place (otherwise the state); see "Sensitive species".
-- **Place** (`#/site/<site_id>?at=<segment_id>`): description and inset map,
-  then one chart per recording session. Each chart spans the session from its
+- **Place** (`#/site/<site_id>?at=<segment_id>`): under the name, a Play
+  button for the place's best moment (the same one its atlas card plays, from
+  `quickListen` in `js/data.js`), so the first screen on a phone can be
+  listened to; then description and inset map, then one chart per recording
+  session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,
   sunset and sunrise marked, unpublished hours hatched, and an activity curve
   of detections per five minutes. Click anywhere to listen from that moment.
@@ -196,7 +199,9 @@ website/js/sessionchart.js   one session's chart and its hour window
 website/js/detail.js    the hour in detail
 website/js/species.js   plate grid with rings (plates are buttons when a species can be followed)
 website/js/search.js    the species search field, the card for the species picked, the 24-hour strip
-website/js/player.js    the audio element and the player bar
+website/js/player.js    the audio element, the player bar, the sleep timer, the lock screen
+website/js/nowplaying.js   Now Playing, the full view behind the player bar on phones
+website/manifest.webmanifest   for the Home Screen app: name, colours, icons
 website/art/            bird plates, frog plates, manifest.json
 website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
 website/vendor/         MapLibre GL JS 6.17.0, pmtiles 4.5.0, @protomaps/basemaps 5.7.2, licences
@@ -223,6 +228,25 @@ title, the day, hour and period under it, and a plate as artwork: the hour's
 most-heard species with one, else the place's. Their buttons play, pause,
 scrub and skip to the previous or next hour. iOS shows either ±10 s buttons or
 previous/next, never both; the player registers only previous/next.
+
+**Now Playing** (phones, `js/nowplaying.js`): tapping the player bar's title or
+clock opens a full-screen view: the plate of the bird calling now (ochre ring),
+else the hour's plate (as on the lock screen), the place and hour, the
+session's chart to tap or scrub (the same chart as on the place page), ±15/30 s,
+previous/next hour, and a **sleep timer** (15, 30 or 60 minutes, or the end of
+the hour). The timer fades the sound over its last 8 seconds where the browser
+lets a page set the volume (iOS does not) and then pauses; pausing by hand
+cancels it. The view closes with the chevron, a swipe down, Escape or any page
+change. It adds no history entry for Back: hours moving on rewrite the address
+in place, and Back would land on a stale one and re-render the page. Tooltips
+opened inside it are placed in the dialog (`showTip` in `js/util.js`), or the
+dialog would cover them.
+
+**Home Screen app**: `manifest.webmanifest` (name "Soundscape Atlas", Home
+Screen label "Soundscape", standalone, paper colours, three icons) and
+`apple-mobile-web-app-title`. Since iOS 26 any site added to the Home Screen
+opens as its own app; nothing invites visitors to add it yet. There is no
+service worker, so the app needs the network like the website.
 
 ## The map
 
@@ -335,7 +359,10 @@ The mark is three contour lines around an ochre dot: a hill on a map, and
 sound spreading from the recorder. It sits inline in the top bar of
 `index.html` (colours from the tokens). `website/assets/` holds `mark.svg`,
 `favicon.svg` (a simpler two-ring version on a paper tile), `favicon-32.png`,
-`apple-touch-icon.png` and `social.png`, the 1200 × 630 link-preview image,
+`apple-touch-icon.png`, the app icons `icon-192.png`, `icon-512.png` and
+`icon-maskable-512.png` (the mark on paper, its lines a little heavier, rendered
+from `mark.svg` with headless Chrome; the maskable one smaller, inside the safe
+zone) and `social.png`, the 1200 × 630 link-preview image,
 drawn by `scripts/make_social_image.py`. That script can add one hour's
 spectrogram strip (`--segment`), but only for a published hour.
 

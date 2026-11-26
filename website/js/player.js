@@ -35,6 +35,21 @@ const analysable = (url) => {
   }
 };
 
+// The plate that stands for an hour (lock screen, Now Playing): the hour's
+// most-heard species that has art, else the place's most-heard one with art.
+// Returns { name, image } or null.
+export function hourPlate(seg) {
+  if (!seg) return null;
+  const withArt = (seg.site?.species || []).filter((s) => s.image);
+  const byName = new Map(withArt.map((s) => [s.name, s]));
+  const top = seg.top_species.map((s) => s && byName.get(s.name)).find(Boolean) || withArt[0];
+  return top ? { name: top.name, image: top.image } : null;
+}
+
+// the sleep timer's choices: minutes, or "hour" to stop when this hour ends
+export const SLEEP_CHOICES = [15, 30, 60, "hour"];
+const FADE_SEC = 8; // the sound fades over the last seconds (where the browser lets a page set the volume)
+
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const ICON_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h2.5v14H5zm14 0v14L8.5 12z"/></svg>';
@@ -56,6 +71,8 @@ class Player extends EventTarget {
     this.graph = null;  // Web Audio analyser for the level line
     this.level = 0;
     this.raf = 0;
+    this.sleep = null;  // { until: ms } or { hour: true }: when to stop
+    this.sleepTimer = 0;
 
     // If Web Audio is used after all (an iPad with a trackpad), ask Safari to
     // treat it as playback, not ambient sound. Safari 16.4 and later only.
@@ -109,6 +126,13 @@ class Player extends EventTarget {
     a.addEventListener("ended", () => {
       if (a !== this.audio) return;
       this.listening.interrupt();
+      if (this.sleep && this.sleep.hour) {
+        this.setSleep(null); // the sleep timer said: stop with this hour
+        this.wanted = false;
+        this.listening.finish();
+        this.emitState();
+        return;
+      }
       const next = this.next();
       if (next) this.load(next, { autoplay: true });
       else this.listening.finish();
@@ -167,6 +191,7 @@ class Player extends EventTarget {
   }
 
   emitState() {
+    this.checkSleep();
     this.calling = this.callsAt(this.currentTime);
     this.dispatchEvent(new CustomEvent("state"));
     this.renderBar();
@@ -244,6 +269,7 @@ class Player extends EventTarget {
     this.wanted = false;
     this.listening.finish();
     this.audio.pause();
+    if (this.sleep) this.setSleep(null); // a timer outlives no pause: it would fire on the next play
   }
   toggle() {
     if (!this.segment) return;
@@ -305,6 +331,45 @@ class Player extends EventTarget {
     if (this.dom) this.dom.levelFill.style.transform = "scaleX(0)";
   }
 
+  // ---- the sleep timer ---------------------------------------------------------
+  // Checked on every player event (timeupdate fires a few times a second while
+  // playing, also with the screen locked) and by a timeout as a back-up.
+
+  setSleep(choice) {
+    clearTimeout(this.sleepTimer);
+    this.sleepTimer = 0;
+    this.setVolume(1);
+    if (choice === "hour") this.sleep = { hour: true };
+    else if (Number.isFinite(choice) && choice > 0) {
+      const until = Date.now() + choice * 60_000;
+      this.sleep = { until, minutes: choice };
+      this.sleepTimer = setTimeout(() => this.checkSleep(), choice * 60_000 + 50);
+    } else this.sleep = null;
+    this.dispatchEvent(new CustomEvent("state"));
+  }
+  // minutes left on the timer (rounded up), or null
+  get sleepLeft() {
+    if (!this.sleep || !this.sleep.until) return null;
+    return Math.max(0, Math.ceil((this.sleep.until - Date.now()) / 60_000));
+  }
+  checkSleep() {
+    if (!this.sleep || !this.sleep.until) return;
+    const left = (this.sleep.until - Date.now()) / 1000;
+    if (left <= 0) {
+      this.pause(); // pausing ends the timer and puts the volume back, after the sound has stopped
+      return;
+    }
+    this.setVolume(left < FADE_SEC ? left / FADE_SEC : 1);
+  }
+  // iOS keeps the volume with the listener, and ignores this
+  setVolume(v) {
+    try {
+      if (Math.abs(this.audio.volume - v) > 0.01) this.audio.volume = clamp(v, 0, 1);
+    } catch {
+      // read-only here
+    }
+  }
+
   // ---- the lock screen and Control Center ------------------------------------
 
   setMediaHandlers() {
@@ -342,9 +407,7 @@ class Player extends EventTarget {
       session.metadata = null;
       return;
     }
-    const plates = new Map((seg.site?.species || []).filter((s) => s.image).map((s) => [s.name, s.image]));
-    const top = seg.top_species.map((s) => s && s.name).find((name) => plates.has(name));
-    const image = top ? plates.get(top) : plates.values().next().value;
+    const image = hourPlate(seg)?.image;
     const artwork = image
       ? [{ src: new URL(image, document.baseURI).href }]
       : [{ src: new URL("assets/apple-touch-icon.png", document.baseURI).href, sizes: "180x180", type: "image/png" }];

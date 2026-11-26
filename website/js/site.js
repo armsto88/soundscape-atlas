@@ -6,11 +6,11 @@
 // the atlas): each chart then gets a lane marking when it called, sessions
 // without it fade back, and the hour in detail opens on its lane.
 
-import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, hideTip, info } from "./util.js";
+import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, fmtDay, hideTip, info } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
 import { createDetail } from "./detail.js";
 import { renderSpecies } from "./species.js";
-import { findSpecies } from "./data.js";
+import { findSpecies, quickListen } from "./data.js";
 import { createSpeciesSearch, lensCard } from "./search.js";
 import { renderNotes } from "./notes.js";
 import { createSaveControl } from "./library.js";
@@ -20,6 +20,7 @@ import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
 
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 
 // a circle of radius metres around a place, as a GeoJSON polygon
 function circle(lon, lat, metres) {
@@ -60,12 +61,34 @@ export function render(main, model, params, ctx) {
     }),
     onPick: (sp) => setPicked(sp),
   }) : null;
+  // Listening first: one press plays the place's best moment, the same one its
+  // card on the atlas plays (featured hour, else the liveliest dawn chorus).
+  const quick = quickListen(site);
+  const listenIcon = el("span", { class: "site-listen-icon", html: ICON_PLAY });
+  const listenLabel = quick ? (quick.kind === "dawn" ? "Dawn chorus" : humanize(quick.seg.period) || "Listen") : "";
+  const listen = quick ? el("button", {
+    class: "site-listen", type: "button",
+    onclick: () => {
+      if (player.segment && player.segment.site === site) player.toggle(); // this place is loaded: pause, or carry on
+      else select(quick.seg, { play: true, at: quick.at, reveal: false });
+    },
+  }, listenIcon, el("span", { class: "site-listen-text" },
+    el("b", {}, listenLabel),
+    el("small", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`))) : null;
+  const showListen = () => {
+    if (!listen) return;
+    const here = player.segment && player.segment.site === site;
+    const playing = here && player.isPlaying;
+    listenIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+    listen.setAttribute("aria-label", playing ? "Pause" : here ? "Carry on listening" : `Listen: ${listenLabel}`);
+  };
   const head = el("header", { class: "site-head" },
     el("div", {},
       el("p", { class: "back" }, backLink),
       el("p", { class: "eyebrow" }, [site.locality, site.area, site.state, site.country].filter(Boolean).join(" · ")),
       el("h1", {}, site.site_name),
       el("p", { class: "facts" }, facts.join(" · ")),
+      listen,
       site.description ? el("p", { class: "lede" }, site.description) : null,
       supportBlock(site),
       site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
@@ -256,6 +279,7 @@ export function render(main, model, params, ctx) {
   const pulse = new Marker({ element: el("div", { class: "place-pulse", "aria-hidden": "true" }), anchor: "center" }).setLngLat([site.longitude, site.latitude]);
   let pulsing = false;
   const onState = () => {
+    showListen();
     const moment = player.segment && player.segment.site === site ? player.moment : null;
     for (const [session, b] of blocks) b.chart.setPlayhead(player.segment && player.segment.session === session ? moment : null);
     const playingHere = player.isPlaying && player.segment && player.segment.site === site;

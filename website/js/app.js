@@ -6,6 +6,7 @@
 import { el } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
+import { mountNowPlaying } from "./nowplaying.js";
 import { startAnalytics, trackPage } from "./analytics.js";
 import { mountAccountMenu, renderLibrary } from "./library.js";
 import { renderAdmin } from "./admin.js";
@@ -103,6 +104,7 @@ async function boot() {
   startAnalytics();
   mountAccountMenu(render);
   player.mount(document.getElementById("player"));
+  mountNowPlaying(player);
   window.addEventListener("hashchange", render);
   try {
     state.model = await loadModel();

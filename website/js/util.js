@@ -111,11 +111,14 @@ export function showTip(content, anchor, { interactive = false } = {}) {
     tip = el("div", { class: "tooltip", id: "atlas-tooltip", role: "tooltip",
       onpointerenter: () => clearTimeout(tipTimer),
       onpointerleave: () => { if (tipAnchor !== document.activeElement) hideTipSoon(180); } });
-    document.body.append(tip);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && tipAnchor) hideTip();
     });
   }
+  // inside an open dialog (Now Playing) the tip must live in it, or the dialog covers it
+  const host = anchor.closest("dialog[open]");
+  if (tip.parentElement !== (host || document.body)) (host || document.body).append(tip);
+  tip.classList.toggle("tooltip-fixed", Boolean(host));
   tipAnchor?.removeAttribute("aria-describedby");
   tipAnchor = interactive ? anchor : null;
   tipAnchor?.setAttribute("aria-describedby", tip.id);
@@ -132,7 +135,7 @@ export function showTip(content, anchor, { interactive = false } = {}) {
   const left = clamp(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8);
   const top = useAbove ? r.top - tip.offsetHeight - 8 : r.bottom + 8;
   tip.style.left = `${left}px`;
-  tip.style.top = `${top + window.scrollY}px`;
+  tip.style.top = `${top + (host ? 0 : window.scrollY)}px`;
 }
 export function hideTip() {
   clearTimeout(tipTimer);
