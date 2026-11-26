@@ -1,4 +1,5 @@
 import { currentUser, libraryHref, requestApi } from "./library.js";
+import { createBotCheck } from "./botcheck.js";
 import { clamp, el } from "./util.js";
 
 const postedDate = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -84,6 +85,7 @@ export function sessionComments(session, { onPlay, onMarks }) {
   function commentForm(user) {
     const input = el("textarea", { name: "comment", rows: "3", maxlength: "2000", required: true });
     const send = el("button", { class: "btn btn-primary", type: "submit" }, "Post comment");
+    const check = createBotCheck("comment");
     return el("form", { class: "account-form", onsubmit: async (event) => {
       event.preventDefault();
       const text = input.value.trim();
@@ -92,7 +94,8 @@ export function sessionComments(session, { onPlay, onMarks }) {
       status.textContent = "";
       try {
         const time = anchor ? { segment_id: anchor.segment_id, sec: Number(range.value) } : {};
-        const comment = await requestApi("comments", { method: "POST", body: { session_id: session.id, text, ...time } });
+        const turnstile = await check.token();
+        const comment = await requestApi("comments", { method: "POST", body: { session_id: session.id, text, ...time, turnstile } });
         list.prepend(commentRow(comment, user));
         onMarks([...marks.values()]);
         empty.hidden = true;
@@ -102,8 +105,9 @@ export function sessionComments(session, { onPlay, onMarks }) {
         status.textContent = error.message;
       } finally {
         send.disabled = input.disabled = false;
+        check.reset(); // each check is good for one comment
       }
-    } }, timing, el("label", {}, "Public comment", input), send);
+    } }, timing, el("label", {}, "Public comment", input), check.el, send);
   }
 
   function load() {

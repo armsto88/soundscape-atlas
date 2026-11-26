@@ -1,11 +1,13 @@
 /**
  * POST /api/users — sign in or create an account; starts a session cookie.
  *
- * Body: { "name": "Alice", "password": "secret", "mode": "signin" | "register" }
+ * Body: { "name": "Alice", "password": "secret", "mode": "signin" | "register",
+ *         "turnstile": "<token>" }   (the bot check, when switched on: _lib/turnstile.js)
  *
  * signin:   200 on success, 401 wrong password, 404 no such user,
  *           409 account has no password yet (admin reset needed)
  * register: 201 on success, 409 name taken (case-insensitive)
+ * both:     403 bot check failed
  *
  * Passwords are hashed with PBKDF2-SHA-256 via the Web Crypto API.
  */
@@ -19,6 +21,7 @@ import {
   readJson,
   safeEqual,
 } from "../_lib/auth.js";
+import { checkTurnstile } from "../_lib/turnstile.js";
 
 const NAME_PATTERN = /^[^\u0000-\u001f\u007f]{1,40}$/;
 const MAX_EXISTING_NAME = 100;
@@ -42,11 +45,16 @@ export const onRequestPost = handle(async ({ request, env }) => {
   if (!password || password.length > MAX_PASSWORD) {
     return jsonResponse({ error: "Enter your password." }, 400);
   }
+  if (mode === "register" && password.length < MIN_NEW_PASSWORD) {
+    return jsonResponse({ error: `Passwords need at least ${MIN_NEW_PASSWORD} characters.` }, 400);
+  }
+  // Before any lookup, so bots can neither guess passwords nor list usernames.
+  const blocked = await checkTurnstile(request, env, body.turnstile, "account");
+  if (blocked) {
+    return blocked;
+  }
 
   if (mode === "register") {
-    if (password.length < MIN_NEW_PASSWORD) {
-      return jsonResponse({ error: `Passwords need at least ${MIN_NEW_PASSWORD} characters.` }, 400);
-    }
     const taken = await env.DB.prepare("SELECT name FROM users WHERE name = ? COLLATE NOCASE")
       .bind(name)
       .first();

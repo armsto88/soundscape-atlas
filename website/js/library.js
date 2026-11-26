@@ -1,4 +1,5 @@
 import { el, fmtClock, fmtDay, fmtSpan } from "./util.js";
+import { createBotCheck } from "./botcheck.js";
 
 let accountRequest;
 let userRequest;
@@ -203,21 +204,28 @@ export function renderLibrary(main, model, params) {
     const password = el("input", { required: true, name: "password", type: "password", autocomplete: "current-password", maxlength: "200" });
     const signIn = el("button", { class: "btn btn-primary", type: "submit", value: "signin" }, "Sign in");
     const register = el("button", { class: "btn", type: "submit", value: "register" }, "Create account");
+    const check = createBotCheck("account");
     const form = el("form", { class: "account-form", onsubmit: async (event) => {
       event.preventDefault();
       signIn.disabled = register.disabled = true;
       status.textContent = "";
+      let signedIn = false;
       try {
-        const user = await requestApi("users", { method: "POST", body: { name: name.value, password: password.value, mode: event.submitter?.value } });
+        const turnstile = await check.token();
+        const user = await requestApi("users", { method: "POST", body: { name: name.value, password: password.value, mode: event.submitter?.value, turnstile } });
+        signedIn = true;
+        check.remove();
         resetAccount(user);
         await load();
       } catch (error) {
         status.textContent = error.message;
       } finally {
         signIn.disabled = register.disabled = false;
+        if (!signedIn) check.reset(); // each check is good for one try
       }
     } }, el("label", {}, "Username", name), el("label", {}, "Password", password),
     el("p", { class: "muted" }, "New accounts need a password of at least eight characters."),
+    check.el,
     el("div", { class: "actions" }, signIn, register));
     content.replaceChildren(el("p", {}, "Sign in to save recording hours and sessions and leave comments. Saved recordings are visible to you and site administrators."), form);
   }

@@ -1,12 +1,14 @@
 /**
  * GET  /api/comments?segment_id=X — public: all comments on a segment
  * GET  /api/comments?mine=1        — the signed-in user's comments (for My Library)
- * POST /api/comments               — { segment_id, text, sec } as the signed-in user
+ * POST /api/comments               — { segment_id, text, sec, turnstile } as the signed-in user
+ *                                    (turnstile: the bot check's token, when switched on)
  * Use session_id for session comments, with an optional segment_id and sec to mark a moment.
  */
 
 import { getSessionUser, handle, jsonResponse, notSignedIn, readJson } from "../_lib/auth.js";
 import { isPublishedRecording, publishedRecordings, RECORDING_ID } from "../_lib/recordings.js";
+import { checkTurnstile } from "../_lib/turnstile.js";
 
 const MAX_TEXT = 2000;
 const COLUMNS = "id, segment_id, user, text, sec, created_at";
@@ -72,6 +74,10 @@ export const onRequestPost = handle(async (context) => {
   }
   if (typeof text !== "string" || text.trim().length === 0) {
     return jsonResponse({ error: "Comment text is required" }, 400);
+  }
+  const blocked = await checkTurnstile(request, env, body.turnstile, "comment");
+  if (blocked) {
+    return blocked;
   }
 
   const cleanText = text.trim().slice(0, MAX_TEXT);

@@ -95,6 +95,7 @@ function renderAbout(main) {
       "Weather at the time of each session from ", el("a", { href: "https://open-meteo.com" }, "Open-Meteo.com"), " (ERA5 reanalysis, CC BY 4.0). ",
       "Fonts: Inter and Fraunces (SIL Open Font License)."),
     el("p", {}, "GoatCounter measures visits, playback starts and listening duration in ranges for each recording session."),
+    el("p", {}, "The sign-in and comment forms are checked for bots by Cloudflare Turnstile, which loads from Cloudflare only when one of those forms is shown."),
     el("p", {}, "Recordings by Tom Armstrong. All rights reserved.")));
 }
 

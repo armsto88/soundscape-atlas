@@ -123,6 +123,31 @@ Select an account to see when it joined, its saved hours and sessions, and
 its public comments. Access follows the `administrators` table and can be
 revoked by deleting the account's row there.
 
+### The bot check (Cloudflare Turnstile)
+
+Creating an account, signing in and posting a comment pass a Cloudflare
+Turnstile check (`functions/_lib/turnstile.js`, `js/botcheck.js`). The widget
+is invisible unless Cloudflare wants a click, and its script loads from
+challenges.cloudflare.com only when one of those forms is on screen. A token
+is good for one try; the forms fetch a new one after each.
+
+It is off until both settings exist on the Pages project, so a half-done setup
+never locks anyone out:
+
+1. Cloudflare dashboard → **Turnstile** → **Add widget**: name it Soundscape
+   Atlas, hostnames `soundscapeatlas.com` and `soundscape-atlas.pages.dev`,
+   widget mode **Managed**. It gives a site key and a secret key.
+2. **Workers & Pages** → soundscape-atlas → **Settings** → **Variables and
+   Secrets**, for Production: `TURNSTILE_SITE_KEY` as text (it is public) and
+   `TURNSTILE_SECRET_KEY` as a secret.
+3. Settings only reach new deployments: push, or retry the latest deployment.
+   `GET /api/auth/check` then answers with the site key instead of null.
+
+To test locally, run `wrangler pages dev` with Cloudflare's test keys:
+`--binding TURNSTILE_SITE_KEY=1x00000000000000000000AA --binding
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA` (always passes;
+secret `2x0000000000000000000000000000000AA` always fails).
+
 ## Analytics
 
 `js/analytics.js` sends production visits to the existing `tomarmstrong`

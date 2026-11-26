@@ -180,6 +180,9 @@ small { font-size: 0.8em; }
 }
 .account-form textarea { resize: vertical; }
 .account-form p, .account-form .actions { margin: 0; }
+.bot-check { width: 100%; max-width: 30rem; }
+.bot-check-widget:empty { display: none; }
+.bot-check-note { font-size: 0.82rem; }
 .account-error { color: var(--red); }
 .account-error:empty { display: none; }
 .save-control, .library-account, .comment-author { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
