@@ -10,6 +10,7 @@
   "chalcites-lucidus",
   "chalcophaps-longirostris",
   "colluricincla-harmonica",
+  "colluricincla-megarhyncha",
   "columba-leucomela",
   "cormobates-leucophaea",
   "corvus-orru",
@@ -22,13 +23,16 @@
   "eopsaltria-capito",
   "gallinula-tenebrosa",
   "gerygone-mouki",
+  "gerygone-olivacea",
   "gymnorhina-tibicen",
   "leucosarcia-melanoleuca",
   "macropygia-phasianella",
+  "malurus-melanocephalus",
   "manorina-melanocephala",
   "megaloprepia-magnifica",
   "meliphaga-lewinii",
   "menura-alberti",
+  "myiagra-alecto",
   "myzomela-sanguinolenta",
   "nesoptilotis-leucotis",
   "ninox-boobook",
@@ -56,6 +60,9 @@
  "frogs": [
   "assa-darlingtoni",
   "crinia-signifera",
-  "dryopsophus-pearsonianus"
+  "drymomantis-fallax",
+  "dryopsophus-pearsonianus",
+  "limnodynastes-peronii",
+  "mixophyes-fasciolatus"
  ]
 }
