@@ -35,12 +35,20 @@ export function render(main, model, params, ctx) {
 
   const boundsOf = (sites) => sites.reduce((b, s) => b.extend([s.longitude, s.latitude]), new LngLatBounds());
   const allBounds = boundsOf(model.publishedSites);
+  // Names sit to the right of the dots, so leave room on that side for the
+  // longest one, or the easternmost place loses its name at the map's edge.
+  const longestName = Math.max(0, ...model.publishedSites.map((s) => (s.site_name || "").length));
+  const framing = (base) => {
+    const width = mapEl.clientWidth || 600;
+    const right = Math.min(base + 16 + longestName * 7.5, width * 0.45); // 12.5 px Inter: about 7.5 px a letter
+    return { top: base, bottom: base, left: base, right: Math.max(base, right) };
+  };
   const fly = (bounds, duration = 800) => {
     if (bounds.isEmpty()) return;
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
     if (sw.lng === ne.lng && sw.lat === ne.lat) map.flyTo({ center: bounds.getCenter(), zoom: 10, duration });
-    else map.fitBounds(bounds, { padding: 60, maxZoom: 11, duration });
+    else map.fitBounds(bounds, { padding: framing(60), maxZoom: 11, duration });
   };
   let picked = (params && params.species && model.speciesByKey.get(params.species)) || null; // the species searched for
 
@@ -296,7 +304,19 @@ export function render(main, model, params, ctx) {
   }
 
   // ---- the accordion -------------------------------------------------------
-  const open = ctx.state.atlasOpen || (ctx.state.atlasOpen = new Set(model.tree.map((c) => `c:${c.name}`)));
+  // At first the countries are open, and below them every level that has only
+  // one entry (one state, one area), so the places show without extra taps.
+  const firstOpen = () => {
+    const keys = new Set();
+    const descend = (node, key) => {
+      keys.add(key);
+      const only = node.children && node.children.length === 1 && !(node.direct && node.direct.length) ? node.children[0] : null;
+      if (only) descend(only, `${key}/${only.kind[0]}:${only.name}`);
+    };
+    for (const country of model.tree) descend(country, `c:${country.name}`);
+    return keys;
+  };
+  const open = ctx.state.atlasOpen || (ctx.state.atlasOpen = firstOpen());
   const sectionEls = new Map(); // key -> { node, wrap, button, parentKey }
 
   const siteRow = (site) => {
@@ -486,7 +506,7 @@ export function render(main, model, params, ctx) {
 
   const saved = ctx.state.atlasView;
   if (saved) map.jumpTo(saved);
-  else if (!allBounds.isEmpty()) map.fitBounds(allBounds, { padding: 50, duration: 0 });
+  else if (!allBounds.isEmpty()) map.fitBounds(allBounds, { padding: framing(50), duration: 0 });
   map.on("moveend", () => {
     ctx.state.atlasView = { center: map.getCenter().toArray(), zoom: map.getZoom() };
     updatePills();

@@ -9,12 +9,22 @@
 // with CORS: that is done only for audio from this site or our R2 domain (both
 // send the headers). Audio from anywhere else plays on a fresh element without
 // the level, because routed through Web Audio it would play silent.
+//
+// The level is drawn only where the bar shows it: wide screens with a mouse.
+// Phones play the plain element. On iPhones and iPads, sound routed through
+// Web Audio counts as "ambient": the silent switch mutes it and it stops when
+// the screen locks (WebKit bug 252746). A plain <audio> plays on through both.
+//
+// The lock screen and Control Center get the place, the hour, a plate and
+// play/pause, scrubbing and previous/next hour (the Media Session API). iOS
+// shows either ±10 s buttons or previous/next, never both; we want the hours.
 
 import { el, fmtDay, fmtClock, humanize, clamp } from "./util.js";
 import { loadDetections } from "./data.js";
 import { createListeningTracker } from "./analytics.js";
 
 const NOW_CONFIDENT = 0.7; // "now calling" shows checked calls and ones at least this sure
+const METER_MEDIA = "(min-width: 861px) and (hover: hover) and (pointer: fine)"; // where the bar shows the level line
 const CORS_HOSTS = ["media.soundscapeatlas.com"];
 const analysable = (url) => {
   try {
@@ -46,6 +56,15 @@ class Player extends EventTarget {
     this.graph = null;  // Web Audio analyser for the level line
     this.level = 0;
     this.raf = 0;
+
+    // If Web Audio is used after all (an iPad with a trackpad), ask Safari to
+    // treat it as playback, not ambient sound. Safari 16.4 and later only.
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch {
+      // not settable here
+    }
+    this.setMediaHandlers();
 
     document.addEventListener("keydown", (event) => {
       const t = event.target;
@@ -110,6 +129,13 @@ class Player extends EventTarget {
       if (a === this.audio && a.paused && !a.ended) this.listening.finish();
     });
     for (const name of ["pause", "ended", "emptied"]) a.addEventListener(name, () => this.stopMeter());
+    for (const name of ["durationchange", "play", "pause", "seeked", "ratechange", "emptied"]) a.addEventListener(name, () => {
+      if (a === this.audio) this.syncMediaSession();
+    });
+    // handlers set before the page became "now playing" can be ignored on iOS: set them again
+    a.addEventListener("playing", () => {
+      if (a === this.audio) this.setMediaHandlers();
+    });
     if (this.container) this.container.prepend(a);
     return a;
   }
@@ -192,6 +218,7 @@ class Player extends EventTarget {
       this.error = "No audio has been published for this hour yet.";
     }
     this.dispatchEvent(new CustomEvent("change", { detail: segment }));
+    this.setMediaMetadata();
     if (autoplay && segment.public_url) this.play();
     this.emitState();
   }
@@ -240,7 +267,7 @@ class Player extends EventTarget {
 
   // Web Audio, set up on the first play (browsers only allow it after a click)
   ensureGraph() {
-    if (this.graph || !this.audio.crossOrigin) return;
+    if (this.graph || !this.audio.crossOrigin || !window.matchMedia?.(METER_MEDIA).matches) return;
     const Context = window.AudioContext || window.webkitAudioContext;
     if (!Context) return;
     try {
@@ -276,6 +303,73 @@ class Player extends EventTarget {
     this.raf = 0;
     this.level = 0;
     if (this.dom) this.dom.levelFill.style.transform = "scaleX(0)";
+  }
+
+  // ---- the lock screen and Control Center ------------------------------------
+
+  setMediaHandlers() {
+    const session = navigator.mediaSession;
+    if (!session) return;
+    const skip = (step) => {
+      const seg = this.neighbour(step);
+      if (seg) this.load(seg, { autoplay: true });
+    };
+    const handlers = {
+      play: () => this.play(),
+      pause: () => this.pause(),
+      stop: () => this.pause(),
+      seekto: (event) => {
+        if (Number.isFinite(event.seekTime)) this.seek(event.seekTime);
+      },
+      previoustrack: () => skip(-1),
+      nexttrack: () => skip(1),
+    };
+    for (const [action, handler] of Object.entries(handlers)) {
+      try {
+        session.setActionHandler(action, handler);
+      } catch {
+        // this browser doesn't offer that button
+      }
+    }
+  }
+  // The place as the title, the day and hour under it, and a plate as the
+  // artwork: the hour's most-heard species that has one, else the place's.
+  setMediaMetadata() {
+    const session = navigator.mediaSession;
+    if (!session || typeof MediaMetadata === "undefined") return;
+    const seg = this.segment;
+    if (!seg) {
+      session.metadata = null;
+      return;
+    }
+    const plates = new Map((seg.site?.species || []).filter((s) => s.image).map((s) => [s.name, s.image]));
+    const top = seg.top_species.map((s) => s && s.name).find((name) => plates.has(name));
+    const image = top ? plates.get(top) : plates.values().next().value;
+    const artwork = image
+      ? [{ src: new URL(image, document.baseURI).href }]
+      : [{ src: new URL("assets/apple-touch-icon.png", document.baseURI).href, sizes: "180x180", type: "image/png" }];
+    try {
+      session.metadata = new MediaMetadata({
+        title: seg.site.site_name || seg.site_id,
+        artist: `${fmtDay(seg.start)} · ${fmtClock(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`,
+        album: "Soundscape Atlas",
+        artwork,
+      });
+    } catch {
+      // an old browser without artwork support
+    }
+  }
+  syncMediaSession() {
+    const session = navigator.mediaSession;
+    if (!session) return;
+    session.playbackState = !this.segment ? "none" : this.isPlaying ? "playing" : "paused";
+    const d = this.audio.duration;
+    if (!session.setPositionState || !this.segment || !Number.isFinite(d) || d <= 0) return;
+    try {
+      session.setPositionState({ duration: d, playbackRate: this.audio.playbackRate || 1, position: clamp(this.audio.currentTime || 0, 0, d) });
+    } catch {
+      // a position the browser refuses (mid-load): the next event sets it again
+    }
   }
 
   neighbour(step) {
@@ -348,7 +442,7 @@ class Player extends EventTarget {
     d.title.innerHTML = "";
     d.clock.innerHTML = "";
     if (!seg) {
-      d.title.append(el("span", { class: "player-hint" }, "Choose a place on the map and press ▶ to listen."));
+      d.title.append(el("span", { class: "player-hint" }, "Press ▶ on a place or an hour to listen."));
     } else {
       const when = `${fmtDay(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;
       // a problem replaces the date line, so the place's name always stays in view

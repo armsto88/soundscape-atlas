@@ -12,8 +12,10 @@ the R2 bucket.
 
 - **Atlas** (`#/`): the map, with named areas at low zoom and labelled places
   when zoomed in, and the places as an accordion (country › state › area ›
-  place). Opening a section flies the map there; closing it zooms back out a
-  level. Clicking a place shows a small card with a play button and "Open
+  place). At first every level with only one entry is open too, so the
+  places show straight away. Opening a section flies the map there; closing
+  it zooms back out a level. The map leaves room on the right for the place
+  names, which sit to the right of the dots. Clicking a place shows a small card with a play button and "Open
   site". The play button plays the place's hour without leaving the map, the
   same for every visit: an hour marked `featured` in segments.csv (from its
   start); otherwise the session of the liveliest dawn hour (most detections),
@@ -85,7 +87,17 @@ the R2 bucket.
 Phones (designed for 375 px wide, the iPhone SE): the map sits above the place
 list and its card shows only the essentials; the map's credits start folded
 and the scale bar is hidden. In the hour view each species lane carries its
-own name across the top (no name column), and plates sit three to a row.
+own name across the top (no name column), on a paper backing the playhead
+passes behind, and plates sit three to a row. The player bar appears only once
+something has played. Text fields are 16 px, or iOS zooms into them.
+
+Touch screens (`pointer: coarse`): controls get a 44 × 44 pt target, Apple's
+minimum, often as an invisible `::after` around a smaller-looking link or
+button. Hover styles apply only to devices that hover (`@media (hover: hover)`),
+so a tap leaves nothing looking hovered. Taps flash ochre; charts and the
+timeline allow no text selection or long-press menu. The page declares
+`color-scheme: only light` so Safari 27.3's "Adaptive Dark Mode" leaves it
+alone until the site has a night theme.
 
 **Care for this place**: if a place has a local conservation group in
 sites.csv (`support_name`, `support_url`, `support_note`), its place page
@@ -199,6 +211,18 @@ CORS: the player does that only for audio from this site or
 `media.soundscapeatlas.com` (whose bucket sends the headers). Audio from any
 other host plays on a fresh element without the level line, because through
 Web Audio it would play silent.
+
+The level line, and so Web Audio, is used only where it shows: wide screens
+with a mouse. Phones play the plain audio element, because on iPhones Web
+Audio counts as "ambient" sound: the silent switch mutes it and it stops when
+the screen locks (WebKit bug 252746). Where Web Audio is used, the player asks
+Safari for `navigator.audioSession.type = "playback"`.
+
+The lock screen and Control Center (Media Session API) show the place as the
+title, the day, hour and period under it, and a plate as artwork: the hour's
+most-heard species with one, else the place's. Their buttons play, pause,
+scrub and skip to the previous or next hour. iOS shows either ±10 s buttons or
+previous/next, never both; the player registers only previous/next.
 
 ## The map
 
