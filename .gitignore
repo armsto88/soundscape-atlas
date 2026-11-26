@@ -34,3 +34,6 @@ Thumbs.db
 
 # Caches of downloaded data (scripts/fetch_weather.py)
 .cache/
+
+# Social-media videos and captions (scripts/make_social_post.py)
+/social/

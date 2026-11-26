@@ -32,6 +32,7 @@ scripts/    ingest_recordings.py   raw WAVs -> hourly segments, Opus + working W
             fetch_bird_plates.py   1800s bird plates from Fugleramme for the species shown
             fetch_sensitive_species.py  official sensitive-species lists -> sensitive_species.csv (kept out of precise places)
             preview_site.py        local preview on the real metadata, nothing written to website/
+            make_social_post.py    a published moment -> 9:16 video + caption for social media (frames: scripts/social/)
 website/    index.html, styles.css, js/ (modules), art/ (plates), api/ (generated)
 functions/  /api/* endpoints; shared helpers in functions/_lib/
 schema/     metadata_schema.md (CSV columns), d1_*.sql (database)

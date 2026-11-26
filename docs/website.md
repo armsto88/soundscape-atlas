@@ -49,7 +49,9 @@ the R2 bucket.
   spectrogram strip and one lane per species, with the species list, zoom, a
   confident-only filter and the recording notes under "More". Drag the
   highlighted window or use the arrows to move through the session; during
-  playback the window follows.
+  playback the window follows. `&t=<seconds>` after `?at=` also cues the
+  player at that second of the hour, paused (browsers only start sound on a
+  press): the direct links in social posts use it.
   After the hour, **session notes** (`js/notes.js`): first bird of the
   morning, dawn and evening chorus at their fullest, voices in the night, the
   quietest stretch, most heard birds and the frogs, each moment playable;
@@ -295,6 +297,34 @@ and serves `website/` on http://127.0.0.1:8790/ with that data and the
 archive's audio laid over it. By default every processed hour is shown;
 `--published-only` shows exactly what will be public. `website/api` is never
 written, so unpublished hours cannot reach the public repository.
+
+## Social posts
+
+```
+python3 scripts/make_social_post.py AU_NSW_BOOMERANG_FALLS_20240823_0600 --start 06:06:21 --number 1 --stills
+python3 scripts/make_social_post.py AU_NSW_BOOMERANG_FALLS_20240823_0600 --start 06:06:21 --number 1
+```
+
+Makes the weekly post (the "Weekly session post" mockup, approved 24 Nov 2026)
+from one published hour: a 1080 × 1920 MP4 of 45 s (`--length`), its caption
+for Instagram and for Bluesky/Mastodon with the direct `&t=` link, and a cover
+picture, all in `social/` (ignored by git). Without `--start` it takes the
+liveliest stretch of the hour. `--stills` writes three frames instead, in a few
+seconds; the video takes about three minutes.
+
+The frames are `scripts/social/post.html`, drawn in headless Chrome one by one
+and encoded by ffmpeg; the maps are drawn once by the site's own map code
+(`scripts/social/map.html`, needs `.maptiles/`). The spectrogram is drawn
+sharp from the clip's audio (24 px a second by default, `--zoom`), each
+frequency measured against its own background so calls stand out. The species
+panel follows the website's "now calling": BirdNET at least 70% sure, or
+checked by ear; a species stays at least 3.5 s. The sound is the public copy,
+brought to about −16 LUFS with at most 6 dB of limiting on the loudest peaks.
+
+Everything comes from `website/api` and the public audio, so a post shows
+nothing the site does not. With the archive drive connected it also checks
+BirdNET's voice scores for the clip and stops if there are any
+(`--voices-checked` once you have listened).
 
 ## Still to do
 

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social post frame</title>
+<!--
+  One frame of a social-media video, drawn by scripts/make_social_post.py in
+  headless Chrome. The layout is the "Weekly session post" mockup Tom approved
+  on 24 Nov 2026 (opening, now calling, end card). The script writes post.json
+  next to this page; window.frame(t) shows the moment t seconds into the clip.
+-->
+<base href="/">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --paper-0: #fefdfa; --paper: #fcfaf5; --paper-2: #f5f2ea; --paper-3: #ece8de; --rule: #e0d9cb;
+    --ink: #2a2a26; --ink-2: #5c5a52; --ink-3: #6b685d; --ochre: #c2913d; --green: #4f6f52; --red: #a9442f;
+    --serif: "Fraunces", Georgia, serif; --sans: "Inter", system-ui, sans-serif;
+  }
+  html, body { margin: 0; background: var(--paper); }
+  [hidden] { display: none !important; }
+  p, h1, figure { margin: 0; }
+  .frame { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .backdrop { position: absolute; right: -300px; bottom: -330px; width: 1040px; height: 1040px; }
+  .top { position: absolute; left: 0; top: 190px; width: 1080px; height: 64px; box-sizing: border-box; padding: 0 60px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand svg { width: 60px; height: 60px; }
+  .wordmark { font-family: var(--serif); font-size: 36px; font-weight: 500; letter-spacing: -0.01em; }
+  .domain { font-size: 26px; color: var(--ink-2); }
+  .scene { position: absolute; left: 0; top: 254px; width: 1080px; }
+  .eyebrow { font-size: 24px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+  .place { padding: 32px 60px 0; }
+  .place .eyebrow { margin-bottom: 14px; }
+  .place h1 { font-family: var(--serif); font-size: 104px; font-weight: 500; line-height: 1; letter-spacing: -0.02em; }
+  .subtitle { margin-top: 18px; font-size: 34px; line-height: 1.3; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .moment { padding: 40px 60px 0; display: flex; gap: 40px; align-items: flex-start; }
+  .moment-text { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+  .clock { font-family: var(--serif); font-size: 160px; font-weight: 400; line-height: 0.9; letter-spacing: -0.03em; }
+  .date { margin-top: 18px !important; font-size: 32px; }
+  .when { font-size: 32px; color: var(--ink-2); }
+  .weather { font-size: 28px; color: var(--ink-3); }
+  .map { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+  .map-box { position: relative; width: 300px; height: 300px; box-sizing: border-box; border: 2px solid var(--rule); border-radius: 20px; overflow: hidden; background: var(--paper-2); }
+  .map-box > img { display: block; width: 296px; height: 296px; }
+  .map-box .locator { position: absolute; left: 12px; top: 12px; width: 96px; height: 96px; box-sizing: border-box; border: 2px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--paper-2); }
+  .locator img { display: block; width: 92px; height: 92px; }
+  .map figcaption { font-size: 16px; color: var(--ink-3); }
+  .band { position: relative; margin-top: 44px; height: 320px; box-sizing: border-box; border-top: 2px solid var(--rule); border-bottom: 2px solid var(--rule); background: var(--paper-0); }
+  .band-clip, .ticks-clip { position: absolute; left: 0; top: 0; width: 1080px; height: 316px; overflow: hidden; }
+  .strip, .ticks { position: absolute; left: 0; top: 0; will-change: transform; }
+  .strip img { display: block; height: 316px; }
+  .future { position: absolute; left: 540px; top: 0; width: 540px; height: 316px; background: rgba(252, 250, 245, 0.6); }
+  .axis { position: absolute; left: 16px; padding: 2px 8px; border-radius: 4px; background: rgba(254, 253, 250, 0.9); font-size: 20px; color: var(--ink-3); }
+  .axis.top { top: 10px; }
+  .axis.bottom { bottom: 10px; }
+  .playhead { position: absolute; left: 538px; top: -24px; width: 4px; height: 364px; background: var(--red); }
+  .playhead-cap { position: absolute; left: 529px; top: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--red); }
+  .playhead-time { position: absolute; left: 564px; top: -42px; font-size: 24px; font-weight: 500; color: var(--red); font-variant-numeric: tabular-nums; }
+  .ticks-row { position: relative; height: 44px; }
+  .ticks-row .ticks-clip { height: 44px; }
+  .tick { position: absolute; top: 0; width: 2px; height: 10px; background: var(--ink-3); }
+  .tick-label { position: absolute; top: 12px; font-size: 22px; color: var(--ink-3); font-variant-numeric: tabular-nums; transform: translateX(-50%); white-space: nowrap; }
+  .panels { position: relative; margin: 16px 60px 0; height: 260px; }
+  .panel { position: absolute; left: 0; top: 0; right: 0; height: 260px; display: flex; align-items: center; gap: 36px; opacity: 0; }
+  .panel .art { width: 173px; height: 230px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .panel .art img { display: block; width: 173px; height: 230px; object-fit: contain; }
+  .panel .art svg { width: 140px; height: 140px; }
+  .panel-text { min-width: 0; flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
+  .kicker { font-size: 24px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); display: flex; align-items: center; gap: 12px; }
+  .kicker.calling { color: var(--red); }
+  .kicker .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: currentColor; }
+  .panel-title { font-family: var(--serif); font-size: 76px; font-weight: 500; line-height: 1.05; letter-spacing: -0.015em; white-space: nowrap; }
+  .panel-title.wrap { white-space: normal; }
+  .panel-line { font-size: 32px; line-height: 1.3; color: var(--ink-2); }
+  .scientific { font-family: var(--serif); font-size: 34px; font-style: italic; color: var(--ink-2); }
+  .credit { margin-top: 6px !important; font-size: 22px; color: var(--ink-3); }
+  .end { opacity: 0; }
+  .end .head { padding: 32px 60px 0; }
+  .end .head .eyebrow { margin-bottom: 14px; }
+  .end h1 { font-family: var(--serif); font-size: 104px; font-weight: 500; line-height: 1.02; letter-spacing: -0.02em; }
+  .end .span { margin-top: 22px; font-size: 34px; line-height: 1.3; color: var(--ink-2); }
+  .stats { padding: 44px 60px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
+  .stat { border-top: 2px solid var(--rule); padding-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .stat b { font-family: var(--serif); font-size: 72px; font-weight: 400; line-height: 1; letter-spacing: -0.02em; }
+  .stat span { font-size: 26px; color: var(--ink-3); }
+  .end-band { position: relative; margin-top: 56px; height: 200px; box-sizing: border-box; border-top: 2px solid var(--rule); border-bottom: 2px solid var(--rule); background: var(--paper-0); overflow: hidden; }
+  .end-band img { position: absolute; left: 0; top: 0; height: 196px; }
+  .end-note { margin: 14px 60px 0 !important; font-size: 24px; color: var(--ink-3); }
+  .visit { padding: 48px 60px 0; display: flex; align-items: center; gap: 20px; }
+  .visit p { font-family: var(--serif); font-size: 76px; font-weight: 500; line-height: 1; letter-spacing: -0.015em; color: var(--green); }
+  .visit svg { width: 56px; height: 56px; }
+  .support { margin: 44px 60px 0; padding-top: 24px; border-top: 2px solid var(--rule); display: flex; flex-direction: column; gap: 8px; }
+  .support .name { font-family: var(--serif); font-size: 52px; font-weight: 500; line-height: 1.1; }
+  .support .hint { font-size: 26px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <svg class="backdrop" aria-hidden="true" viewBox="0 0 64 64" fill="none" stroke="#ece8de" stroke-width="3" stroke-linejoin="round">
+    <path vector-effect="non-scaling-stroke" d="M60.15 33C60.51 37.44 58.38 43.24 55.77 46.96C53.16 50.68 48.52 53.47 44.49 55.33C40.46 57.18 35.82 58.23 31.6 58.1C27.38 57.97 22.7 56.7 19.15 54.56C15.61 52.43 12.6 48.88 10.32 45.28C8.05 41.69 6.11 37.44 5.51 33C4.9 28.56 4.7 22.7 6.7 18.62C8.69 14.55 13.33 10.19 17.48 8.54C21.63 6.89 27.38 7.9 31.6 8.74C35.82 9.58 39.150 11.64 42.82 13.57C46.49 15.5 50.72 17.06 53.6 20.3C56.49 23.53 59.79 28.56 60.15 33Z"/>
+    <path vector-effect="non-scaling-stroke" d="M52.07 31.7C52.28 34.7 50.92 38.53 49.2 41.05C47.47 43.57 44.44 45.54 41.74 46.83C39.04 48.12 35.87 48.86 33 48.78C30.13 48.71 26.94 47.84 24.52 46.39C22.1 44.94 20 42.54 18.47 40.09C16.94 37.64 15.7 34.7 15.35 31.7C15 28.7 15.02 24.83 16.39 22.11C17.75 19.38 20.79 16.51 23.55 15.34C26.32 14.17 30.13 14.62 33 15.1C35.87 15.58 38.28 16.91 40.77 18.23C43.27 19.56 46.07 20.83 47.95 23.07C49.83 25.31 51.86 28.7 52.07 31.7Z"/>
+    <path vector-effect="non-scaling-stroke" d="M44.47 30.6C44.55 32.22 43.88 34.23 42.98 35.61C42.08 36.99 40.52 38.14 39.08 38.87C37.63 39.6 35.88 40.03 34.3 40C32.72 39.97 30.96 39.5 29.62 38.7C28.28 37.91 27.08 36.59 26.26 35.24C25.44 33.89 24.81 32.22 24.68 30.6C24.55 28.98 24.7 26.95 25.46 25.5C26.22 24.04 27.78 22.54 29.25 21.86C30.73 21.17 32.72 21.2 34.3 21.39C35.88 21.57 37.34 22.22 38.71 22.97C40.07 23.72 41.54 24.59 42.5 25.87C43.46 27.14 44.39 28.98 44.47 30.6Z"/>
+  </svg>
+
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <g fill="none" stroke="#2a2a26" stroke-width="2.6" stroke-linejoin="round">
+          <path d="M60.15 33C60.51 37.44 58.38 43.24 55.77 46.96C53.16 50.68 48.52 53.47 44.49 55.33C40.46 57.18 35.82 58.23 31.6 58.1C27.38 57.97 22.7 56.7 19.15 54.56C15.61 52.43 12.6 48.88 10.32 45.28C8.05 41.69 6.11 37.44 5.51 33C4.9 28.56 4.7 22.7 6.7 18.62C8.69 14.55 13.33 10.19 17.48 8.54C21.63 6.89 27.38 7.9 31.6 8.74C35.82 9.58 39.15 11.64 42.82 13.57C46.49 15.5 50.72 17.06 53.6 20.3C56.49 23.53 59.79 28.56 60.15 33Z"/>
+          <path d="M52.07 31.7C52.28 34.7 50.92 38.53 49.2 41.05C47.47 43.57 44.44 45.54 41.74 46.83C39.04 48.12 35.87 48.86 33 48.78C30.13 48.71 26.94 47.84 24.52 46.39C22.1 44.94 20 42.54 18.47 40.09C16.94 37.64 15.7 34.7 15.35 31.7C15 28.7 15.02 24.83 16.39 22.11C17.75 19.38 20.79 16.51 23.55 15.34C26.32 14.17 30.13 14.62 33 15.1C35.87 15.58 38.28 16.91 40.77 18.23C43.27 19.56 46.07 20.83 47.95 23.07C49.83 25.31 51.86 28.7 52.07 31.7Z"/>
+          <path d="M44.47 30.6C44.55 32.22 43.88 34.23 42.98 35.61C42.08 36.99 40.52 38.14 39.08 38.87C37.63 39.6 35.88 40.03 34.3 40C32.72 39.97 30.96 39.5 29.62 38.7C28.28 37.91 27.08 36.59 26.26 35.24C25.44 33.89 24.81 32.22 24.68 30.6C24.55 28.98 24.7 26.95 25.46 25.5C26.22 24.04 27.78 22.54 29.25 21.86C30.73 21.17 32.72 21.2 34.3 21.39C35.88 21.57 37.34 22.22 38.71 22.97C40.07 23.72 41.54 24.59 42.5 25.87C43.46 27.14 44.39 28.98 44.47 30.6Z"/>
+        </g>
+        <circle cx="35" cy="30.1" r="4.3" fill="#c2913d" stroke="#2a2a26" stroke-width="1.4"/>
+      </svg>
+      <span class="wordmark">Soundscape Atlas</span>
+    </div>
+    <span class="domain" id="domain"></span>
+  </header>
+
+  <section class="scene main" id="main">
+    <div class="place">
+      <p class="eyebrow" id="eyebrow"></p>
+      <h1 id="title"></h1>
+      <p class="subtitle" id="subtitle"></p>
+    </div>
+    <div class="moment">
+      <div class="moment-text">
+        <p class="clock" id="clock"></p>
+        <p class="date" id="date"></p>
+        <p class="when" id="when"></p>
+        <p class="weather" id="weather"></p>
+      </div>
+      <figure class="map" id="map">
+        <div class="map-box">
+          <img id="map-img" alt="">
+          <div class="locator" id="locator"><img id="locator-img" alt=""></div>
+        </div>
+        <figcaption>© OpenStreetMap · Protomaps · Mapterhorn</figcaption>
+      </figure>
+    </div>
+    <div class="band">
+      <div class="band-clip"><div class="strip" id="strip"><img id="strip-img" alt=""></div></div>
+      <div class="future"></div>
+      <span class="axis top" id="axis-top"></span>
+      <span class="axis bottom">0</span>
+      <div class="playhead"></div>
+      <div class="playhead-cap"></div>
+      <span class="playhead-time" id="now"></span>
+    </div>
+    <div class="ticks-row"><div class="ticks-clip"><div class="ticks" id="ticks"></div></div></div>
+    <div class="panels" id="panels"></div>
+  </section>
+
+  <section class="scene end" id="end">
+    <div class="head">
+      <p class="eyebrow" id="end-eyebrow"></p>
+      <h1>Hear the whole session</h1>
+      <p class="span" id="end-span"></p>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="end-band"><img id="end-strip" alt=""></div>
+    <p class="end-note" id="end-note"></p>
+    <div class="visit">
+      <p id="visit"></p>
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#4f6f52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+    </div>
+    <div class="support" id="support" hidden>
+      <p class="eyebrow">Care for this place</p>
+      <p class="name" id="support-name"></p>
+      <p class="hint">Link in the caption</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const HEADPHONES = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#2a2a26" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>';
+const FADE = 0.35;      // seconds for a panel to cross-fade into the next
+const END_FADE = 0.5;   // seconds for the end card to fade in
+const CENTRE = 540;     // the playhead's x
+
+let post = null;
+const $ = (id) => document.getElementById(id);
+const make = (tag, cls, text) => {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const pad = (n) => String(n).padStart(2, "0");
+
+// the recording's clock time (local) at a second of the hour
+function clock(sec, withSeconds = true) {
+  const total = Math.floor(post.hourStart + sec + 1e-6);
+  const day = ((total % 86400) + 86400) % 86400;
+  const text = `${pad(Math.floor(day / 3600))}:${pad(Math.floor(day / 60) % 60)}`;
+  return withSeconds ? `${text}:${pad(day % 60)}` : text;
+}
+
+function buildPanel(p) {
+  const panel = make("div", "panel");
+  const art = make("div", "art");
+  const text = make("div", "panel-text");
+  if (p.kind === "intro") {
+    art.innerHTML = HEADPHONES;
+    text.append(make("p", "kicker", p.kicker), make("p", "panel-title", p.title), make("p", "panel-line", p.line));
+  } else {
+    if (p.plate) {
+      const img = make("img");
+      img.src = p.plate;
+      img.alt = "";
+      art.append(img);
+    }
+    const now = make("p", "kicker calling");
+    now.append(make("span", "dot"), document.createTextNode("Now calling"));
+    const heard = make("p", "kicker", "Just heard");
+    text.append(now, heard, make("p", "panel-title", p.name), make("p", "scientific", p.scientific), make("p", "credit", p.credit));
+    p.nowEl = now;
+    p.heardEl = heard;
+  }
+  panel.append(art, text);
+  return panel;
+}
+
+// long names get smaller, then wrap
+function fitTitles() {
+  for (const title of document.querySelectorAll(".panel-title")) {
+    let size = 76;
+    title.style.fontSize = `${size}px`;
+    while (title.scrollWidth > title.clientWidth && size > 54) {
+      size -= 2;
+      title.style.fontSize = `${size}px`;
+    }
+    if (title.scrollWidth > title.clientWidth) title.classList.add("wrap");
+  }
+}
+
+async function setup() {
+  post = await (await fetch(new URL("post.json", location.href))).json();
+  $("domain").textContent = post.domain;
+  $("eyebrow").textContent = post.eyebrow;
+  $("title").textContent = post.title;
+  $("subtitle").textContent = post.subtitle;
+  $("clock").textContent = post.clock;
+  $("date").textContent = post.date;
+  $("when").textContent = post.moment;
+  $("weather").textContent = post.weather;
+  $("weather").hidden = !post.weather;
+  if (post.map) {
+    $("map-img").src = new URL(post.map, location.href).href;
+    if (post.locator) $("locator-img").src = new URL(post.locator, location.href).href;
+    else $("locator").hidden = true;
+  } else {
+    $("map").hidden = true;
+  }
+  $("axis-top").textContent = `${post.spectrogram.topKHz} kHz`;
+
+  const spec = post.spectrogram;
+  for (const img of [$("strip-img"), $("end-strip")]) {
+    img.src = new URL(spec.src, location.href).href;
+    img.style.width = `${spec.width}px`;
+  }
+  // ticks under the strip, moving with it
+  const ticks = $("ticks");
+  const first = Math.ceil((spec.start + 0.001) / spec.tickEvery) * spec.tickEvery;
+  for (let s = first; s <= spec.start + spec.width / spec.pxPerSec; s += spec.tickEvery) {
+    const x = (s - spec.start) * spec.pxPerSec;
+    const tick = make("div", "tick");
+    tick.style.left = `${x - 1}px`;
+    const onMinute = Math.round(post.hourStart + s) % 60 === 0;
+    const label = make("span", "tick-label", onMinute ? clock(s, false) : `:${pad(Math.round(post.hourStart + s) % 60)}`);
+    label.style.left = `${x}px`;
+    ticks.append(tick, label);
+  }
+  // the end card's strip, lower: the clip's last moment at its centre
+  $("end-strip").style.transform = `translateX(${CENTRE - (post.clipStart + post.length - spec.start) * spec.pxPerSec}px)`;
+
+  const slot = $("panels");
+  for (const p of post.panels) {
+    p.el = buildPanel(p);
+    slot.append(p.el);
+  }
+
+  const end = post.end;
+  $("end-eyebrow").textContent = end.eyebrow;
+  $("end-span").textContent = end.span;
+  for (const [value, label] of end.stats) {
+    const stat = make("div", "stat");
+    stat.append(make("b", "", value), make("span", "", label));
+    $("stats").append(stat);
+  }
+  $("end-note").textContent = end.note;
+  $("visit").textContent = post.domain;
+  if (end.support) {
+    $("support").hidden = false;
+    $("support-name").textContent = end.support;
+  }
+
+  await document.fonts.ready;
+  await Promise.all([...document.images].filter((img) => img.src).map((img) => img.decode().catch(() => {
+    throw new Error(`image did not load: ${img.src}`);
+  })));
+  fitTitles();
+  show(0);
+  return { panels: post.panels.length };
+}
+
+function fade(t, from, to) {
+  const fadeIn = from <= 0 ? 1 : clamp((t - from) / FADE + 0.5, 0, 1);
+  const fadeOut = to >= post.length ? 1 : clamp((to - t) / FADE + 0.5, 0, 1);
+  return fadeIn * fadeOut;
+}
+
+// show the moment t seconds into the clip
+function show(t) {
+  const spec = post.spectrogram;
+  const x = CENTRE - (post.clipStart + t - spec.start) * spec.pxPerSec;
+  $("strip").style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+  $("ticks").style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+  $("now").textContent = clock(post.clipStart + t);
+  for (const p of post.panels) {
+    p.el.style.opacity = fade(t, p.from, p.to).toFixed(3);
+    if (p.kind === "species") {
+      const calling = p.calling.some(([a, b]) => t >= a && t <= b);
+      p.nowEl.hidden = !calling;
+      p.heardEl.hidden = calling;
+    }
+  }
+  const endOpacity = clamp((t - post.end.from) / END_FADE, 0, 1);
+  $("end").style.opacity = endOpacity.toFixed(3);
+  $("main").style.opacity = (1 - endOpacity).toFixed(3);
+}
+
+// resolves once the change is on screen
+window.frame = (t) => {
+  show(t);
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))));
+};
+window.ready = setup();
+</script>
+</body>
+</html>

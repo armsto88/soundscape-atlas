@@ -1,6 +1,6 @@
 // Entry point: loads the index, mounts the player and routes by URL hash:
-// #/ (atlas), #/site/<id>?at=<segment id> (a place, opened at an hour),
-// #/about. Old #/hour/<segment id> links, and ?segment=<id> links from the
+// #/ (atlas), #/site/<id>?at=<segment id> (a place, opened at an hour;
+// &t=<seconds> also cues the player there), #/about. Old #/hour/<segment id> links, and ?segment=<id> links from the
 // previous site, open the place at that hour.
 
 import { el } from "./util.js";

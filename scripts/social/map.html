@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social post maps</title>
+<!--
+  The two maps of a social post, drawn once by scripts/make_social_post.py with
+  the site's own map code (js/map.js) and saved as pictures: the place, as on
+  its page's inset map, and a small locator of its country. The query string
+  gives lat, lon, precision (exact/rounded/coarse) and country (AU, DE).
+-->
+<base href="/">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<style>
+  html, body { margin: 0; background: #fcfaf5; }
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { display: none !important; }
+  #place { position: absolute; left: 0; top: 0; width: 296px; height: 296px; }
+  #country { position: absolute; left: 320px; top: 0; width: 92px; height: 92px; }
+</style>
+<script src="vendor/pmtiles.js"></script>
+</head>
+<body>
+<div id="place"></div>
+<div id="country"></div>
+<script type="module">
+import { createMap, tokens } from "./js/map.js";
+
+const COUNTRY_BOUNDS = {
+  AU: [[112.5, -44], [154, -10.5]],
+  DE: [[5.8, 47.2], [15.1, 55.1]],
+};
+const q = new URLSearchParams(location.search);
+const lat = Number(q.get("lat"));
+const lon = Number(q.get("lon"));
+const precision = q.get("precision") || "exact";
+const country = q.get("country") || "";
+
+// a circle of radius metres around a place (as site.js)
+function circle(lng, la, metres) {
+  const ring = [];
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * 2 * Math.PI;
+    ring.push([lng + (metres * Math.cos(a)) / (111320 * Math.cos((la * Math.PI) / 180)), la + (metres * Math.sin(a)) / 110540]);
+  }
+  return { type: "Polygon", coordinates: [ring] };
+}
+
+function settled(map) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("the map did not finish drawing within 60 s")), 60000);
+    map.once("idle", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+function loaded(map) {
+  return new Promise((resolve) => (map.loaded() ? resolve() : map.once("load", resolve)));
+}
+
+async function draw() {
+  const t = tokens();
+  // the place, as on its page: a dot, or a dashed circle where the location is approximate
+  const approx = precision !== "exact";
+  const place = createMap(document.getElementById("place"), { interactive: false, center: [lon, lat], zoom: approx ? 8 : 9, preserveDrawingBuffer: true });
+  await loaded(place);
+  if (approx) {
+    place.addSource("spot", { type: "geojson", data: circle(lon, lat, precision === "coarse" ? 6000 : 700) });
+    place.addLayer({ id: "spot-fill", type: "fill", source: "spot", paint: { "fill-color": t.ochre, "fill-opacity": 0.12 } });
+    place.addLayer({ id: "spot-edge", type: "line", source: "spot", paint: { "line-color": t.ochre, "line-width": 1.5, "line-dasharray": [3, 3] } });
+  } else {
+    place.addSource("spot", { type: "geojson", data: { type: "Point", coordinates: [lon, lat] } });
+    place.addLayer({ id: "spot", type: "circle", source: "spot", paint: { "circle-radius": 8, "circle-color": t.ochre, "circle-stroke-color": t.ink, "circle-stroke-width": 1.5 } });
+  }
+  const placeDone = settled(place);
+  // the country, with the place as a dot
+  const bounds = COUNTRY_BOUNDS[country];
+  const small = createMap(document.getElementById("country"), {
+    interactive: false, preserveDrawingBuffer: true,
+    ...(bounds ? { bounds, fitBoundsOptions: { padding: 4 } } : { center: [lon, lat], zoom: 3 }),
+  });
+  await loaded(small);
+  // only the land and water: labels are unreadable this small
+  for (const layer of small.getStyle().layers) {
+    if (layer.type === "symbol") small.setLayoutProperty(layer.id, "visibility", "none");
+  }
+  small.addSource("spot", { type: "geojson", data: { type: "Point", coordinates: [lon, lat] } });
+  small.addLayer({ id: "spot", type: "circle", source: "spot", paint: { "circle-radius": 4, "circle-color": t.ochre, "circle-stroke-color": t.ink, "circle-stroke-width": 1 } });
+  await Promise.all([placeDone, settled(small)]);
+  return true;
+}
+
+window.ready = draw();
+</script>
+</body>
+</html>

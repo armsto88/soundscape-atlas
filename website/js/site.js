@@ -276,6 +276,12 @@ export function render(main, model, params, ctx) {
   const start = (params.at && model.segmentsById.get(params.at)) || (playingHere ? player.segment : null);
   if (start && start.site === site) {
     select(start, { reveal: false });
+    // a shared moment (&t=<seconds into the hour>, as social posts link): the
+    // player waits there, paused, since browsers only start sound on a press
+    const t = Number(params.t);
+    if (params.at && Number.isFinite(t) && t > 0 && start.public_url && !(player.segment === start && player.isPlaying)) {
+      player.load(start, { at: t });
+    }
     // after the inset map and fonts have settled, so the jump lands where it should
     initialReveal = setTimeout(() => blocks.get(start.session).article.scrollIntoView({ block: "start" }), 150);
   }
