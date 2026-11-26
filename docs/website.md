@@ -137,11 +137,18 @@ never locks anyone out:
 1. Cloudflare dashboard → **Turnstile** → **Add widget**: name it Soundscape
    Atlas, hostnames `soundscapeatlas.com` and `soundscape-atlas.pages.dev`,
    widget mode **Managed**. It gives a site key and a secret key.
-2. **Workers & Pages** → soundscape-atlas → **Settings** → **Variables and
-   Secrets**, for Production: `TURNSTILE_SITE_KEY` as text (it is public) and
-   `TURNSTILE_SECRET_KEY` as a secret.
+2. The site key is public and lives in `wrangler.toml` under `[vars]`
+   (`TURNSTILE_SITE_KEY`; the dashboard cannot hold plain variables while
+   `wrangler.toml` is the project's configuration). The secret key is a Pages
+   secret: `wrangler pages secret put TURNSTILE_SECRET_KEY --project-name
+   soundscape-atlas`, then paste it.
 3. Settings only reach new deployments: push, or retry the latest deployment.
    `GET /api/auth/check` then answers with the site key instead of null.
+
+The widget (Cloudflare dashboard → Turnstile → Soundscape Atlas, made 26 Nov
+2026) covers soundscapeatlas.com and soundscape-atlas.pages.dev with their
+subdomains, in Managed mode. Preview deployments have no secret, so the check
+is off there.
 
 To test locally, run `wrangler pages dev` with Cloudflare's test keys:
 `--binding TURNSTILE_SITE_KEY=1x00000000000000000000AA --binding

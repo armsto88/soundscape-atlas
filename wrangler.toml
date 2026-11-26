@@ -20,6 +20,10 @@
 #      functions also create the sessions table on first use if it is missing.
 #   4. Set admin password-reset secret:
 #        wrangler pages secret put ADMIN_RESET_KEY --project-name soundscape-atlas
+#   5. The bot check on the account and comment forms (Cloudflare Turnstile,
+#      functions/_lib/turnstile.js): the site key is below; set the secret with
+#        wrangler pages secret put TURNSTILE_SECRET_KEY --project-name soundscape-atlas
+#      The check runs only when both exist.
 
 name                  = "soundscape-atlas"
 compatibility_date    = "2024-01-01"
@@ -29,3 +33,7 @@ pages_build_output_dir = "website"
 binding      = "DB"
 database_name = "soundscape-comments"
 database_id  = "ddd1f4b1-f4d2-42ff-8b1b-76ff945e2718"
+
+# Public: the browser gets it from /api/auth/check to show the Turnstile widget.
+[vars]
+TURNSTILE_SITE_KEY = "0x4AAAAAAGUi2P8pJiPH2WJO"

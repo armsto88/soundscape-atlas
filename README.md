@@ -93,9 +93,9 @@ For the listening library and administration, apply `schema/d1_library.sql`,
 deploying the website changes. Apply `d1_comment_times.sql` once per database.
 See [Administration](docs/website.md#administration) to grant access to an
 existing account.
-The bot check on the account and comment forms needs two Pages settings,
-`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (see
+The bot check on the account and comment forms needs its site key (in
+`wrangler.toml`) and the `TURNSTILE_SECRET_KEY` Pages secret (see
 [the bot check](docs/website.md#the-bot-check-cloudflare-turnstile)); without
-them the forms work unchecked.
+the secret the forms work unchecked.
 
 Never commit audio or ingest manifests; `.gitignore` covers both.
