@@ -46,6 +46,13 @@ def main() -> int:
     # The sheet's colour, from the border.
     border = np.concatenate([c[:12].reshape(-1, 3), c[-12:].reshape(-1, 3), c[:, :12].reshape(-1, 3), c[:, -12:].reshape(-1, 3)])
     sheet = np.median(border, axis=0)
+    # More sheet round the edge, so the halo closes round a branch the picture's edge cuts off.
+    pad = int(args.halo) + 12
+    padded = np.empty((h + 2 * pad, w + 2 * pad, 3), np.float32)
+    padded[:] = sheet
+    padded[pad:pad + h, pad:pad + w] = c
+    c = padded
+    h, w = c.shape[:2]
     diff = np.abs(c - sheet).max(axis=2)
 
     # Paint: fully opaque once clearly off the sheet, fading out with the faint washes.
