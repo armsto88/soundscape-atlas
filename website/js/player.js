@@ -5,7 +5,9 @@
 // from the hour's detections.
 //
 // The bar shows the recording's own clock, the bird calling now, and a thin
-// sound-level line. The level needs Web Audio, which needs the audio fetched
+// sound-level line. On phones it also carries a strip of the whole session
+// (the place page's chart in small): tap or drag along it to move through the
+// session; its title opens the place page at the hour, the full view there. The level needs Web Audio, which needs the audio fetched
 // with CORS: that is done only for audio from this site or our R2 domain (both
 // send the headers). Audio from anywhere else plays on a fresh element without
 // the level, because routed through Web Audio it would play silent.
@@ -19,9 +21,10 @@
 // play/pause, scrubbing and previous/next hour (the Media Session API). iOS
 // shows either ±10 s buttons or previous/next, never both; we want the hours.
 
-import { el, fmtDay, fmtClock, humanize, clamp } from "./util.js";
+import { el, fmtDay, fmtClock, humanize, clamp, plural, isPhone } from "./util.js";
 import { loadDetections, quickListen } from "./data.js";
 import { createListeningTracker } from "./analytics.js";
+import { createSessionChart } from "./sessionchart.js";
 
 const NOW_CONFIDENT = 0.7; // "now calling" shows checked calls and ones at least this sure
 const METER_MEDIA = "(min-width: 861px) and (hover: hover) and (pointer: fine)"; // where the bar shows the level line
@@ -35,7 +38,7 @@ const analysable = (url) => {
   }
 };
 
-// The plate that stands for an hour (lock screen, Now Playing): the hour's
+// The plate that stands for an hour (lock screen, the bar on phones): the hour's
 // most-heard species that has art, else the place's most-heard one with art.
 // Returns { name, image } or null.
 export function hourPlate(seg) {
@@ -69,6 +72,65 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.
 const ICON_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h2.5v14H5zm14 0v14L8.5 12z"/></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></svg>';
 const ICON_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 5H19v14h-2.5zM5 5l10.5 7L5 19z"/></svg>';
+
+// The sleep timer's button and its menu of choices: a moon, with the minutes
+// left beside it while the timer runs. The bar has one; on phones the hour in
+// detail has another. `label` is the button's text while no timer runs;
+// `below` opens the menu under the button instead of above it.
+export function createSleepControl(player, { label = "", below = false } = {}) {
+  const text = el("span", { class: "player-sleep-label" });
+  const button = el("button", { class: "player-sleep", type: "button", "aria-haspopup": "true", "aria-expanded": "false", html: ICON_MOON, onclick: () => setOpen(menu.hidden) });
+  button.append(text);
+  const heading = el("p", {}, "Stop playing after");
+  const choose = (choice) => {
+    player.setSleep(choice);
+    setOpen(false);
+  };
+  const menu = el("div", { class: `player-sleep-menu${below ? " below" : ""}`, role: "group", "aria-label": "Stop playing after", hidden: true },
+    heading,
+    ...SLEEP_CHOICES.map((choice) => el("button", { class: "player-sleep-choice", type: "button", "data-choice": String(choice), "aria-pressed": "false", onclick: () => choose(choice) },
+      choice === "hour" ? "The end of this hour" : `${choice} minutes`)),
+    el("button", { class: "player-sleep-choice", type: "button", "data-choice": "off", "aria-pressed": "true", onclick: () => choose(null) }, "Off"));
+  const wrap = el("div", { class: "player-sleep-wrap" }, button, menu);
+  const setOpen = (open) => {
+    menu.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+  };
+  const onDocumentClick = (event) => {
+    if (!wrap.contains(event.target)) setOpen(false);
+  };
+  document.addEventListener("click", onDocumentClick);
+  wrap.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) {
+      setOpen(false);
+      button.focus();
+    }
+  });
+  let shown = null;
+  const render = () => {
+    const sleep = player.sleep;
+    const left = !sleep ? "" : sleep.hour ? "end of hour" : `${Math.max(1, player.sleepLeft)} min`;
+    if (shown === left) return;
+    shown = left;
+    text.textContent = left || label;
+    const title = !sleep ? "Sleep timer" : sleep.hour ? "Sleep timer: stops when this hour ends" : `Sleep timer: stops in ${left}`;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.classList.toggle("on", Boolean(sleep));
+    heading.textContent = !sleep ? "Stop playing after" : sleep.hour ? "Stops when this hour ends" : `Stops in ${plural(Math.max(1, player.sleepLeft), "minute")}`;
+    const current = !sleep ? "off" : sleep.hour ? "hour" : String(sleep.minutes);
+    for (const b of menu.querySelectorAll("[data-choice]")) b.setAttribute("aria-pressed", String(b.dataset.choice === current));
+  };
+  player.addEventListener("state", render);
+  render();
+  return {
+    el: wrap,
+    destroy() {
+      player.removeEventListener("state", render);
+      document.removeEventListener("click", onDocumentClick);
+    },
+  };
+}
 const SPEAKER = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/>';
 const ICON_VOL = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>`;
 const ICON_VOL_LOW = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9a4 4 0 0 1 0 6"/></svg>`;
@@ -111,6 +173,9 @@ class Player extends EventTarget {
     this.container = null;
     this.calls = [];    // the hour's detections, once loaded
     this.calling = [];  // detections at the playhead
+    this.callingArt = null; // the place's entry, with a plate, for the bird calling now
+    this.lastHeard = null; // the latest species with a plate heard calling in this hour (see bird)
+    this.strip = null;  // phones: the session's chart in the bar
     this.graph = null;  // Web Audio analyser for the level line
     this.level = 0;
     this.raf = 0;
@@ -241,8 +306,25 @@ class Player extends EventTarget {
   emitState() {
     this.checkSleep();
     this.calling = this.callsAt(this.currentTime);
+    this.callingArt = this.segment ? this.calling.map((d) => this.artOf(d.common_name)).find(Boolean) || null : null;
+    if (this.callingArt) this.lastHeard = this.callingArt;
     this.dispatchEvent(new CustomEvent("state"));
     this.renderBar();
+  }
+
+  // the place's species entry with a plate, by name
+  artOf(name) {
+    return this.segment?.site?.species?.find((s) => s.name === name && s.image) || null;
+  }
+  // The bird to show for the hour: the one calling now (with a plate), else the
+  // last one heard in this hour, else the hour's own plate (as on the lock
+  // screen). { name, image, kind: "calling" | "heard" | "hour" } or null.
+  get bird() {
+    if (!this.segment) return null;
+    if (this.callingArt) return { name: this.callingArt.name, image: this.callingArt.image, kind: "calling" };
+    if (this.lastHeard) return { name: this.lastHeard.name, image: this.lastHeard.image, kind: "heard" };
+    const plate = hourPlate(this.segment);
+    return plate ? { ...plate, kind: "hour" } : null;
   }
 
   // sure detections whose call spans this second of the hour, most certain first
@@ -273,6 +355,7 @@ class Player extends EventTarget {
     this.error = "";
     this.pendingSeek = at !== null && at > 0 ? at : null;
     this.calls = [];
+    this.lastHeard = null;
     loadDetections(segment).then((list) => {
       if (this.segment !== segment) return;
       this.calls = list;
@@ -340,6 +423,7 @@ class Player extends EventTarget {
     if (!this.segment) return;
     const d = this.duration;
     this.audio.currentTime = clamp(seconds, 0, d ? d - 0.25 : 0);
+    this.lastHeard = null; // heard later in the hour, perhaps: not "last heard" from here
     this.emitState();
   }
   retry() {
@@ -566,35 +650,13 @@ class Player extends EventTarget {
     d.time = el("div", { class: "player-time" }, d.clock, d.level);
     d.prev = el("button", { class: "player-skip", type: "button", "aria-label": "Previous hour", title: "Previous hour", html: ICON_PREV, onclick: () => this.prev() && this.load(this.prev(), { autoplay: this.isPlaying || this.wanted }) });
     d.next = el("button", { class: "player-skip", type: "button", "aria-label": "Next hour", title: "Next hour", html: ICON_NEXT, onclick: () => this.next() && this.load(this.next(), { autoplay: this.isPlaying || this.wanted }) });
-    // the sleep timer (wide screens; phones have it in Now Playing): a moon,
-    // with the minutes left beside it while it runs
-    d.sleepLabel = el("span", { class: "player-sleep-label" });
-    d.sleep = el("button", { class: "player-sleep", type: "button", title: "Sleep timer", "aria-label": "Sleep timer", "aria-haspopup": "true", "aria-expanded": "false", html: ICON_MOON, onclick: () => sleepMenu(d.sleepMenu.hidden) });
-    d.sleep.append(d.sleepLabel);
-    const choose = (choice) => {
-      this.setSleep(choice);
-      sleepMenu(false);
-      this.renderBar();
-    };
-    d.sleepMenu = el("div", { class: "player-sleep-menu", role: "group", "aria-label": "Stop playing after", hidden: true },
-      el("p", {}, "Stop playing after"),
-      ...SLEEP_CHOICES.map((choice) => el("button", { class: "player-sleep-choice", type: "button", "data-choice": String(choice), "aria-pressed": "false", onclick: () => choose(choice) },
-        choice === "hour" ? "The end of this hour" : `${choice} minutes`)),
-      el("button", { class: "player-sleep-choice", type: "button", "data-choice": "off", "aria-pressed": "true", onclick: () => choose(null) }, "Off"));
-    const sleepMenu = (open) => {
-      d.sleepMenu.hidden = !open;
-      d.sleep.setAttribute("aria-expanded", String(open));
-    };
-    d.sleepWrap = el("div", { class: "player-sleep-wrap" }, d.sleep, d.sleepMenu);
-    document.addEventListener("click", (event) => {
-      if (!d.sleepWrap.contains(event.target)) sleepMenu(false);
-    });
-    d.sleepWrap.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !d.sleepMenu.hidden) {
-        sleepMenu(false);
-        d.sleep.focus();
-      }
-    });
+    // the sleep timer: a moon, with the minutes left beside it while it runs
+    d.sleepWrap = createSleepControl(this).el;
+    // phones: the bird of the moment, as a plate at the start of the bar
+    d.artImg = el("img", { alt: "" });
+    d.art = el("span", { class: "player-art", "aria-hidden": "true" }, d.artImg);
+    // phones: the session's chart in small, across the top of the bar
+    d.strip = el("div", { class: "player-strip" });
     // the volume (wide screens with a mouse): mute, and a slider
     d.mute = el("button", { class: "player-mute", type: "button", onclick: () => this.toggleMute() });
     d.volume = el("input", {
@@ -620,8 +682,20 @@ class Player extends EventTarget {
       },
     }, d.progress);
     d.bar = el("div", { class: "player", "data-state": "idle" },
+      d.strip,
       d.track,
-      el("div", { class: "player-row" }, d.play, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
+      el("div", { class: "player-row" }, d.play, d.art, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
+    // The title opens the place page at the hour. Already on that place's page,
+    // it brings the playing session into view instead (the address would not change).
+    d.title.addEventListener("click", (event) => {
+      const seg = this.segment;
+      if (!seg || !(event.target instanceof Element) || !event.target.closest(".player-link")) return;
+      const here = `#/site/${encodeURIComponent(seg.site.id)}`;
+      if (location.hash === here || location.hash.startsWith(`${here}?`)) {
+        event.preventDefault();
+        this.dispatchEvent(new CustomEvent("reveal", { detail: seg }));
+      }
+    });
     container.append(this.audio, d.bar);
     this.container = container;
     this.dom = d;
@@ -657,11 +731,16 @@ class Player extends EventTarget {
       d.title.append(el("span", { class: "player-hint" }, "Press ▶ on a place or an hour to listen."));
     } else {
       const when = `${fmtDay(seg.start)}${seg.period ? ` · ${humanize(seg.period).toLowerCase()}` : ""}`;
-      // a problem replaces the date line, so the place's name always stays in view
+      // Phones: the bird of the moment replaces the date line once one has
+      // called (ochre while it calls). A problem replaces either, so the
+      // place's name always stays in view.
+      const bird = this.bird;
+      const heard = !this.error && bird && bird.kind !== "hour" ? bird : null;
       d.title.append(
         el("a", { href: `#/site/${encodeURIComponent(seg.site.id)}?at=${encodeURIComponent(seg.segment_id)}`, class: "player-link" },
           el("strong", {}, seg.site.site_name || seg.site_id),
-          this.error ? el("span", { class: "player-error" }, this.error) : el("span", {}, when)));
+          this.error ? el("span", { class: "player-error" }, this.error) : el("span", { class: heard ? "player-when has-bird" : "player-when" }, when),
+          heard ? el("span", { class: `player-bird${heard.kind === "calling" ? " calling" : ""}` }, heard.name) : null));
       // the recording's own clock: the time of day at the place, as it was
       const moment = this.moment;
       const seconds = String(new Date(moment).getUTCSeconds()).padStart(2, "0");
@@ -682,17 +761,27 @@ class Player extends EventTarget {
     d.msg.hidden = !(seg && this.error && this.audio.error);
     d.msg.innerHTML = "";
     if (!d.msg.hidden) d.msg.append(d.retry);
-    // the sleep timer's state
-    const sleep = this.sleep;
-    const sleepText = !sleep ? "" : sleep.hour ? "end of hour" : `${Math.max(1, this.sleepLeft)} min`;
-    if (d.sleepLabel.textContent !== sleepText) {
-      d.sleepLabel.textContent = sleepText;
-      const title = !sleep ? "Sleep timer" : sleep.hour ? "Sleep timer: stops when this hour ends" : `Sleep timer: stops in ${sleepText}`;
-      d.sleep.title = title;
-      d.sleep.setAttribute("aria-label", title);
-      d.sleep.classList.toggle("on", Boolean(sleep));
-      const current = !sleep ? "off" : sleep.hour ? "hour" : String(sleep.minutes);
-      for (const b of d.sleepMenu.querySelectorAll("[data-choice]")) b.setAttribute("aria-pressed", String(b.dataset.choice === current));
+
+    // phones: the bird's plate (ringed in ochre while it calls) and the session strip
+    if (seg && isPhone()) {
+      const bird = this.bird;
+      const image = bird ? bird.image : "assets/mark.svg";
+      if (d.artImg.getAttribute("src") !== image) d.artImg.src = image;
+      d.art.classList.toggle("calling", Boolean(bird && bird.kind === "calling"));
+      if (!this.strip || this.strip.session !== seg.session) {
+        const chart = createSessionChart(seg.session, {
+          maxRate: seg.site.maxRate,
+          onSeek: (s, at) => this.load(s, { autoplay: true, at }),
+          onSelect: (s) => this.load(s, { autoplay: this.isPlaying || this.wanted }),
+        });
+        this.strip = { session: seg.session, chart, seg: null };
+        d.strip.replaceChildren(chart.el);
+      }
+      if (this.strip.seg !== seg) {
+        this.strip.seg = seg;
+        this.strip.chart.setSelected(seg);
+      }
+      this.strip.chart.setPlayhead(this.moment);
     }
     const frac = this.duration ? this.currentTime / this.duration : 0;
     d.progress.style.width = `${(frac * 100).toFixed(3)}%`;

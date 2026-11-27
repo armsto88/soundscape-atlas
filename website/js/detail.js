@@ -3,6 +3,10 @@
 // with its calls. Species list, zoom, the confident-only filter and the
 // recording notes sit in a collapsed "More" section.
 //
+// On phones this is also the full player (the bar's title opens it): while its
+// hour plays, it shows the bird calling now (else the last one heard, else the
+// hour's own plate), −15 / +30 s around Pause, and the sleep timer.
+//
 // With many species, the busiest few get lanes and the rest fold into one
 // "+ N more species" lane that opens into a lane for each. Species checked by
 // ear, or heard with high confidence, keep a lane even if they called once.
@@ -12,10 +16,14 @@ import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip,
 import { loadDetections } from "./data.js";
 import { createSaveControl } from "./library.js";
 import { loadWeather, hourWeather } from "./weather.js";
+import { createSleepControl } from "./player.js";
 
 const MAX_LANES = 8;
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
+const ICON_BACK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4h4"/></svg>';
+const ICON_AHEAD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4h-4"/></svg>';
+const BIRD_KIND = { calling: "Calling now", heard: "Last heard", hour: "Most heard this hour" };
 const CONFIDENT = 0.9;
 const KHZ_TOP = 12;
 export const BIRDNET_CREDIT = "Species identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology). May contain errors.";
@@ -126,10 +134,29 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     onCommentTime(seg, at);
   } }, "Comment at time");
   // Wide screens: one row, the help by the title and Comment and Save before
-  // Play. Phones: the arrows and title, then Play across, then a row of actions.
+  // Play. Phones: the arrows and title; while this hour plays, the bird of the
+  // moment; Play across (between −15 and +30 s and by the sleep timer while
+  // this hour plays); then a row of actions.
   let actions = null;
+  let listen = null; // phones: the parts shown while this hour is the one playing
   if (isPhone()) {
-    head.append(prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), playBtn, nextBtn);
+    head.append(prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), nextBtn);
+    const jump = (sec, icon, label) => el("button", {
+      class: "jump-btn", type: "button", "aria-label": label, title: label,
+      html: `${icon}<small>${Math.abs(sec)}</small>`,
+      onclick: () => player.seek(player.currentTime + sec),
+    });
+    listen = {
+      img: el("img", { alt: "" }),
+      kind: el("span", { class: "detail-bird-kind" }),
+      name: el("span", { class: "detail-bird-name" }),
+      back: jump(-15, ICON_BACK, "Back 15 seconds"),
+      ahead: jump(30, ICON_AHEAD, "Forward 30 seconds"),
+      sleep: createSleepControl(player, { label: "Sleep", below: true }),
+      shown: null,
+    };
+    listen.ring = el("span", { class: "detail-bird-ring", "aria-hidden": "true" }, listen.img);
+    listen.bird = el("p", { class: "detail-bird", hidden: true }, listen.ring, el("span", { class: "detail-bird-text" }, listen.kind, listen.name));
     actions = el("div", { class: "detail-actions" }, help.button, comment, save.el);
   } else {
     head.classList.add("wide");
@@ -138,7 +165,8 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
       el("div", { class: "detail-tools" }, comment, save.el),
       playBtn, nextBtn);
   }
-  const root = el("div", { class: "detail" }, head, actions, help.panel, zoomBar, tl, lanesNote, more);
+  const transport = listen ? el("div", { class: "detail-transport" }, listen.back, playBtn, listen.ahead, listen.sleep.el) : null;
+  const root = el("div", { class: "detail" }, head, listen ? listen.bird : null, transport, actions, help.panel, zoomBar, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -287,6 +315,7 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     }
     playBtn.disabled = !seg.public_url;
     playhead.hidden = !mine;
+    if (listen) renderListen(mine);
     // the lanes of the species calling right now take on a little ochre
     const now = new Set(mine ? player.calling.map((d) => d.common_name) : []);
     for (const b of lanesLeft.children) b.classList.toggle("calling", now.has(b.dataset.name));
@@ -300,6 +329,25 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     }
   }
   player.addEventListener("state", onState);
+
+  // phones, while this hour is the one playing: the bird of the moment, the jumps and the sleep timer
+  function renderListen(mine) {
+    const bird = mine ? player.bird : null;
+    listen.bird.hidden = !bird;
+    listen.back.hidden = !mine;
+    listen.ahead.hidden = !mine;
+    listen.sleep.el.hidden = !mine;
+    transport.classList.toggle("playing-here", mine);
+    if (!bird) return;
+    const key = `${bird.kind}|${bird.name}`;
+    if (listen.shown === key) return;
+    listen.shown = key;
+    if (listen.img.getAttribute("src") !== bird.image) listen.img.src = bird.image;
+    listen.ring.classList.toggle("calling", bird.kind === "calling");
+    listen.kind.textContent = BIRD_KIND[bird.kind];
+    listen.kind.classList.toggle("calling", bird.kind === "calling");
+    listen.name.textContent = bird.name;
+  }
 
   return {
     el: root,
@@ -371,6 +419,7 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     },
     destroy() {
       player.removeEventListener("state", onState);
+      if (listen) listen.sleep.destroy();
       hideTip();
     },
   };

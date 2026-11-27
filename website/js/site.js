@@ -329,8 +329,17 @@ export function render(main, model, params, ctx) {
   const onChange = (event) => {
     if (event.detail.site === site) select(event.detail, { reveal: false });
   };
+  // the player bar's title, pressed on this page: bring the playing hour into view
+  const onReveal = (event) => {
+    const seg = event.detail;
+    if (!seg || seg.site !== site) return;
+    clearTimeout(initialReveal);
+    select(seg, { reveal: false });
+    blocks.get(seg.session).article.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
   player.addEventListener("state", onState);
   player.addEventListener("change", onChange);
+  player.addEventListener("reveal", onReveal);
 
   // open on the hour in the address, or on the hour already playing here
   const playingHere = player.segment && player.segment.site === site && (player.isPlaying || player.wanted);
@@ -354,6 +363,7 @@ export function render(main, model, params, ctx) {
       clearTimeout(initialReveal);
       player.removeEventListener("state", onState);
       player.removeEventListener("change", onChange);
+      player.removeEventListener("reveal", onReveal);
       if (detail) detail.destroy();
       inset.remove();
       hideTip();

@@ -259,7 +259,6 @@ website/js/detail.js    the hour in detail
 website/js/species.js   plate grid with rings (plates are buttons when a species can be followed)
 website/js/search.js    the species search field, the card for the species picked, the 24-hour strip
 website/js/player.js    the audio element, the player bar, the sleep timer, the lock screen
-website/js/nowplaying.js   Now Playing, the full view behind the player bar on phones
 website/js/speciesindex.js the Species page
 website/js/theme.js     light, dark or the phone's setting
 website/js/install.js   the Home Screen card and steps
@@ -291,19 +290,27 @@ most-heard species with one, else the place's. Their buttons play, pause,
 scrub and skip to the previous or next hour. iOS shows either ±10 s buttons or
 previous/next, never both; the player registers only previous/next.
 
-**Now Playing** (phones, `js/nowplaying.js`): tapping the player bar's title or
-clock opens a full-screen view: the plate of the bird calling now (ochre ring),
-else the hour's plate (as on the lock screen), the place and hour, the
-session's chart to tap or scrub (the same chart as on the place page), ±15/30 s,
-previous/next hour, and a **sleep timer** (15, 30 or 60 minutes, or the end of
-the hour; on wide screens it is the moon in the player bar, showing the minutes
-left while it runs). The timer fades the sound over its last 8 seconds where the browser
-lets a page set the volume (iOS does not) and then pauses; pausing by hand
-cancels it. The view closes with the chevron, a swipe down, Escape or any page
-change. It adds no history entry for Back: hours moving on rewrite the address
-in place, and Back would land on a stale one and re-render the page. Tooltips
-opened inside it are placed in the dialog (`showTip` in `js/util.js`), or the
-dialog would cover them.
+**On phones** the player bar carries a strip of the whole session across its
+top: the place page's chart in small (night shading, the hour playing framed in
+ochre, the red playhead). Tap or drag along it to listen from that moment; it
+stands in for the hour's progress line and the previous/next buttons. The bar
+starts with the plate of the bird calling now (ochre ring), else the last one
+heard in the hour, else the hour's own plate (as on the lock screen), and the
+bird's name replaces the date line once one has called. Its title opens the
+place page at the hour playing; pressed on that place's page, it scrolls the
+playing session into view instead (the player's `reveal` event).
+
+There the hour in detail is the full player: while its hour plays, it shows the
+bird of the moment ("Calling now", "Last heard" or "Most heard this hour"),
+−15 s and +30 s around Pause, and the sleep timer. (A full-screen Now Playing
+view did this until 27 Nov 2026; it covered the page and repeated its chart.)
+
+The **sleep timer** (15, 30 or 60 minutes, or the end of the hour) is the moon
+in the player bar; on wide screens it shows the minutes left beside it while it
+runs, on phones the moon turns ochre and its menu says how long is left. Phones
+also have it in the hour in detail (`createSleepControl` in `js/player.js`).
+The timer fades the sound over its last 8 seconds where the browser lets a page
+set the volume (iOS does not) and then pauses; pausing by hand cancels it.
 
 **Home Screen app**: `manifest.webmanifest` (name "Soundscape Atlas", Home
 Screen label "Soundscape", standalone, paper colours, three icons) and
