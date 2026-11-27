@@ -39,6 +39,7 @@ recorder's local clock (for example `AU_NSW_IMBOTA_20240413_1715`).
 | `weather_notes`, `field_notes` | Public free text |
 | `operator`, `copyright_owner`, `license` | Recordist and rights (`all_rights_reserved` by default) |
 | `public_start_local`, `public_end_local` | Optional. The published part of the recording (ISO local date-times); blank = from its start / to its end. Set by `publish_session.py --start/--end`; the website leaves out what is outside |
+| `public_gain_db` | Optional. The gain in dB given to every public copy of the session (with a limiter at -1 dBFS), so the session's published part comes to about -26 LUFS (EBU R128 integrated) while a quiet night stays quieter than its dawn. Measured and saved by the first `publish_session.py` run; `--gain DB` sets it, `--gain auto` measures again |
 
 ## segments.csv: one row per clock-aligned hour (written by `ingest_recordings.py process`)
 

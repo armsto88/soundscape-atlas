@@ -59,8 +59,9 @@ In short:
 
 `publish_session.py <SESSION_ID> [--start 15:38] [--except 02:00]` does steps 3
 to 5 for one session, after showing each hour's calls and possible voices and
-asking. It also makes the public copy of each hour (low cut at 100 Hz, cut
-ends, 10 s fades).
+asking. It also makes the public copy of each hour (low cut at 100 Hz, one
+gain for the whole session to about -26 LUFS with a limiter, cut ends, 10 s
+fades).
 
 Only published segments reach the website, and site coordinates are rounded
 as configured. See [metadata_template/README.md](metadata_template/README.md).

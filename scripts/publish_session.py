@@ -14,7 +14,8 @@ anything. Then it:
   1. marks the session's hours in segments.csv, and the cut ends (--start,
      --end) in sessions.csv,
   2. makes the public copy of each published hour from its lossless working
-     WAV: low cut at 100 Hz, the cut ends removed, 10 s fades where the
+     WAV: low cut at 100 Hz, the session's gain with a limiter at -1 dBFS for
+     the rare loud moment, the cut ends removed, 10 s fades where the
      published audio starts and stops (the recording's ends and either side of
      a held-back hour), Opus 128k, and its spectrogram strip
      (audio/public_opus/; hours already made the same way are skipped),
@@ -41,6 +42,14 @@ Choosing what is published:
 The first run publishes every hour but the --except ones. Later runs remember
 the held-back hours and the cuts, so only name what changes.
 
+Loudness: every hour of a session gets the same gain, so a quiet night stays
+quieter than its dawn chorus, as it was. The first run measures the published
+part (EBU R128 integrated loudness, after the low cut) and picks the gain that
+brings it to -26 LUFS: never a cut, at most +24 dB. The gain is saved in
+sessions.csv (public_gain_db) and reused.
+  --gain DB       uses this gain instead (e.g. 12 or +12.5); --gain auto
+                  measures again.
+
 Hours with possible human voices (inside the published part) must be listened
 to first: hold them back, cut them, or confirm you checked them (asked, or
 --voices-checked with --yes).
@@ -63,6 +72,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -94,6 +104,11 @@ FADE_SEC = 10
 OPUS_BITRATE = "128k"      # as the listening copies (ingest_recordings.py)
 MASTER_JOBS = 4
 MASTER_TAG = "soundscape_master"  # Opus comment recording how a copy was made
+# One fixed gain per session (sessions.csv public_gain_db; blank = measure it).
+LOUDNESS_TARGET = -26.0    # LUFS, EBU R128 integrated, of the session's whole published part
+MAX_GAIN_DB = 24.0         # boosts only, never more than this
+LIMIT_DB = -1.0            # lookahead limiter ceiling for the rare loud moment (a cockatoo at the mic)
+GAIN_COLUMN = "public_gain_db"
 
 
 class Stop(Exception):
@@ -107,9 +122,11 @@ class Edit:
     length: float     # seconds of the hour in the public copy
     fade_in: bool
     fade_out: bool
+    gain_db: float = 0.0
 
     def recipe(self) -> str:
-        return (f"v1; low cut {LOW_CUT_HZ} Hz 24 dB/oct; from {self.cut_from:.3f} s; length {self.length:.3f} s; "
+        return (f"v2; low cut {LOW_CUT_HZ} Hz 24 dB/oct; gain {self.gain_db:+.1f} dB; limiter {LIMIT_DB:.0f} dBFS; "
+                f"from {self.cut_from:.3f} s; length {self.length:.3f} s; "
                 f"fade in {FADE_SEC if self.fade_in else 0} s; fade out {FADE_SEC if self.fade_out else 0} s; "
                 f"opus {OPUS_BITRATE}")
 
@@ -260,10 +277,49 @@ def master_tag(path: Path) -> str:
     return ""
 
 
+def measure_loudness(archive_root: Path, segments: List[Dict[str, str]], edits: Dict[str, Edit]) -> float:
+    """EBU R128 integrated loudness (LUFS) of the published part, after the low cut, as one programme.
+
+    Measured on the listening copies (the same audio as the working WAVs, quicker to read)."""
+    lines = []
+    for segment in segments:
+        edit = edits.get(segment["segment_id"])
+        if edit is None:
+            continue
+        path = archive_root / segment["listening_opus_path"]
+        if not path.is_file():
+            raise Stop(f"no listening copy {path.name} to measure the loudness from")
+        quoted = str(path).replace("'", "'\\''")
+        lines += [f"file '{quoted}'", f"inpoint {edit.cut_from:.3f}", f"outpoint {edit.cut_from + edit.length:.3f}"]
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as handle:
+        handle.write("\n".join(lines) + "\n")
+        listing = handle.name
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-nostdin", "-f", "concat", "-safe", "0", "-i", listing,
+             "-af", f"highpass=f={LOW_CUT_HZ}:poles=2,highpass=f={LOW_CUT_HZ}:poles=2,ebur128=framelog=quiet",
+             "-f", "null", "-"],
+            capture_output=True, text=True, env={**os.environ, "LC_ALL": "C"})
+    finally:
+        os.unlink(listing)
+    found = re.findall(r"\bI:\s+(-?\d+(?:\.\d+)?) LUFS", result.stderr)
+    if result.returncode != 0 or not found:
+        raise Stop(f"could not measure the loudness: {result.stderr.strip()[-300:]}")
+    return float(found[-1])  # the summary at the end
+
+
+def gain_for(loudness: float) -> float:
+    """The gain that brings a session to LOUDNESS_TARGET, in 0.5 dB steps: boosts only, at most MAX_GAIN_DB."""
+    return max(0.0, min(MAX_GAIN_DB, round((LOUDNESS_TARGET - loudness) * 2) / 2))
+
+
 def make_public_copy(wav: Path, opus: Path, segment_id: str, edit: Edit) -> Tuple[Path, float, str]:
     """Encode one hour's public copy and draw its spectrogram. Returns (opus, seconds, error)."""
     started = datetime.now()
-    filters = [f"highpass=f={LOW_CUT_HZ}:poles=2", f"highpass=f={LOW_CUT_HZ}:poles=2"]
+    filters = [f"highpass=f={LOW_CUT_HZ}:poles=2", f"highpass=f={LOW_CUT_HZ}:poles=2",
+               f"volume={edit.gain_db:.2f}dB",
+               # level=false: no automatic make-up gain; latency=true: no delay, the timeline stays put
+               f"alimiter=limit={10 ** (LIMIT_DB / 20):.4f}:attack=5:release=100:level=false:latency=true"]
     fade = min(FADE_SEC, edit.length / 2)
     if edit.fade_in:
         filters.append(f"afade=t=in:st=0:d={fade:.3f}")
@@ -312,6 +368,8 @@ def main() -> int:
     parser.add_argument("--include", action="append", default=[], metavar="HOUR", help="publish a held-back hour again")
     parser.add_argument("--start", metavar="TIME", help="cut the recording before this local time ('none' removes the cut)")
     parser.add_argument("--end", metavar="TIME", help="cut the recording after this local time ('none' removes the cut)")
+    parser.add_argument("--gain", metavar="DB", help="gain for the public copies in dB, or 'auto' to measure again "
+                                                     "(default: the saved gain, else measured)")
     parser.add_argument("--unpublish", action="store_true", help="take the whole session off the website")
     parser.add_argument("--no-upload", action="store_true", help="leave the bucket and website/ alone (local try-out)")
     parser.add_argument("--no-preview", action="store_true", help="do not start the preview at the end")
@@ -409,6 +467,30 @@ def publish(args: argparse.Namespace) -> int:
         if not 0 < tail.length < float("inf"):
             raise Stop(f"invalid duration for {wavs[tail_id].name}")
 
+    # ---- the session's gain: --gain, else the saved one, else measured
+    stored_gain = str(session.get(GAIN_COLUMN) or "").strip()
+    gain_note = ""
+    gain = 0.0
+    if edits and not args.unpublish:
+        if args.gain is not None and args.gain.strip().lower() != "auto":
+            try:
+                gain = float(args.gain)
+            except ValueError:
+                raise Stop(f"--gain {args.gain!r}: give a number of dB, e.g. 12, or 'auto'") from None
+            if not 0 <= gain <= MAX_GAIN_DB:
+                raise Stop(f"--gain: use 0 to {MAX_GAIN_DB:.0f} dB")
+            gain_note = "chosen with --gain"
+        elif stored_gain and args.gain is None:
+            gain = float(stored_gain)
+            gain_note = "saved for this session; --gain auto measures again"
+        else:
+            print("Measuring the loudness of the published part...", flush=True)
+            loudness = measure_loudness(archive_root, segments, edits)
+            gain = gain_for(loudness)
+            gain_note = f"measured {loudness:.1f} LUFS, target {LOUDNESS_TARGET:.0f} LUFS"
+        for edit in edits.values():
+            edit.gain_db = gain
+
     # ---- the plan
     print(f"\n{site_name}  ({session['site_id']})")
     print(f"{first:%a %d %b %Y %H:%M} to {last:%a %d %b %H:%M}, {len(segments)} hours")
@@ -426,6 +508,8 @@ def publish(args: argparse.Namespace) -> int:
     print(f"\n{len(publishing)} of {len(segments)} hours will be published (* = changes)."
           + ("" if args.unpublish else f" Every published hour gets a low cut at {LOW_CUT_HZ} Hz; "
                                        f"fades are {FADE_SEC} s."))
+    if gain_note:
+        print(f"Gain {gain:+.1f} dB for every hour ({gain_note}), limiter at {LIMIT_DB:.0f} dBFS.")
 
     voiced = [segment for segment in publishing if segment["segment_id"] in voices]
     if voiced:
@@ -457,14 +541,15 @@ def publish(args: argparse.Namespace) -> int:
             changed += 1
     if changed:
         write_csv_atomic(metadata_dir / "segments.csv", segments_header, all_segments)
-    window_values = [moment.isoformat() if moment else "" for moment in window]
-    if [str(session.get(column) or "").strip() for column in WINDOW_COLUMNS] != window_values:
-        for column in WINDOW_COLUMNS:
+    columns = WINDOW_COLUMNS + ([GAIN_COLUMN] if gain_note else [])
+    values = [moment.isoformat() if moment else "" for moment in window] + ([f"{gain:.1f}"] if gain_note else [])
+    if [str(session.get(column) or "").strip() for column in columns] != values:
+        for column in columns:
             if column not in sessions_header:
                 sessions_header.append(column)
-        session.update(zip(WINDOW_COLUMNS, window_values))
+        session.update(zip(columns, values))
         write_csv_atomic(metadata_dir / "sessions.csv", sessions_header, sessions)
-        print(f"\n1. segments.csv: {changed} hour(s) changed; sessions.csv: cut ends saved.")
+        print(f"\n1. segments.csv: {changed} hour(s) changed; sessions.csv: cut ends and gain saved.")
     else:
         print(f"\n1. segments.csv: {changed} hour(s) changed.")
 

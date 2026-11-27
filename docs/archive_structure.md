@@ -7,7 +7,7 @@
 | Raw | original recorder files, anywhere on the archive drive | as recorded (e.g. MixPre: 48 kHz / 24-bit / 2–3 ch BWF) | never |
 | Working | `<archive-root>/audio/working_wav/<SITE_ID>/<SEGMENT_ID>.wav` | 48 kHz stereo, source bit depth, one clock hour | never |
 | Listening | `<archive-root>/audio/listening_opus/<SITE_ID>/<SEGMENT_ID>.opus` | Opus 128k constrained VBR, stereo (~58 MB/h) | to R2, same relative path |
-| Public | `<archive-root>/audio/public_opus/<SITE_ID>/<SEGMENT_ID>.opus` (+ `.png`) | as Listening, made from Working by `publish_session.py`: low cut 100 Hz, cut ends, 10 s fades | to R2 instead of the listening copy, under the listening copy's key |
+| Public | `<archive-root>/audio/public_opus/<SITE_ID>/<SEGMENT_ID>.opus` (+ `.png`) | as Listening, made from Working by `publish_session.py`: low cut 100 Hz, session gain + limiter, cut ends, 10 s fades | to R2 instead of the listening copy, under the listening copy's key |
 
 `listening_opus_path` in `segments.csv` is the path relative to `<archive-root>`,
 so the R2 object key can mirror it.
@@ -153,7 +153,10 @@ and then:
 1. marks the hours in `segments.csv` and the cut ends in `sessions.csv`;
 2. makes each published hour's **public copy** from its lossless working WAV,
    in `audio/public_opus/` with its own spectrogram: low cut at 100 Hz
-   (24 dB/octave), the cut ends removed, 10 s fades wherever the published
+   (24 dB/octave), the session's gain (`sessions.csv` `public_gain_db`: one
+   value for every hour, measured on the first run to bring the published
+   part to about -26 LUFS, boosts only, at most +24 dB) with a limiter at
+   -1 dBFS, the cut ends removed, 10 s fades wherever the published
    audio starts or stops (the ends, and either side of a held-back hour),
    Opus 128k. Each copy records how it was made, so unchanged hours are
    skipped on a re-run. The listening copies in `audio/listening_opus/` are
