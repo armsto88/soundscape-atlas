@@ -5694,5 +5694,62 @@
     [830, 1620]
    ]
   }
+ },
+ "Edolisoma tenuirostre": {
+  "name": "Sahul Cicadabird",
+  "source": "gould",
+  "work": "John Gould, The Birds of Australia, vol. 2 (1848), plate \"Campephaga Jardinii\" (Jardine's Campephaga)",
+  "scan": "https://archive.org/details/birdsaustralia2goul/page/n147/mode/1up",
+  "scan_file": "https://archive.org/download/birdsaustralia2goul/page/n147.jpg",
+  "scan_note": "State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain",
+  "cut": "2026-11-27, Fugleramme plate-review tools at a7848e0 (plate.py cut via cut_multi.py, finish.py), via cutplate.py: Gould's adult (grey) and young male (rufous-barred) on a leafy spray with star flowers and a dead stick, five seeds (both birds, the top leaves, the left spray, the lower branch); Gould's pale blue-grey sky wash behind the birds is as light as the page in its darkest channel, so paper_clean was lowered to 192 to clear it, with gap seeds kept out of small boxes inside the birds' pale head stripe, breast and undertail, the grey bird's body and the two flower clusters; paper farther than the halo from the drawing made transparent (--open-pockets); the pencilled number at the top and the faint pencil lettering below the plate are outside the crop.",
+  "spec": {
+   "box": [520, 480, 4480, 6200],
+   "paper_min": 187,
+   "paper_clean": 192,
+   "seal": 4,
+   "balance": [241, 228, 211],
+   "seed": [
+    [495, 1738],
+    [911, 1073],
+    [861, 275],
+    [329, 1156],
+    [313, 2121]
+   ],
+   "remove": [],
+   "gaps": [
+    [818, 1542],
+    [800, 184],
+    [644, 268],
+    [810, 275],
+    [965, 400],
+    [1197, 493],
+    [1158, 582],
+    [1238, 623],
+    [1388, 682],
+    [1351, 780],
+    [1150, 763],
+    [1065, 755],
+    [1273, 897],
+    [1039, 859],
+    [1058, 1027],
+    [876, 931],
+    [877, 967],
+    [388, 1078],
+    [595, 1065],
+    [510, 1101],
+    [287, 1106],
+    [314, 1126],
+    [1051, 1172],
+    [970, 1482],
+    [998, 1480],
+    [759, 1523],
+    [993, 1548],
+    [1050, 1516],
+    [1294, 1788],
+    [398, 1996],
+    [587, 2090]
+   ]
+  }
  }
 }
