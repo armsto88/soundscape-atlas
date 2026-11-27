@@ -245,7 +245,11 @@ export function render(main, model, params, ctx) {
       requestAnimationFrame(() => {
         if (!article.isConnected) return;
         article.focus({ preventScroll: true });
-        article.scrollIntoView({ block: "start", behavior: "instant" });
+        // the species' banner above the sessions comes into view with the session,
+        // unless that session is too far below it to show as well
+        const gap = article.getBoundingClientRect().top - lensBar.getBoundingClientRect().top;
+        const target = !lensBar.hidden && gap < window.innerHeight * 0.5 ? lensBar : article;
+        target.scrollIntoView({ block: "start", behavior: "instant" });
       });
     },
   });

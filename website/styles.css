@@ -736,7 +736,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 
 /* on a place page: the field in the header, the card above the sessions, a lane per chart */
 .site-find { max-width: 340px; margin-top: 0.9rem; }
-.site-lens { max-width: 640px; margin-top: 1.4rem; }
+.site-lens { max-width: 640px; margin-top: 1.4rem; scroll-margin-top: calc(var(--topbar-h) + 0.8rem); }
 .sc-lane {
   position: relative; height: 12px; margin-top: 4px; cursor: pointer;
   border-left: 3px solid transparent; border-right: 3px solid transparent; background: var(--paper-2); background-clip: padding-box;
