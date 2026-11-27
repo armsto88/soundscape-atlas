@@ -1,0 +1,6 @@
+{
+  "segment_id": "AU_NSW_GOONENGERRY_NP_20220218_0200",
+  "detections": [
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0200_17790_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":1779.0,"end_sec":1782.0,"confidence":"0.7666","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

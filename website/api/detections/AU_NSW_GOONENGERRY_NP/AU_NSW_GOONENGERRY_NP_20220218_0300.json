@@ -1,0 +1,13 @@
+{
+  "segment_id": "AU_NSW_GOONENGERRY_NP_20220218_0300",
+  "detections": [
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_05430_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":543.0,"end_sec":546.0,"confidence":"0.9187","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_11910_42e760","common_name":"Noisy Pitta","scientific_name":"Pitta versicolor","group":"Aves","start_sec":1191.0,"end_sec":1194.0,"confidence":"0.8942","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_12390_42e760","common_name":"Noisy Pitta","scientific_name":"Pitta versicolor","group":"Aves","start_sec":1239.0,"end_sec":1242.0,"confidence":"0.8502","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_12750_42e760","common_name":"Noisy Pitta","scientific_name":"Pitta versicolor","group":"Aves","start_sec":1275.0,"end_sec":1278.0,"confidence":"0.8258","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_12930_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":1293.0,"end_sec":1296.0,"confidence":"0.9642","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_14340_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":1434.0,"end_sec":1443.0,"confidence":"0.9962","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_19350_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":1935.0,"end_sec":1938.0,"confidence":"0.7921","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0300_22230_9f21e6","common_name":"Australian Owlet-nightjar","scientific_name":"Aegotheles cristatus","group":"Aves","start_sec":2223.0,"end_sec":2232.0,"confidence":"0.9856","n":3,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

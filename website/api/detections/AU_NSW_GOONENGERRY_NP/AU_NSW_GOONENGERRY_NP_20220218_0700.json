@@ -1,0 +1,13 @@
+{
+  "segment_id": "AU_NSW_GOONENGERRY_NP_20220218_0700",
+  "detections": [
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00180_049248","common_name":"Lewin's Honeyeater","scientific_name":"Meliphaga lewinii","group":"Aves","start_sec":18.0,"end_sec":21.0,"confidence":"0.7806","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00330_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":33.0,"end_sec":36.0,"confidence":"0.8275","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00540_049248","common_name":"Lewin's Honeyeater","scientific_name":"Meliphaga lewinii","group":"Aves","start_sec":54.0,"end_sec":60.0,"confidence":"0.9239","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00630_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":63.0,"end_sec":75.0,"confidence":"0.8697","n":4,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00840_049248","common_name":"Lewin's Honeyeater","scientific_name":"Meliphaga lewinii","group":"Aves","start_sec":84.0,"end_sec":90.0,"confidence":"0.7678","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_00870_bab854","common_name":"Brown Cuckoo-Dove","scientific_name":"Macropygia phasianella","group":"Aves","start_sec":87.0,"end_sec":96.0,"confidence":"0.8466","n":3,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_02640_b54d0a","common_name":"Australian King Parrot","scientific_name":"Alisterus scapularis","group":"Aves","start_sec":264.0,"end_sec":267.0,"confidence":"0.7963","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_GOONENGERRY_NP_20220218_0700_03180_9305ca","common_name":"White-throated Treecreeper","scientific_name":"Cormobates leucophaea","group":"Aves","start_sec":318.0,"end_sec":321.0,"confidence":"0.8768","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

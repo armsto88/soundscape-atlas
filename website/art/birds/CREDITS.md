@@ -10,6 +10,7 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 |---|---|---|---|
 | acanthiza-pusilla.webp | Brown Thornbill (*Acanthiza pusilla*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285944) |
 | acanthorhynchus-tenuirostris.webp | Eastern Spinebill (*Acanthorhynchus tenuirostris*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14086) |
+| aegotheles-cristatus.webp | Australian Owlet-nightjar (*Aegotheles cristatus*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/15170) |
 | alisterus-scapularis.webp | Australian King Parrot (*Alisterus scapularis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13828) |
 | anas-platyrhynchos.webp | Mallard (*Anas platyrhynchos*) | the von Wright brothers, Svenska Fåglar | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_from_Svenska_F%C3%A5glar_(Swedish_Birds)_by_the_von_Wright_brothers_from_rawpixel%27s_original_edition_of_the_publication_00029.jpg) |
 | cacatua-galerita.webp | Sulphur-crested Cockatoo (*Cacatua galerita*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48400934) |
@@ -46,6 +47,7 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | philemon-corniculatus.webp | Noisy Friarbird (*Philemon corniculatus*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14098) |
 | pitta-versicolor.webp | Noisy Pitta (*Pitta versicolor*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14330) |
 | platycercus-elegans.webp | Crimson Rosella (*Platycercus elegans*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48401022) |
+| podargus-strigoides.webp | Tawny Frogmouth (*Podargus strigoides*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48200500) |
 | psophodes-olivaceus.webp | Eastern Whipbird (*Psophodes olivaceus*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285739) |
 | rhipidura-albiscapa.webp | Grey Fantail (*Rhipidura albiscapa*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav2Goul/page/n339/mode/1up) |
 | rhipidura-leucophrys.webp | Willie Wagtail (*Rhipidura leucophrys*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14830) |
@@ -94,3 +96,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | zoothera-heinei.webp | Russet-tailed Thrush (*Zoothera heinei*) | J. G. Keulemans, in Seebohm & Sharpe, A Monograph of the Turdidae, vol. 1 (1898-1902), pl. VI: fig. 1 "Geocichla heinii" (this species), fig. 2 "G. papuensis" (its New Guinea race) | [link](https://archive.org/details/mobot31753003757629/page/n364/mode/1up) (Harvard Museum of Comparative Zoology copy, digitised by the Biodiversity Heritage Library; public domain (Keulemans died 1912)) |
 | nesoptilotis-leucotis.webp | White-eared Honeyeater (*Nesoptilotis leucotis*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis leucotis" | [link](https://archive.org/details/birdsaustralia4goula/page/n89/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilotula-fusca.webp | Fuscous Honeyeater (*Ptilotula fusca*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis fuscus" | [link](https://archive.org/details/birdsaustralia4goula/page/n105/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+
+## Still without a plate
+
+- Sahul Cicadabird (*Edolisoma tenuirostre*)
