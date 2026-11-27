@@ -67,7 +67,13 @@ the R2 bucket.
   spectrogram strip and one lane per species, with the species list, zoom, a
   confident-only filter and the recording notes under "More". On wide screens
   its controls are one row (the arrows, the title with its help, Comment at
-  time, Save hour, Play); phones put Play across under the title. Drag the
+  time, Save hour, Play); phones put Play across under the title.
+  A **Contrast** slider (beside Zoom above the spectrogram on wide screens, in
+  More on phones; "Normal" resets it) darkens the pale greys the calls sit in
+  while the faintest hiss stays white: CSS `brightness()` then `contrast()`
+  on the image, through `--spec-b` and `--spec-c` on the page (so every
+  spectrogram follows), before the night theme's `invert(1)`. It is kept in
+  this browser (`specContrast` in localStorage). Drag the
   highlighted window or use the arrows to move through the session; during
   playback the window follows. `&t=<seconds>` after `?at=` also cues the
   player at that second of the hour, paused (browsers only start sound on a

@@ -32,7 +32,7 @@
   --plate: #fcfaf5;
   --plate-ink: #6b685d;
   --shadow: #2a2a26;
-  --spec-filter: none;     /* spectrograms: dark on white, multiplied onto the paper */
+  --spec-filter: invert(0); /* spectrograms: dark on white, multiplied onto the paper (a no-op filter, so it can follow the contrast's) */
   --spec-blend: multiply;
   --icon-filter: none;     /* MapLibre's control icons */
   color-scheme: light dark;
@@ -547,7 +547,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 .spec-axis span { position: absolute; right: 0.5rem; transform: translateY(-50%); }
 .spec-axis span:last-child { transform: none; } /* 12 kHz, at the very top */
 .tl-spec { position: relative; height: var(--spec-h); background: var(--paper-0); }
-.tl-spec img { display: block; width: 100%; height: 100%; filter: var(--spec-filter); mix-blend-mode: var(--spec-blend); user-select: none; } /* white becomes the chart paper */
+.tl-spec img { display: block; width: 100%; height: 100%; filter: brightness(var(--spec-b, 1)) contrast(var(--spec-c, 1)) var(--spec-filter); mix-blend-mode: var(--spec-blend); user-select: none; } /* white becomes the chart paper */
 .spec-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 0.85rem; background: repeating-linear-gradient(135deg, transparent 0 10px, var(--paper-2) 10px 11px); }
 .lane-name, .lane-track { height: var(--lane-h); border-top: 1px solid var(--rule); }
 .lane-name {
@@ -589,6 +589,12 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 /* wide screens: zoom right above the spectrogram, at its right edge */
 .detail-zoom { display: flex; justify-content: flex-end; align-items: center; gap: 0.55rem; margin: 0.2rem 0 0.45rem; font-size: 0.85rem; }
 .detail-zoom .seg-btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
+/* the spectrogram's contrast (detail.js): beside zoom on wide screens, in More on phones */
+.spec-contrast { display: inline-flex; align-items: center; gap: 0.6rem; }
+.detail-zoom .spec-contrast { margin-right: 0.9rem; }
+.spec-contrast label { display: inline-flex; align-items: center; gap: 0.55rem; }
+.spec-contrast input { width: 130px; accent-color: var(--ink); cursor: pointer; }
+.contrast-reset { font-size: 0.82rem; }
 .more summary { cursor: pointer; color: var(--ink-2); font-size: 0.9rem; padding: 0.2rem 0; }
 @media (hover: hover) { .more summary:hover { color: var(--ink); } }
 .more-body { padding: 0.6rem 0 0.2rem; }

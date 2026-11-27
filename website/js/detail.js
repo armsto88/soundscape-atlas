@@ -31,6 +31,29 @@ export const BIRDNET_CREDIT = "Species identified automatically by BirdNET+ V3.0
 
 // remembered while the page is open, from hour to hour
 let expanded = false;
+
+// Spectrogram contrast: one slider, from the image as drawn (0) to strong (100),
+// kept in this browser. The spectrograms are pale (calls sit in light greys), so
+// it darkens the greys while the faintest hiss stays white: darkness times g,
+// above a floor t. CSS brightness(b) then contrast(c) gives exactly that line
+// with c = 2g − 1 − 2gt and b = g / c (white stays white), in every browser.
+const CONTRAST_KEY = "specContrast";
+let contrast = 0;
+try {
+  contrast = clamp(Math.round(Number(localStorage.getItem(CONTRAST_KEY)) || 0), 0, 100);
+} catch {
+  // no storage here: start from the image as drawn
+}
+function applyContrast() {
+  const s = contrast / 100;
+  const g = 1 + 3 * s;
+  const t = 0.05 * s;
+  const c = 2 * g - 1 - 2 * g * t;
+  const root = document.documentElement.style;
+  root.setProperty("--spec-b", (g / c).toFixed(4));
+  root.setProperty("--spec-c", c.toFixed(4));
+}
+applyContrast();
 const byCalls = (a, b) => b.calls - a.calls || a.name.localeCompare(b.name);
 
 // focusName(): the species picked on the page, whose lane each hour opens on.
@@ -110,17 +133,42 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   // ---- more ----------------------------------------------------------------------
   const zoomBtns = [1, 2, 4, 8].map((z) => el("button", { class: `seg-btn${z === 1 ? " active" : ""}`, type: "button", "aria-pressed": String(z === 1), onclick: () => setZoom(z) }, `${z}×`));
   const zoomGroup = el("div", { class: "seg-group", role: "group", "aria-label": "Zoom" }, zoomBtns);
-  // Wide screens: zoom sits right above the spectrogram. Phones: in More (a swipe there turns the hour).
+  // the spectrogram's contrast, and "Normal" to put it back
+  const contrastInput = el("input", {
+    type: "range", min: "0", max: "100", step: "1", value: String(contrast), "aria-label": "Spectrogram contrast",
+    oninput: (event) => setContrast(Number(event.target.value)),
+  });
+  const contrastReset = el("button", { class: "linklike contrast-reset", type: "button", onclick: () => setContrast(0) }, "Normal");
+  const contrastGroup = el("span", { class: "spec-contrast" },
+    el("label", {}, el("span", { class: "muted" }, "Contrast"), contrastInput), contrastReset);
+  function setContrast(value) {
+    contrast = clamp(Math.round(value), 0, 100);
+    applyContrast();
+    try {
+      localStorage.setItem(CONTRAST_KEY, String(contrast));
+    } catch {
+      // a private window: it lasts until the page closes
+    }
+    showContrast();
+  }
+  function showContrast() {
+    if (Number(contrastInput.value) !== contrast) contrastInput.value = String(contrast);
+    contrastInput.setAttribute("aria-valuetext", contrast ? `${contrast} of 100` : "Normal");
+    contrastReset.hidden = contrast === 0;
+  }
+  showContrast();
+  // Wide screens: contrast and zoom sit right above the spectrogram. Phones: in More (a swipe there turns the hour).
   const wide = !isPhone();
-  const zoomBar = wide ? el("div", { class: "detail-zoom" }, el("span", { class: "muted" }, "Zoom"), zoomGroup) : null;
+  const zoomBar = wide ? el("div", { class: "detail-zoom" }, contrastGroup, el("span", { class: "muted" }, "Zoom"), zoomGroup) : null;
   const confidentOnly = el("input", { type: "checkbox", onchange: () => renderLanes() });
   const speciesList = el("ul", { class: "species" });
   const notes = el("dl", { class: "notes" });
   const more = el("details", { class: "more" },
-    el("summary", {}, wide ? "More: all species, filter, recording notes" : "More: all species, zoom, filter, recording notes"),
+    el("summary", {}, wide ? "More: all species, filter, recording notes" : "More: all species, zoom, contrast, filter, recording notes"),
     el("div", { class: "more-body" },
       el("div", { class: "more-controls" },
         wide ? null : zoomGroup,
+        wide ? null : contrastGroup,
         el("label", { class: "check" }, confidentOnly, ` Only confident detections (${Math.round(CONFIDENT * 100)}% or checked by ear)`),
         el("span", { class: "legend muted" }, el("i", { class: "swatch" }), " BirdNET  ", el("i", { class: "swatch checked" }), " checked by ear")),
       el("div", { class: "more-cols" },
