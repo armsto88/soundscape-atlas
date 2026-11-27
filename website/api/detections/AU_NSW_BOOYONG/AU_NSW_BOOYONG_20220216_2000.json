@@ -1,0 +1,9 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220216_2000",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2000_00150_278e58","common_name":"Laughing Kookaburra","scientific_name":"Dacelo novaeguineae","group":"Aves","start_sec":15.0,"end_sec":21.0,"confidence":"0.8912","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2000_04560_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":456.0,"end_sec":462.0,"confidence":"0.839","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2000_04620_278e58","common_name":"Laughing Kookaburra","scientific_name":"Dacelo novaeguineae","group":"Aves","start_sec":462.0,"end_sec":471.0,"confidence":"0.8864","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2000_34740_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3474.0,"end_sec":3477.0,"confidence":"0.8424","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

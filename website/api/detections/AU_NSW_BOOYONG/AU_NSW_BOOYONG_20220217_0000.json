@@ -1,0 +1,7 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220217_0000",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0000_34680_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3468.0,"end_sec":3471.0,"confidence":"0.8812","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0000_34770_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3477.0,"end_sec":3480.0,"confidence":"0.7906","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

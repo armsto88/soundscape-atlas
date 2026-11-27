@@ -1,0 +1,8 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220216_2100",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2100_00660_cb6d65","common_name":"Striped Marsh Frog","scientific_name":"Limnodynastes peronii","group":"Amphibia","start_sec":66.0,"end_sec":69.0,"confidence":"0.5422","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2100_32700_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3270.0,"end_sec":3276.0,"confidence":"0.8771","n":2,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220216_2100_32940_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3294.0,"end_sec":3297.0,"confidence":"0.8314","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

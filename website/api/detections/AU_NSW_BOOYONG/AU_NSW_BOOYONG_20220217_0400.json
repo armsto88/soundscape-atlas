@@ -1,0 +1,6 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220217_0400",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0400_08610_cb6d65","common_name":"Striped Marsh Frog","scientific_name":"Limnodynastes peronii","group":"Amphibia","start_sec":861.0,"end_sec":864.0,"confidence":"0.5838","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

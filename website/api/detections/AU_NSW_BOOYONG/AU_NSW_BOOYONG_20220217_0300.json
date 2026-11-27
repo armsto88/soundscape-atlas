@@ -1,0 +1,7 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220217_0300",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0300_22830_ae4802","common_name":"Common Starling","scientific_name":"Sturnus vulgaris","group":"Aves","start_sec":2283.0,"end_sec":2286.0,"confidence":"0.8535","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0300_32130_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":3213.0,"end_sec":3249.0,"confidence":"0.9507","n":10,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}

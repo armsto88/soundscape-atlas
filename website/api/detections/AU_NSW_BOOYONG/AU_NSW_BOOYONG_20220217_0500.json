@@ -1,0 +1,10 @@
+{
+  "segment_id": "AU_NSW_BOOYONG_20220217_0500",
+  "detections": [
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0500_16590_ccb4a4","common_name":"Masked Lapwing","scientific_name":"Vanellus miles","group":"Aves","start_sec":1659.0,"end_sec":1662.0,"confidence":"0.8369","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0500_30090_0cf9e8","common_name":"Dainty Tree Frog","scientific_name":"Chlorohyla gracilenta","group":"Amphibia","start_sec":3009.0,"end_sec":3012.0,"confidence":"0.5351","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0500_33630_278e58","common_name":"Laughing Kookaburra","scientific_name":"Dacelo novaeguineae","group":"Aves","start_sec":3363.0,"end_sec":3366.0,"confidence":"0.8644","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0500_35730_a6197c","common_name":"Australian Magpie","scientific_name":"Gymnorhina tibicen","group":"Aves","start_sec":3573.0,"end_sec":3576.0,"confidence":"0.8557","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"},
+    {"detection_id":"AU_NSW_BOOYONG_20220217_0500_35910_a6197c","common_name":"Australian Magpie","scientific_name":"Gymnorhina tibicen","group":"Aves","start_sec":3591.0,"end_sec":3594.0,"confidence":"0.8095","n":1,"model":"BirdNET+ V3.0.1","review_status":"unreviewed"}
+  ]
+}
