@@ -109,6 +109,9 @@ function renderAbout(main) {
     el("h1", {}, "About"),
     el("p", {}, "Soundscape Atlas is a growing archive of natural soundscapes, recorded from dusk till dawn. A recorder is left out from the afternoon, through the night and into the next morning, to hear how a place sounds as day turns to night and back again. The aim is to record in as many places as possible, so the map will keep growing."),
     el("p", {}, "Each recording session is cut into clock hours, and the hours here are the ones chosen for publication."),
+    // a plain link: no Facebook widget, so nothing of Meta's loads here
+    el("p", {}, "New places and recordings are posted on ",
+      el("a", { href: "https://www.facebook.com/profile.php?id=61597097846217", target: "_blank", rel: "noopener" }, "Facebook ↗"), "."),
     el("p", {}, "The species on each hour's timeline were identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology) and may contain errors. Species marked as checked by ear have been confirmed by a person."),
     el("p", {}, "Bird plates are hand-cut 1800s illustrations by John Gould and others, from the Fugleramme project (CC BY-SA 4.0). Frogs are drawn in the same style from openly licensed photos (CC BY-SA 4.0). ",
       el("a", { href: "art/birds/CREDITS.md" }, "Bird credits"), " · ", el("a", { href: "art/frogs/CREDITS.md" }, "Frog credits"), "."),
@@ -120,7 +123,8 @@ function renderAbout(main) {
       "Fonts: Inter and Fraunces (SIL Open Font License)."),
     el("p", {}, "GoatCounter measures visits, playback starts and listening duration in ranges for each recording session."),
     el("p", {}, "The sign-in and comment forms are checked for bots by Cloudflare Turnstile, which loads from Cloudflare only when one of those forms is shown."),
-    el("p", {}, "Recordings by Tom Armstrong. All rights reserved.")));
+    el("p", {}, "Recordings by Tom Armstrong. All rights reserved."),
+    el("p", {}, el("a", { href: "impressum.html" }, "Impressum (legal notice)"))));
 }
 
 async function boot() {

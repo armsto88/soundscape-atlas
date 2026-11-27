@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Impressum · Soundscape Atlas</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#fcfaf5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)" />
+    <script>try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+    <link rel="stylesheet" href="fonts/fonts.css" />
+    <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <!--
+      The legal notice (Impressum) required by § 5 DDG, for the website and for
+      Soundscape Atlas on Facebook and Instagram, which link here. A plain page, so
+      it opens without the app's JavaScript. Linked from the About page.
+    -->
+    <style>
+      :root {
+        --paper: #fcfaf5; --rule: #e0d9cb; --ink: #2a2a26; --ink-2: #5c5a52; --ink-3: #6b685d; --green: #4f6f52;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --paper: #17181a; --rule: #3b3c42; --ink: #ece6d8; --ink-2: #c4bdad; --ink-3: #9c9686; --green: #8fb894;
+        }
+      }
+      :root[data-theme="dark"] {
+        --paper: #17181a; --rule: #3b3c42; --ink: #ece6d8; --ink-2: #c4bdad; --ink-3: #9c9686; --green: #8fb894;
+      }
+      html { background: var(--paper); }
+      body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.6 Inter, system-ui, sans-serif; }
+      header { border-bottom: 1px solid var(--rule); padding: 0.9rem 1rem; }
+      header a { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--ink); text-decoration: none;
+                 font: 500 1.25rem/1 Fraunces, Georgia, serif; }
+      header img { width: 1.7rem; height: 1.7rem; }
+      main { max-width: 64ch; margin: 0 auto; padding: 1.6rem 1rem 3rem; }
+      h1 { font: 500 2.2rem/1.15 Fraunces, Georgia, serif; margin: 0 0 0.3rem; }
+      h2 { font: 600 1rem/1.4 Inter, system-ui, sans-serif; margin: 1.8rem 0 0.3rem; }
+      p { margin: 0 0 0.8rem; }
+      .muted { color: var(--ink-2); }
+      a { color: var(--green); }
+      hr { border: 0; border-top: 1px solid var(--rule); margin: 2.4rem 0 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/"><img src="assets/mark.svg" alt="" />Soundscape Atlas</a>
+    </header>
+    <main>
+      <h1>Impressum</h1>
+      <p class="muted">Legal notice</p>
+
+      <h2>Information under § 5 DDG (German Digital Services Act)</h2>
+      <p>
+        Tom Armstrong<br />
+        Spittelhofstraße 32A<br />
+        79271 St. Peter<br />
+        Germany
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Email: <a href="mailto:info@tomarmstrong.net">info@tomarmstrong.net</a>
+      </p>
+
+      <!-- Only if you have one:
+      <h2>VAT ID</h2>
+      <p>VAT identification number under § 27a UStG: DE…</p>
+      -->
+
+      <h2>Responsible for the content under § 18 (2) MStV (German Interstate Media Treaty)</h2>
+      <p>Tom Armstrong, address as above</p>
+
+      <h2>Copyright</h2>
+      <p>
+        Recordings and texts © Tom Armstrong, all rights reserved. Bird plates, frog pictures, maps and fonts are
+        under the licences listed on the <a href="/#/about">About</a> page.
+      </p>
+
+      <p>This notice also covers Soundscape Atlas on Facebook and Instagram.</p>
+    </main>
+  </body>
+</html>
