@@ -310,13 +310,14 @@ previous/next, never both; the player registers only previous/next.
 **On phones** the player bar carries a strip of the whole session across its
 top: the place page's chart in small (night shading, the hour playing framed in
 ochre, the red playhead). Tap or drag along it to listen from that moment; it
-stands in for the hour's progress line and the previous/next buttons. The bar
-starts with the plate of the bird calling now (ochre ring), else the last one
-heard in the hour, else the hour's own plate (as on the lock screen:
-`player.bird`), and the bird's name replaces the date line once one has called.
+stands in for the hour's progress line and the previous/next buttons. Below it
+are the place, the clock and Play, and nothing that the hour on the place page
+and Now Playing already show (no plate, no sleep timer). The bird calling now,
+else the last one heard in the hour (`player.bird`), replaces the date line
+once one has called, in ochre while it calls.
 
-**Now Playing** (phones, `js/nowplaying.js`): tapping the bar's plate, title or
-clock opens a full-screen view: the same bird's plate (ochre ring while it
+**Now Playing** (phones, `js/nowplaying.js`): tapping the bar's title or
+clock opens a full-screen view: the plate of the same bird (else the hour's own, as on the lock screen) (ochre ring while it
 calls), the place and hour, the session's chart to tap or scrub (the same chart
 as on the place page), ±15/30 s, previous/next hour, the sleep timer and "Open
 place". It closes with the chevron, a swipe down, Escape or any page change. It
@@ -333,10 +334,9 @@ that place's page, it scrolls the playing session into view instead (the
 player's `reveal` event).
 
 The **sleep timer** (15, 30 or 60 minutes, or the end of the hour) is the moon
-in the player bar; on wide screens it shows the minutes left beside it while it
-runs, on phones the moon turns ochre and its menu says how long is left. Phones
-also have it in the hour in detail (`createSleepControl` in `js/player.js`) and
-in Now Playing.
+in the player bar on wide screens, showing the minutes left beside it while it
+runs. Phones have it in the hour in detail (`createSleepControl` in
+`js/player.js`) and in Now Playing, not in the bar.
 The timer fades the sound over its last 8 seconds where the browser lets a page
 set the volume (iOS does not) and then pauses; pausing by hand cancels it.
 

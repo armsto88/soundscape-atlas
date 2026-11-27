@@ -813,7 +813,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 .player-sleep-menu.below { bottom: auto; top: calc(100% + 0.4rem); }
 .player-skip { width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: var(--ink); }
 /* phones only (see small screens): the session strip, the bird's plate and its name in the bar */
-.player-strip, .player-art, .player-bird { display: none; }
+.player-strip, .player-bird { display: none; }
 @media (hover: hover) { .player-skip:hover:not(:disabled) { background: var(--paper-3); } }
 .player-skip:disabled { opacity: 0.25; cursor: default; }
 
@@ -988,10 +988,11 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .ring img { max-width: 84px; max-height: 78px; }
   .ring .ph { width: 64px; height: 64px; }
   /* The bar: the session strip across the top (tap or drag along it), then the
-     bird's plate, the place, the clock, Play and the sleep timer. A tap on the
-     place or the clock opens Now Playing (js/nowplaying.js). The strip
-     stands in for the hour's progress line and the previous/next buttons; the
-     volume is on the phone's buttons. */
+     place with the bird of the moment, the clock and Play. A tap on the place
+     or the clock opens Now Playing (js/nowplaying.js), which has the plate and
+     the sleep timer, as does the hour on the place page. The strip stands in
+     for the hour's progress line and the previous/next buttons; the volume is
+     on the phone's buttons. */
   .player-now, .player-level, .player-vol, .player-nav, .player-track { display: none; }
   .player-strip { display: block; flex: none; }
   .player-strip .sc-suns, .player-strip .sc-ticks, .player-strip .sc-lane, .player-strip .sc-comment-lane,
@@ -999,21 +1000,13 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .player-strip .sc-plot { height: 28px; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
   .player-strip .sc-window { top: 0; bottom: 0; border-width: 1.5px; border-radius: 3px; }
   .player-strip .sc-playhead::before { left: -3px; border-left-width: 4px; border-right-width: 4px; border-top-width: 5px; }
-  .player-art {
-    display: grid; flex: none; width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--rule); background: var(--plate);
-    place-items: center; overflow: hidden; transition: border-color 0.6s ease;
-  }
-  .player-art.calling { border-color: var(--ochre); transition-duration: 0.2s; }
-  .player-art img { width: 80%; height: 80%; object-fit: contain; }
   .player-when.has-bird { display: none; }
   .player-bird { display: block; }
   .player-link span.player-bird.calling { color: var(--ochre-deep); font-style: italic; }
   .player-play { order: 1; }
-  .player-sleep-wrap { order: 2; }
-  .player .player-sleep-label { display: none; } /* the moon alone, ochre while a timer runs; its menu says how long */
+  .player .player-sleep-wrap { display: none; } /* the sleep timer is in the hour and in Now Playing */
   .player-sleep { min-width: 44px; height: 44px; }
-  .player-art, .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
-  .player .player-sleep.on { padding: 0; }
+  .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
   /* fewer words on a small screen: no weather line in the hour, and the plate credits are on About (the page) */
   .detail-weather, .site-species .credit { display: none; }
   /* The place page: the place line (the way back), the name, then three tabs

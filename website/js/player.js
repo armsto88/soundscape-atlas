@@ -704,9 +704,6 @@ class Player extends EventTarget {
     d.next = el("button", { class: "player-skip", type: "button", "aria-label": "Next hour", title: "Next hour", html: ICON_NEXT, onclick: () => this.next() && this.load(this.next(), { autoplay: this.isPlaying || this.wanted }) });
     // the sleep timer: a moon, with the minutes left beside it while it runs
     d.sleepWrap = createSleepControl(this).el;
-    // phones: the bird of the moment, as a plate at the start of the bar
-    d.artImg = el("img", { alt: "" });
-    d.art = el("span", { class: "player-art", "aria-hidden": "true" }, d.artImg);
     // phones: the session's chart in small, across the top of the bar
     d.strip = el("div", { class: "player-strip" });
     // the volume (wide screens with a mouse): mute, and a slider
@@ -739,7 +736,7 @@ class Player extends EventTarget {
     d.bar = el("div", { class: "player", "data-state": "idle" },
       d.strip,
       d.track,
-      el("div", { class: "player-row" }, d.play, d.art, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
+      el("div", { class: "player-row" }, d.play, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
     // The title opens the place page at the hour (on phones it opens Now Playing,
     // js/nowplaying.js). Already on that place's page, it brings the playing
     // session into view instead (the address would not change).
@@ -818,12 +815,8 @@ class Player extends EventTarget {
     d.msg.innerHTML = "";
     if (!d.msg.hidden) d.msg.append(d.retry);
 
-    // phones: the bird's plate (ringed in ochre while it calls) and the session strip
+    // phones: the session strip
     if (seg && isPhone()) {
-      const bird = this.bird;
-      const image = bird ? bird.image : "assets/mark.svg";
-      if (d.artImg.getAttribute("src") !== image) d.artImg.src = image;
-      d.art.classList.toggle("calling", Boolean(bird && bird.kind === "calling"));
       if (!this.strip || this.strip.session !== seg.session) {
         const chart = createSessionChart(seg.session, {
           maxRate: seg.site.maxRate,

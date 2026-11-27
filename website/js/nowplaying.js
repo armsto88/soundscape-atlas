@@ -36,10 +36,10 @@ export function mountNowPlaying(player) {
   let chartSession = null;
   let shown = {}; // what is on screen, to touch the page only when it changes
 
-  // the bar's plate, title and clock open the view on phones (the play button, the
-  // session strip and the sleep timer keep their jobs)
+  // the bar's title and clock open the view on phones (the play button and the
+  // session strip keep their jobs)
   document.addEventListener("click", (event) => {
-    const hit = event.target instanceof Element && event.target.closest(".player-art, .player-title, .player-time");
+    const hit = event.target instanceof Element && event.target.closest(".player-title, .player-time");
     if (!hit || !player.segment || !isPhone()) return;
     event.preventDefault();
     open();
