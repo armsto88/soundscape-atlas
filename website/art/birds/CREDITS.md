@@ -13,9 +13,11 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | aegotheles-cristatus.webp | Australian Owlet-nightjar (*Aegotheles cristatus*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/15170) |
 | alisterus-scapularis.webp | Australian King Parrot (*Alisterus scapularis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13828) |
 | anas-platyrhynchos.webp | Mallard (*Anas platyrhynchos*) | the von Wright brothers, Svenska Fåglar | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_from_Svenska_F%C3%A5glar_(Swedish_Birds)_by_the_von_Wright_brothers_from_rawpixel%27s_original_edition_of_the_publication_00029.jpg) |
+| anthochaera-carunculata.webp | Red Wattlebird (*Anthochaera carunculata*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14110) |
 | cacatua-galerita.webp | Sulphur-crested Cockatoo (*Cacatua galerita*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48400934) |
 | cacomantis-flabelliformis.webp | Fan-tailed Cuckoo (*Cacomantis flabelliformis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13986) |
 | caligavis-chrysops.webp | Yellow-faced Honeyeater (*Caligavis chrysops*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48702995) |
+| chenonetta-jubata.webp | Maned Duck (*Chenonetta jubata*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav7Goul/page/n19/mode/1up) |
 | colluricincla-harmonica.webp | Grey Shrikethrush (*Colluricincla harmonica*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14870) |
 | coracina-novaehollandiae.webp | Black-faced Cuckooshrike (*Coracina novaehollandiae*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14954) |
 | corvus-coronoides.webp | Australian Raven (*Corvus coronoides*) | John Gould and collaborators | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_by_Elizabeth_Gould_for_Birds_of_Australia,_digitally_enhanced_from_rawpixel%27s_own_facsimile_book255.jpg) |
@@ -25,6 +27,7 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | entomyzon-cyanotis.webp | Blue-faced Honeyeater (*Entomyzon cyanotis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14054) |
 | eolophus-roseicapilla.webp | Galah (*Eolophus roseicapilla*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48400946) |
 | eopsaltria-australis.webp | Eastern Yellow Robin (*Eopsaltria australis*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48285759) |
+| fulica-atra.webp | Eurasian Coot (*Fulica atra*) | the von Wright brothers, Svenska Fåglar | [link](https://commons.wikimedia.org/wiki/File:Bird_illustration_from_Svenska_F%C3%A5glar_(Swedish_Birds)_by_the_von_Wright_brothers_from_rawpixel%27s_original_edition_of_the_publication_00161.jpg) |
 | gallinula-tenebrosa.webp | Dusky Moorhen (*Gallinula tenebrosa*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav6Goul/page/n299/mode/1up) |
 | geopelia-humeralis.webp | Bar-shouldered Dove (*Geopelia humeralis*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/13608) |
 | gerygone-mouki.webp | Brown Gerygone (*Gerygone mouki*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14782) |
@@ -37,6 +40,7 @@ Each original plate is public domain or openly licensed; see Fugleramme's
 | manorina-melanocephala.webp | Noisy Miner (*Manorina melanocephala*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48703119) |
 | manorina-melanophrys.webp | Bell Miner (*Manorina melanophrys*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14010) |
 | meliphaga-lewinii.webp | Lewin's Honeyeater (*Meliphaga lewinii*) | John Gould and collaborators | [link](https://archive.org/details/birdsAustraliav4Goul/page/n139/mode/1up) |
+| menura-novaehollandiae.webp | Superb Lyrebird (*Menura novaehollandiae*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14684) |
 | myzomela-sanguinolenta.webp | Scarlet Myzomela (*Myzomela sanguinolenta*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/14078) |
 | ninox-boobook.webp | Australian Boobook (*Ninox boobook*) | John Gould and collaborators | [link](https://digital.lib.ku.edu/ku-gould/15208) |
 | oriolus-sagittatus.webp | Olive-backed Oriole (*Oriolus sagittatus*) | John Gould and collaborators | [link](https://www.biodiversitylibrary.org/page/48702814) |
@@ -97,3 +101,9 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | zoothera-heinei.webp | Russet-tailed Thrush (*Zoothera heinei*) | J. G. Keulemans, in Seebohm & Sharpe, A Monograph of the Turdidae, vol. 1 (1898-1902), pl. VI: fig. 1 "Geocichla heinii" (this species), fig. 2 "G. papuensis" (its New Guinea race) | [link](https://archive.org/details/mobot31753003757629/page/n364/mode/1up) (Harvard Museum of Comparative Zoology copy, digitised by the Biodiversity Heritage Library; public domain (Keulemans died 1912)) |
 | nesoptilotis-leucotis.webp | White-eared Honeyeater (*Nesoptilotis leucotis*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis leucotis" | [link](https://archive.org/details/birdsaustralia4goula/page/n89/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ptilotula-fusca.webp | Fuscous Honeyeater (*Ptilotula fusca*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilotis fuscus" | [link](https://archive.org/details/birdsaustralia4goula/page/n105/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+
+## Still without a plate
+
+- Australasian Darter (*Anhinga novaehollandiae*)
+- Pacific Black Duck (*Anas superciliosa*)
+- Spotless Crake (*Zapornia tabuensis*)
