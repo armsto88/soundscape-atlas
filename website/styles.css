@@ -787,7 +787,8 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 .player-mute { width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: var(--ink-2); }
 .player-mute svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
 @media (hover: hover) { .player-mute:hover { background: var(--paper-3); color: var(--ink); } }
-.player-volume { width: 84px; margin: 0 0.3rem 0 0; accent-color: var(--ink); cursor: pointer; }
+.player-volume { width: 96px; margin: 0 0.3rem 0 0; accent-color: var(--ink); cursor: pointer; }
+.player-vol.boosted .player-volume { accent-color: var(--ochre-deep); } /* above the recording's own level */
 @media (pointer: coarse) { .player-vol { display: none; } }
 /* the sleep timer (wide screens): a moon, the minutes left beside it while it runs */
 .player-sleep-wrap { position: relative; }

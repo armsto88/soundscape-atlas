@@ -136,6 +136,28 @@ const ICON_VOL = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d=
 const ICON_VOL_LOW = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9a4 4 0 0 1 0 6"/></svg>`;
 const ICON_MUTED = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>`;
 
+// The volume slider runs 0..2: up to 1 it turns the recording down (squared, so
+// its middle sounds like the middle); above 1 it boosts, up to BOOST_DB at 2.
+// A boost needs Web Audio (wide screens with a mouse, where the level meter is).
+// Up to 100% the sound goes straight out, untouched; above it, it goes through
+// a soft clipper that leaves everything below -6 dBFS as it is and rounds the
+// peaks a boost pushes towards full scale, so they don't crackle. Below -6 dBFS
+// the two paths are the same, so crossing 100% makes no jump.
+const BOOST_DB = 12;
+const HEADROOM = 10 ** ((BOOST_DB + 1) / 20); // the clipper's input range, in full scales
+const canBoost = () => Boolean((window.AudioContext || window.webkitAudioContext) && window.matchMedia?.(METER_MEDIA).matches);
+function softClipCurve() {
+  const n = 8192;
+  const knee = 0.5; // -6 dBFS
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = ((i / (n - 1)) * 2 - 1) * HEADROOM; // the sample value this point stands for
+    const a = Math.abs(x);
+    curve[i] = Math.sign(x) * (a <= knee ? a : knee + (1 - knee) * Math.tanh((a - knee) / (1 - knee)));
+  }
+  return curve;
+}
+
 // the listener's volume, kept in this browser
 const readStore = (key) => {
   try {
@@ -159,7 +181,7 @@ class Player extends EventTarget {
     // Volume: the listener's slider (wide screens; phones use their own buttons,
     // and iOS ignores a page's volume), times the sleep timer's fade
     const stored = Number(readStore("volume"));
-    this.userVolume = readStore("volume") !== null && Number.isFinite(stored) ? clamp(stored, 0, 1) : 1;
+    this.userVolume = readStore("volume") !== null && Number.isFinite(stored) ? clamp(stored, 0, 2) : 1;
     this.muted = readStore("muted") === "1";
     this.fade = 1;
     this.graph = null;
@@ -445,12 +467,27 @@ class Player extends EventTarget {
       const source = ctx.createMediaElementSource(this.audio);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
-      // the meter reads the recording itself; the listener's volume comes after it
+      // the meter reads the recording itself; the listener's volume comes after it,
+      // then straight out (dry, up to 100%) or through the soft clipper (wet, a boost),
+      // scaled down into the clipper curve's -1..1 range
       const gain = ctx.createGain();
+      const dry = ctx.createGain();
+      const wet = ctx.createGain();
+      wet.gain.value = 0;
+      const scale = ctx.createGain();
+      scale.gain.value = 1 / HEADROOM;
+      const clipper = ctx.createWaveShaper();
+      clipper.curve = softClipCurve();
+      clipper.oversample = "2x"; // the rounded peaks without aliasing
       source.connect(analyser);
       analyser.connect(gain);
-      gain.connect(ctx.destination);
-      this.graph = { ctx, analyser, gain, samples: new Float32Array(analyser.fftSize) };
+      gain.connect(dry);
+      dry.connect(ctx.destination);
+      gain.connect(scale);
+      scale.connect(clipper);
+      clipper.connect(wet);
+      wet.connect(ctx.destination);
+      this.graph = { ctx, analyser, gain, dry, wet, samples: new Float32Array(analyser.fftSize) };
     } catch {
       this.graph = null;
     }
@@ -514,14 +551,22 @@ class Player extends EventTarget {
     this.fade = clamp(v, 0, 1);
     this.applyVolume();
   }
-  // the slider is 0..1; squared, so its middle sounds like the middle
+  // the slider (0..2, see BOOST_DB) as a gain, times the sleep timer's fade
   effectiveVolume() {
-    return this.muted ? 0 : this.userVolume ** 2 * this.fade;
+    if (this.muted) return 0;
+    const s = this.userVolume;
+    return (s <= 1 ? s ** 2 : 10 ** (((s - 1) * BOOST_DB) / 20)) * this.fade;
   }
   applyVolume() {
     const v = this.effectiveVolume();
-    if (this.graph) this.graph.gain.gain.setTargetAtTime(v, this.graph.ctx.currentTime, 0.02);
-    const element = this.graph ? 1 : v; // with Web Audio the gain node does it
+    if (this.graph) {
+      const { ctx, gain, dry, wet } = this.graph;
+      const boosting = v > 1;
+      gain.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
+      dry.gain.setTargetAtTime(boosting ? 0 : 1, ctx.currentTime, 0.02);
+      wet.gain.setTargetAtTime(boosting ? 1 : 0, ctx.currentTime, 0.02);
+    }
+    const element = this.graph ? 1 : Math.min(1, v); // with Web Audio the gain node does it; without, no boost
     try {
       if (Math.abs(this.audio.volume - element) > 0.001) this.audio.volume = clamp(element, 0, 1);
     } catch {
@@ -529,7 +574,9 @@ class Player extends EventTarget {
     }
   }
   setUserVolume(v) {
-    this.userVolume = clamp(v, 0, 1);
+    let s = clamp(v, 0, canBoost() ? 2 : 1);
+    if (Math.abs(s - 1) < 0.04) s = 1; // the recording's own level is easy to land on
+    this.userVolume = s;
     if (this.userVolume > 0) this.muted = false; // moving the slider up unmutes
     writeStore("volume", String(Math.round(this.userVolume * 100) / 100));
     writeStore("muted", this.muted ? "1" : "0");
@@ -547,9 +594,14 @@ class Player extends EventTarget {
   renderVolume() {
     const d = this.dom;
     if (!d || !d.volume) return;
-    const shown = this.muted ? 0 : this.userVolume;
+    const max = canBoost() ? 2 : 1;
+    if (d.volume.max !== String(max)) d.volume.max = String(max);
+    const shown = this.muted ? 0 : Math.min(this.userVolume, max);
     if (Math.abs(Number(d.volume.value) - shown) > 0.001) d.volume.value = String(shown);
-    d.volume.setAttribute("aria-valuetext", `${Math.round(shown * 100)}%`);
+    const text = shown <= 1 ? `${Math.round(shown * 100)}%` : `+${((shown - 1) * BOOST_DB).toFixed(1)} dB above the recording`;
+    d.volume.setAttribute("aria-valuetext", text);
+    d.volume.title = shown <= 1 ? `Volume ${text}` : `Volume: ${text}`;
+    d.vol.classList.toggle("boosted", shown > 1);
     const icon = shown === 0 ? ICON_MUTED : shown < 0.5 ? ICON_VOL_LOW : ICON_VOL;
     if (d.mute.innerHTML !== icon) d.mute.innerHTML = icon;
     const label = this.muted ? "Unmute" : "Mute";
@@ -659,11 +711,14 @@ class Player extends EventTarget {
     d.strip = el("div", { class: "player-strip" });
     // the volume (wide screens with a mouse): mute, and a slider
     d.mute = el("button", { class: "player-mute", type: "button", onclick: () => this.toggleMute() });
+    // 0..1 turns down, 1..2 boosts (where Web Audio can); a tick marks the recording's own level
     d.volume = el("input", {
-      class: "player-volume", type: "range", min: "0", max: "1", step: "0.01", "aria-label": "Volume", title: "Volume",
+      class: "player-volume", type: "range", min: "0", max: "2", step: "0.01", "aria-label": "Volume", title: "Volume",
+      list: "player-volume-marks",
       oninput: (event) => this.setUserVolume(Number(event.target.value)),
     });
-    d.vol = el("div", { class: "player-vol" }, d.mute, d.volume);
+    d.vol = el("div", { class: "player-vol" }, d.mute, d.volume,
+      el("datalist", { id: "player-volume-marks" }, el("option", { value: "1" })));
     d.msg = el("div", { class: "player-msg", hidden: true });
     d.retry = el("button", { class: "linklike", type: "button", onclick: () => this.retry() }, "Try again");
     d.progress = el("div", { class: "player-progress" });
