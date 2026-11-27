@@ -3,6 +3,10 @@
 // closing it zooms back out a level. Clicking a place shows a small card.
 // The places are a layer of the map, so their labels make room for each other.
 //
+// Phones show one thing at a time: the map, full screen, or the places as a
+// list (a page of its own over the map), with a button at the bottom to switch.
+// The list has the places under their areas' names, each opening its page.
+//
 // Above the places, a search for a bird or frog: picking one replaces the
 // accordion with the places and sessions it was heard in (?species= in the
 // address), dims the other places and rings each place by how many of its
@@ -23,90 +27,30 @@ import { speciesThumb } from "./species.js";
 const DOT_SPACING_PX = 26;
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
+const ICON_LIST = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></svg>';
+const ICON_MAP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg>';
 const PLACE_LAYERS = ["places-label", "places-dot", "places-ring"];
-
-// Phones: the list is a sheet over a full-screen map, as in a maps app. It rests
-// at three heights (peek: just the search field; half; full); drag its handle,
-// or tap it to step through them. A place's card sits on top of the sheet.
-function createSheet(atlasEl, sheetEl, state) {
-  const grab = el("div", { class: "sheet-grab", role: "button", tabindex: "0", "aria-label": "Show more or less of the list" }, el("span"));
-  sheetEl.prepend(grab);
-  const heights = () => {
-    const h = atlasEl.clientHeight || 500;
-    return { peek: 88, half: Math.round(h * 0.46), full: Math.max(200, h - 64) };
-  };
-  const ORDER = ["peek", "half", "full"];
-  let current = state.atlasSheet || "half";
-  const apply = () => atlasEl.style.setProperty("--sheet-h", `${heights()[current]}px`);
-  const api = {
-    get state() { return current; },
-    before: null, // where it was before a card pushed it down
-    height: () => heights()[current],
-    set(name) {
-      current = name;
-      state.atlasSheet = name;
-      atlasEl.dataset.sheet = name;
-      apply();
-    },
-  };
-  // a tap steps up (and from full back to half); a drag follows the finger and lands on the nearest height
-  let y0 = null;
-  let h0 = 0;
-  let moved = 0;
-  let t0 = 0;
-  grab.addEventListener("pointerdown", (event) => {
-    y0 = event.clientY;
-    h0 = heights()[current];
-    moved = 0;
-    t0 = performance.now();
-    grab.setPointerCapture(event.pointerId);
-    atlasEl.classList.add("sheet-dragging");
-  });
-  grab.addEventListener("pointermove", (event) => {
-    if (y0 === null) return;
-    moved = y0 - event.clientY;
-    const { peek, full } = heights();
-    atlasEl.style.setProperty("--sheet-h", `${Math.min(full, Math.max(peek, h0 + moved))}px`);
-  });
-  const end = () => {
-    if (y0 === null) return;
-    y0 = null;
-    atlasEl.classList.remove("sheet-dragging");
-    if (Math.abs(moved) < 6) {
-      api.set(current === "full" ? "half" : ORDER[ORDER.indexOf(current) + 1]);
-      return;
-    }
-    const speed = moved / Math.max(1, performance.now() - t0); // px per ms, up is positive
-    const aim = h0 + moved + speed * 180;
-    const hs = heights();
-    api.set(ORDER.reduce((best, name) => (Math.abs(hs[name] - aim) < Math.abs(hs[best] - aim) ? name : best), "peek"));
-  };
-  grab.addEventListener("pointerup", end);
-  grab.addEventListener("pointercancel", end);
-  grab.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    api.set(current === "full" ? "half" : ORDER[ORDER.indexOf(current) + 1]);
-  });
-  // the player bar appearing changes the room: keep the same resting height
-  new ResizeObserver(apply).observe(atlasEl);
-  api.set(current);
-  return api;
-}
 
 export function render(main, model, params, ctx) {
   const phone = isPhone();
   const index = el("nav", { class: "atlas-index", "aria-label": "Places" });
   const mapEl = el("div", { class: "atlas-map", "aria-label": "Map of recording places" });
   const card = el("div", { class: "site-card", hidden: true });
-  // Phones: the card sits over the map, above the sheet. Wide screens: it opens
-  // in the sidebar in place of the list, and "← All places" brings the list back.
+  // Phones: the card sits at the bottom of the map. Wide screens: it opens in
+  // the sidebar in place of the list, and "← All places" brings the list back.
   const mapWrap = el("div", { class: "atlas-mapwrap" }, mapEl, phone ? card : null);
   const atlasEl = el("section", { class: "atlas" }, index, mapWrap);
   main.append(atlasEl);
-  let sheet = null; // phones: the list as a sheet (made below)
-  // how much of the map's bottom the sheet and the card cover (phones)
-  const covered = () => (sheet ? sheet.height() + (card.hidden ? 0 : card.offsetHeight + 8) : 0);
+  // Phones: the map or the list, and the button between them. A species picked
+  // shows as a chip on the map (its name opens the list, × clears it).
+  let mode = phone && (params && params.focus ? "map" : ctx.state.atlasMode) === "list" ? "list" : "map";
+  const switcher = el("button", { class: "atlas-toggle", type: "button", onclick: () => setMode(mode === "map" ? "list" : "map") });
+  const chipName = el("button", { class: "atlas-chip-name", type: "button", onclick: () => setMode("list") });
+  const chip = el("div", { class: "atlas-chip", hidden: true }, chipName,
+    el("button", { class: "atlas-chip-clear", type: "button", "aria-label": "Show all places again", onclick: () => pick(null) }, "×"));
+  if (phone) atlasEl.append(chip, switcher);
+  // how much of the map's bottom the card, or else the button, covers (phones)
+  const covered = () => (phone ? (card.hidden ? 64 : card.offsetHeight + 8) : 0);
 
   const map = createMap(mapEl);
   map.addControl(new NavigationControl({ showCompass: false }), "top-left");
@@ -121,7 +65,7 @@ export function render(main, model, params, ctx) {
     const width = mapEl.clientWidth || 600;
     const height = mapEl.clientHeight || 400;
     const right = Math.min(base + 16 + longestName * 7.5, width * 0.45); // 12.5 px Inter: about 7.5 px a letter
-    const bottom = Math.min(base + covered(), height * 0.6); // above the sheet on phones
+    const bottom = Math.min(base + covered(), height * 0.6); // above the card or the List button on phones
     // room on the left too, for the zoom buttons and a name set above or below
     // a dot (labels give way to each other and to the dots)
     const left = Math.min(base + 50, width * 0.2);
@@ -175,10 +119,6 @@ export function render(main, model, params, ctx) {
       el("div", { class: "card-listen-text" }, el("b", {}, label), el("span", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`)));
   };
   const openCard = (site) => {
-    if (sheet && sheet.state !== "peek") {
-      sheet.before = sheet.state;
-      sheet.set("peek");
-    }
     card.innerHTML = "";
     cardPlay = null;
     cardSite = site;
@@ -196,7 +136,7 @@ export function render(main, model, params, ctx) {
       }, speciesThumb(s))) : null;
     }).filter(Boolean);
     append(card, [
-      sheet ? el("button", { class: "site-card-close", type: "button", "aria-label": "Close", onclick: closeCard }, "×")
+      phone ? el("button", { class: "site-card-close", type: "button", "aria-label": "Close", onclick: closeCard }, "×")
         : el("button", { class: "site-card-back", type: "button", onclick: closeCard }, picked ? `← ${picked.name}` : "← All places"),
       el("p", { class: "eyebrow" }, [site.locality, site.area || site.state].filter(Boolean).join(" · ")),
       el("h2", {}, site.site_name),
@@ -206,11 +146,11 @@ export function render(main, model, params, ctx) {
       site.description ? el("p", { class: "card-desc" }, site.description) : null,
       hasSupport(site) ? el("p", { class: "card-desc card-support" }, supportLink(site, `Support ${site.support.name}`)) : null,
       site.public_location_precision !== "exact" ? el("p", { class: "note card-desc" }, "Shown at an approximate location.") : null,
-      !sheet && plates.length ? el("div", { class: "card-plates" }, el("p", { class: "eyebrow" }, "Most heard"), el("ul", {}, plates)) : null,
+      !phone && plates.length ? el("div", { class: "card-plates" }, el("p", { class: "eyebrow" }, "Most heard"), el("ul", {}, plates)) : null,
       el("div", { class: "card-foot" }, listenRow(site), el("a", { class: "card-open", href: openHref }, "Open place →")),
     ]);
     card.hidden = false;
-    if (!sheet) {
+    if (!phone) {
       index.classList.add("place-open");
       index.scrollTop = 0;
     }
@@ -219,12 +159,9 @@ export function render(main, model, params, ctx) {
     for (const b of lensEl.querySelectorAll(".lens-place-name")) b.classList.toggle("selected", b.dataset.site === site.id);
     ctx.state.atlasSelected = site.id;
     ctx.suggest(placeSuggestion(site)); // the idle bar offers the place picked
+    showChrome();
   };
   function closeCard() {
-    if (sheet && sheet.before) {
-      sheet.set(sheet.before);
-      sheet.before = null;
-    }
     card.hidden = true;
     index.classList.remove("place-open");
     cardSite = null;
@@ -233,6 +170,27 @@ export function render(main, model, params, ctx) {
     for (const b of lensEl.querySelectorAll(".lens-place-name")) b.classList.remove("selected");
     ctx.state.atlasSelected = null;
     ctx.suggest(null);
+    showChrome();
+  }
+
+  // phones: the map or the list
+  function setMode(next) {
+    if (next === "list") closeCard();
+    mode = next;
+    ctx.state.atlasMode = next;
+    showChrome();
+    if (next === "list") index.scrollTop = 0;
+  }
+  function showChrome() {
+    if (!phone) return;
+    atlasEl.dataset.mode = mode;
+    const toMap = mode === "list";
+    switcher.innerHTML = toMap ? ICON_MAP : ICON_LIST;
+    switcher.append(toMap ? "Map" : "List");
+    switcher.setAttribute("aria-label", toMap ? "Show the map" : "Show the places as a list");
+    switcher.hidden = mode === "map" && !card.hidden; // the card has its own ×
+    chip.hidden = !(mode === "map" && picked && card.hidden);
+    if (picked) chipName.textContent = picked.name;
   }
 
   // ---- the species search ----------------------------------------------------
@@ -242,16 +200,11 @@ export function render(main, model, params, ctx) {
   const lensEl = el("div", { class: "lens-results", hidden: true });
   const accEl = el("div", { class: "acc" });
   if (phone) {
-    index.append(findWrap, el("div", { class: "sheet-body" }, lensEl, accEl)); // the field stays at the top, the list scrolls
-    sheet = createSheet(atlasEl, index, ctx.state);
-    // Searching needs room: the suggestions open under the field, inside the
-    // sheet, which a place's card had pushed down to its smallest height.
-    // (the field is added to findWrap a little later, so listen on the wrap)
-    findWrap.addEventListener("focusin", (event) => {
-      if (!event.target.matches(".find-input")) return;
-      if (!card.hidden) closeCard();
-      sheet.set("full");
-    });
+    const hours = model.publishedSites.reduce((n, site) => n + site.hours, 0);
+    index.append(
+      el("header", { class: "atlas-list-head" }, el("h1", {}, "Places"),
+        el("p", { class: "muted" }, `${plural(model.publishedSites.length, "place")} · ${plural(hours, "hour")}`)),
+      findWrap, lensEl, accEl);
     // the name of the site, on the map where the top bar would be (it opens About)
     const brand = document.querySelector(".topbar .wordmark")?.cloneNode(true);
     if (brand) {
@@ -285,13 +238,13 @@ export function render(main, model, params, ctx) {
   }
 
   function pick(sp) {
-    if (sheet) sheet.set("half"); // phones: the map with the species' places shows above the sheet
     picked = sp;
     ctx.replace(sp ? `#/?species=${encodeURIComponent(sp.key)}` : "#/");
     renderLens();
     applyLens();
+    showChrome();
     if (cardSite) {
-      if (sheet) openCard(cardSite); // phones: the card stays over the map, now with the species
+      if (phone) openCard(cardSite); // phones: the card stays over the map, now with the species
       else closeCard(); // wide screens: the sidebar shows where the species was heard
     }
     if (!sp) return;
@@ -382,6 +335,7 @@ export function render(main, model, params, ctx) {
     return el("div", { class: "lens-place" },
       el("div", { class: "lens-place-head" },
         el("button", { class: `lens-place-name${cardSite === site ? " selected" : ""}`, type: "button", "data-site": site.id, onclick: () => {
+          if (phone) setMode("map");
           map.flyTo({ center: [site.longitude, site.latitude], zoom: Math.max(map.getZoom(), 10), duration: 800 });
           openCard(site);
         } }, site.site_name),
@@ -462,26 +416,47 @@ export function render(main, model, params, ctx) {
       button.setAttribute("aria-label", on ? `Pause ${site.site_name}` : button.dataset.label);
     }
   };
-  const siteRow = (site) => {
-    const facts = [humanize(site.habitat), plural(site.sessions.length, "session"), `${fmtInt(site.hours)} h`].filter(Boolean).join(" · ");
-    const row = el("button", { class: "acc-site", type: "button", onclick: () => {
-      openCard(site);
-      // on phones, into the middle of the map left showing above the sheet and card
-      map.flyTo({ center: [site.longitude, site.latitude], zoom: Math.max(map.getZoom(), 10), duration: 800, offset: [0, -covered() / 2] });
-    } }, el("span", { class: "acc-site-name" }, site.site_name), el("small", {}, facts));
-    rowsBySite.set(site.id, row);
+  const playButton = (site) => {
     const quick = placeSuggestion(site);
-    const play = quick ? el("button", {
+    if (!quick) return null;
+    const button = el("button", {
       class: "acc-play", type: "button", title: quick.text, "data-label": `Listen: ${site.site_name}, ${quick.text}`,
       onclick: () => {
         if (playingHere(site)) ctx.player.pause();
         else if (ctx.player.segment && ctx.player.segment.site === site) ctx.player.play(); // paused here: carry on
         else ctx.player.load(quick.seg, { autoplay: true, at: quick.at });
       },
-    }) : null;
-    if (play) rowPlays.set(site, play);
-    return el("li", { class: "acc-site-item" }, row, play);
+    });
+    rowPlays.set(site, button);
+    return button;
   };
+  const siteFacts = (site) => [humanize(site.habitat), plural(site.sessions.length, "session"), `${fmtInt(site.hours)}\u00a0h`].filter(Boolean).join(" · ");
+  const siteRow = (site) => {
+    const facts = siteFacts(site);
+    const row = el("button", { class: "acc-site", type: "button", onclick: () => {
+      openCard(site);
+      map.flyTo({ center: [site.longitude, site.latitude], zoom: Math.max(map.getZoom(), 10), duration: 800, offset: [0, -covered() / 2] });
+    } }, el("span", { class: "acc-site-name" }, site.site_name), el("small", {}, facts));
+    rowsBySite.set(site.id, row);
+    return el("li", { class: "acc-site-item" }, row, playButton(site));
+  };
+  // Phones: every place under its area's name (no levels to open), with the
+  // plate of its most-heard species; a place opens its page, ▶ plays its best moment.
+  const phoneList = () => byArea(model.publishedSites.map((site) => ({ site }))).map((group) => {
+    const sites = group.places.map((p) => p.site);
+    const where = sites[0].area && group.name === sites[0].area ? sites[0].state : sites[0].country;
+    return el("section", { class: "place-group" },
+      el("h2", {}, group.name),
+      el("p", { class: "muted" }, [where, plural(sites.length, "place"), `${fmtInt(sites.reduce((n, s) => n + s.hours, 0))} h`].filter(Boolean).join(" · ")),
+      el("ul", { class: "place-list" }, sites.map((site) => {
+        const plate = site.species.find((s) => s.image);
+        return el("li", { class: "place-item" },
+          el("a", { class: "place-link", href: `#/site/${encodeURIComponent(site.id)}` },
+            el("span", { class: "place-plate", "aria-hidden": "true" }, plate ? el("img", { src: plate.image, alt: "" }) : null),
+            el("span", { class: "place-text" }, el("b", {}, site.site_name), el("small", {}, siteFacts(site)))),
+          playButton(site));
+      })));
+  });
   // One country holding a single chain of levels (one state, one area) says
   // nothing a heading can't: the chain becomes one heading over the places,
   // and the accordion comes back as soon as there is a choice to make.
@@ -548,7 +523,9 @@ export function render(main, model, params, ctx) {
     row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
-  if (model.tree.length === 1) {
+  if (phone) {
+    accEl.append(...phoneList());
+  } else if (model.tree.length === 1) {
     let node = model.tree[0];
     let key = `c:${node.name}`;
     const path = [node];
@@ -680,7 +657,7 @@ export function render(main, model, params, ctx) {
     if (!site) return closeCard();
     reveal(site);
     openCard(site);
-    if (sheet) map.easeTo({ center: [site.longitude, site.latitude], offset: [0, -covered() / 2], duration: 500 });
+    if (phone) map.easeTo({ center: [site.longitude, site.latitude], offset: [0, -covered() / 2], duration: 500 });
   });
   map.on("mousemove", (event) => {
     const hit = ready && map.queryRenderedFeatures(event.point, { layers: PLACE_LAYERS })[0];
@@ -720,6 +697,7 @@ export function render(main, model, params, ctx) {
   };
   ctx.player.addEventListener("state", onPlayer);
   onPlayer();
+  showChrome();
   const onKey = (event) => {
     if (event.key !== "Escape" || !cardSite || event.defaultPrevented) return;
     if (event.target instanceof Element && event.target.closest("input, textarea, dialog[open], details[open]")) return;
@@ -742,7 +720,7 @@ export function render(main, model, params, ctx) {
     if (params && params.focus && !saved) map.jumpTo({ center: [focus.longitude, focus.latitude], zoom: 10 });
     reveal(focus);
     openCard(focus);
-    if (sheet && params && params.focus && !saved) map.easeTo({ center: [focus.longitude, focus.latitude], offset: [0, -covered() / 2], duration: 0 });
+    if (phone && params && params.focus && !saved) map.easeTo({ center: [focus.longitude, focus.latitude], offset: [0, -covered() / 2], duration: 0 });
   }
 
   return {

@@ -27,7 +27,7 @@ the R2 bucket.
   sidebar, in place of the list (with its most heard birds and frog as small
   plates, each opening the place on that species; "← All places", or "←" and
   the species when one is searched for, or Escape, brings the list back); on
-  phones over the map, above the sheet. The play button plays the place's hour without leaving the map, the
+  phones at the bottom of the map. The play button plays the place's hour without leaving the map, the
   same for every visit: an hour marked `featured` in segments.csv (from its
   start); otherwise the session of the liveliest dawn hour (most detections),
   from half an hour before its dawn chorus is at its fullest (the same moment
@@ -121,18 +121,22 @@ in `js/util.js` matches the CSS, and the page is drawn again when it changes):
 
 - A **tab bar** at the bottom (Atlas, Species, Library) replaces the top bar;
   the player bar sits on top of it, and appears only once something has played.
-- **Atlas**: a full-screen map with the site's name on it (opens About) and
-  the list in a **sheet** over it (`createSheet` in `js/atlas.js`) that rests
-  at three heights: peek (the search field), half, full. Drag its handle, or
-  tap it to step through them. A place's card sits on the sheet, which steps
-  down to peek while the card is open; flying to a place keeps it in the part
-  of the map left showing. Tapping the search field closes the card and opens
-  the sheet full, so the suggestions have room above the keyboard; picking a
-  species brings it back to half, with the map showing where it was heard. The
-  map's credits move up with the sheet.
-  The search field has no background of its own: Chrome treats an opaque,
-  square box over the map's WebGL canvas as covering it and skips the canvas
-  under a vertically mirrored copy of the box (a blank strip on the map).
+- **Atlas**: one thing at a time, the **map** or the **list**, with a button
+  at the bottom to switch (`showChrome` and `setMode` in `js/atlas.js`; the
+  choice lasts while the page is open, and `?focus=` from a place's "← Atlas"
+  always opens the map). The map is full screen, with the site's name on it
+  (opens About); tapping a place opens its card at the bottom, which hides the
+  List button (the card has ×), and flying to a place keeps it above the card.
+  The list is a page of its own over the map: "Places", the search field, and
+  the places under their areas' names (no levels to open), each with the plate
+  of its most-heard species, opening its page, and ▶ for its best moment.
+  Picking a species replaces the places with where it was heard (as on wide
+  screens); on the map it shows as a chip above the button, whose name opens
+  the list and × shows every place again. (Until 27 Nov 2026 the list was a
+  sheet over the map, dragged between three heights.)
+  Boxes over the map are rounded and the list covers it whole: Chrome treats an
+  opaque, square box over the map's WebGL canvas as covering it and skips the
+  canvas under a vertically mirrored copy of the box (a blank strip on the map).
 - **Place page**, built differently (`js/site.js`): back link, locality and
   area, the name, one line of facts (habitat, height, species), the Play
   button; then the sessions, titled in few words ("22–23 Aug 2024 · 19 h 12
