@@ -11,6 +11,7 @@ background by `scripts/cut_out_illustration.py`.
 | crinia-signifera.webp | Common Eastern Froglet (*Crinia signifera*) |
 | drymomantis-fallax.webp | Eastern Dwarf Tree Frog (*Drymomantis fallax*) |
 | dryopsophus-pearsonianus.webp | Cascade Tree Frog (*Dryopsophus pearsonianus*) |
+| limnodynastes-dumerilii.webp | Eastern Banjo Frog (*Limnodynastes dumerilii*) |
 | limnodynastes-peronii.webp | Striped Marsh Frog (*Limnodynastes peronii*) |
 | limnodynastes-tasmaniensis.webp | Spotted Marsh Frog (*Limnodynastes tasmaniensis*) |
 | mixophyes-fasciolatus.webp | Great Barred Frog (*Mixophyes fasciolatus*) |
