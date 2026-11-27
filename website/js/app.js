@@ -7,6 +7,7 @@ import { el, PHONE_MEDIA } from "./util.js";
 import { loadModel } from "./data.js";
 import { player } from "./player.js";
 import { mountNowPlaying } from "./nowplaying.js";
+import { offerInstall } from "./install.js";
 import { startAnalytics, trackPage } from "./analytics.js";
 import { mountAccountMenu, renderLibrary } from "./library.js";
 import { renderAdmin } from "./admin.js";
@@ -120,6 +121,7 @@ async function boot() {
   mountAccountMenu(render);
   player.mount(document.getElementById("player"));
   mountNowPlaying(player);
+  offerInstall(player); // phones: once, after a minute of listening or into a later visit
   window.addEventListener("hashchange", render);
   onThemeChange(render); // maps and charts take their colours when drawn: draw the page again
   window.matchMedia(PHONE_MEDIA).addEventListener("change", render); // place pages are built differently on phones

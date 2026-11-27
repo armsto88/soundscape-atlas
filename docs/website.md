@@ -234,6 +234,7 @@ website/js/player.js    the audio element, the player bar, the sleep timer, the 
 website/js/nowplaying.js   Now Playing, the full view behind the player bar on phones
 website/js/speciesindex.js the Species page
 website/js/theme.js     light, dark or the phone's setting
+website/js/install.js   the Home Screen card and steps
 website/manifest.webmanifest   for the Home Screen app: name, colours, icons
 website/art/            bird plates, frog plates, manifest.json
 website/fonts/          Inter and Fraunces (woff2, Latin), fonts.css, licences
@@ -278,8 +279,21 @@ dialog would cover them.
 **Home Screen app**: `manifest.webmanifest` (name "Soundscape Atlas", Home
 Screen label "Soundscape", standalone, paper colours, three icons) and
 `apple-mobile-web-app-title`. Since iOS 26 any site added to the Home Screen
-opens as its own app; nothing invites visitors to add it yet. There is no
-service worker, so the app needs the network like the website.
+opens as its own app. There is no service worker, so the app needs the network
+like the website.
+
+Inviting visitors (`js/install.js`): no browser on iPhone lets a page add itself
+(Safari has neither `beforeinstallprompt` nor `navigator.install`), so phones get
+a small card once, after a minute of listening or 20 seconds into a later visit
+(never in the Home Screen app; "×" keeps it away for 30 days), and Library has
+"On your Home Screen" always. Its button opens, by browser:
+Android Chrome/Edge/Samsung, the browser's own install prompt
+(`beforeinstallprompt`, which Chrome fires without a service worker); iPhone and
+iPad, the steps through Share › Add to Home Screen (worded for either tab
+layout, since the Share button moves); in-app browsers (Instagram, Facebook,
+TikTok...), which cannot add to the Home Screen, the steps to open the page in
+Safari first, with a Copy link button. Visits are counted in localStorage
+(`visits`), and nothing is sent anywhere.
 
 ## The map
 

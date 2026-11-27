@@ -1,6 +1,7 @@
 import { el, fmtClock, fmtDay, fmtSpan } from "./util.js";
 import { createBotCheck } from "./botcheck.js";
 import { themeControl } from "./theme.js";
+import { installSection } from "./install.js";
 
 let accountRequest;
 let userRequest;
@@ -199,6 +200,7 @@ export function renderLibrary(main, model, params) {
   const content = el("div", {}, el("p", { class: "muted" }, "Loading your library…"));
   // on phones the tab bar has no About or account menu: both live here
   const more = el("section", { class: "library-more" },
+    installSection(),
     el("h2", {}, "Appearance"),
     themeControl(),
     el("p", { class: "library-about" }, el("a", { href: "#/about" }, "About Soundscape Atlas"), " · recordings, plates, credits"));
