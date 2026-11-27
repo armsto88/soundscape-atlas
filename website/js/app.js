@@ -107,7 +107,8 @@ function render() {
 function renderAbout(main) {
   main.append(el("article", { class: "page prose" },
     el("h1", {}, "About"),
-    el("p", {}, "Soundscape Atlas is a listening archive of dusk-till-dawn field recordings. A recorder is left out, usually from the afternoon through the night into the next morning, in forests, wetlands and bogs in eastern Australia and south-west Germany. Each recording session is cut into clock hours, and the hours here are the ones chosen for publication."),
+    el("p", {}, "Soundscape Atlas is a growing archive of natural soundscapes, recorded from dusk till dawn. A recorder is left out from the afternoon, through the night and into the next morning, to hear how a place sounds as day turns to night and back again. The aim is to record in as many places as possible, so the map will keep growing."),
+    el("p", {}, "Each recording session is cut into clock hours, and the hours here are the ones chosen for publication."),
     el("p", {}, "The species on each hour's timeline were identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology) and may contain errors. Species marked as checked by ear have been confirmed by a person."),
     el("p", {}, "Bird plates are hand-cut 1800s illustrations by John Gould and others, from the Fugleramme project (CC BY-SA 4.0). Frogs are drawn in the same style from openly licensed photos (CC BY-SA 4.0). ",
       el("a", { href: "art/birds/CREDITS.md" }, "Bird credits"), " · ", el("a", { href: "art/frogs/CREDITS.md" }, "Frog credits"), "."),
