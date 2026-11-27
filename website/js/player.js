@@ -7,7 +7,7 @@
 // The bar shows the recording's own clock, the bird calling now, and a thin
 // sound-level line. On phones it also carries a strip of the whole session
 // (the place page's chart in small): tap or drag along it to move through the
-// session; its title opens the place page at the hour, the full view there. The level needs Web Audio, which needs the audio fetched
+// session; its title and clock open Now Playing (js/nowplaying.js). The level needs Web Audio, which needs the audio fetched
 // with CORS: that is done only for audio from this site or our R2 domain (both
 // send the headers). Audio from anywhere else plays on a fresh element without
 // the level, because routed through Web Audio it would play silent.
@@ -740,11 +740,12 @@ class Player extends EventTarget {
       d.strip,
       d.track,
       el("div", { class: "player-row" }, d.play, d.art, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
-    // The title opens the place page at the hour. Already on that place's page,
-    // it brings the playing session into view instead (the address would not change).
+    // The title opens the place page at the hour (on phones it opens Now Playing,
+    // js/nowplaying.js). Already on that place's page, it brings the playing
+    // session into view instead (the address would not change).
     d.title.addEventListener("click", (event) => {
       const seg = this.segment;
-      if (!seg || !(event.target instanceof Element) || !event.target.closest(".player-link")) return;
+      if (!seg || isPhone() || !(event.target instanceof Element) || !event.target.closest(".player-link")) return;
       const here = `#/site/${encodeURIComponent(seg.site.id)}`;
       if (location.hash === here || location.hash.startsWith(`${here}?`)) {
         event.preventDefault();

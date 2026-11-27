@@ -53,7 +53,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export const pad = (n) => String(n).padStart(2, "0");
 
-// The phone layout (tab bar, session strip in the player, shorter place pages): the same width
+// The phone layout (tab bar, Now Playing, shorter place pages): the same width
 // as the small-screen rules in styles.css. Pages are drawn again when it changes.
 export const PHONE_MEDIA = "(max-width: 860px)";
 export const isPhone = () => window.matchMedia(PHONE_MEDIA).matches;
@@ -120,7 +120,7 @@ export function showTip(content, anchor, { interactive = false } = {}) {
       if (event.key === "Escape" && tipAnchor) hideTip();
     });
   }
-  // inside an open dialog the tip must live in it, or the dialog covers it
+  // inside an open dialog (Now Playing) the tip must live in it, or the dialog covers it
   const host = anchor.closest("dialog[open]");
   if (tip.parentElement !== (host || document.body)) (host || document.body).append(tip);
   tip.classList.toggle("tooltip-fixed", Boolean(host));

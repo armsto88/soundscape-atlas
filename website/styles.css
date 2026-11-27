@@ -826,10 +826,65 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   padding: 0.65rem 0.8rem; background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-radius: 9px;
   box-shadow: 0 5px 16px color-mix(in srgb, var(--shadow) 16%, transparent);
 }
-.tooltip-fixed { position: fixed; } /* inside an open dialog, which does not scroll with the page */
+.tooltip-fixed { position: fixed; } /* inside the Now Playing view, which does not scroll with the page */
 .comment-preview { overflow-wrap: anywhere; }
 
 @keyframes rise { from { transform: translateY(100%); } } /* sheets and cards coming up from the bottom */
+/* ---- Now Playing (phones): the full view behind the player bar ------------- */
+.np {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  background: var(--paper); color: var(--ink); overflow: hidden;
+}
+.np[open] { display: flex; flex-direction: column; animation: rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.np::backdrop { background: color-mix(in srgb, var(--shadow) 30%, transparent); }
+.np.closing { transform: translateY(100%); transition: transform 0.22s ease-in; }
+.np.dragging { transition: none; }
+:root:has(dialog.np[open]) { overflow: hidden; }
+.np-top { flex: none; touch-action: none; padding: 0.35rem 0.75rem 0; } /* the part a finger drags down */
+.np-grab { display: block; width: 36px; height: 5px; margin: 0 auto 0.1rem; border-radius: 3px; background: var(--rule); }
+.np-head { display: grid; grid-template-columns: 5.5rem 1fr 5.5rem; align-items: center; }
+.np-label { text-align: center; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.np-place { justify-self: end; min-height: 44px; display: inline-flex; align-items: center; padding: 0 0.3rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.np-icon { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.np-icon svg { width: 26px; height: 26px; }
+.np-icon:disabled { opacity: 0.3; cursor: default; }
+.np-jump { align-content: center; gap: 0; }
+.np-jump svg { width: 24px; height: 24px; }
+.np-jump small { font-size: 0.6rem; font-weight: 600; line-height: 1; margin-top: -1px; }
+.np-ring {
+  --size: min(180px, 26svh); width: var(--size); height: var(--size); margin: 0.2rem auto 0;
+  border-radius: 50%; border: 3px solid var(--rule); background: var(--plate); display: grid; place-items: center; overflow: hidden;
+  transition: border-color 0.4s ease;
+}
+.np-ring.calling { border-color: var(--ochre); }
+.np-ring img { width: 80%; height: 80%; object-fit: contain; }
+.np-caption { min-height: 1.4em; margin: 0.35rem 0 0; text-align: center; font-size: 0.86rem; color: var(--ink-2); }
+.np-caption i { color: var(--ochre-deep); }
+.np-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 1rem 1rem; display: flex; flex-direction: column; }
+.np-title { margin: 0; font-size: 1.55rem; }
+.np-when { margin: 0.1rem 0 0.4rem; font-size: 0.88rem; color: var(--ink-2); }
+.np-chart .sc-plot { height: 78px; }
+.np-time { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.np-clock { font-size: 1.3rem; font-weight: 500; }
+.np-clock small { font-size: 0.75em; font-weight: 400; color: var(--ink-3); }
+.np-hour { font-size: 0.85rem; color: var(--ink-3); }
+.np-controls { display: flex; justify-content: space-between; align-items: center; margin: 0.5rem 0; }
+.np-play { flex: none; width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; cursor: pointer; }
+.np-play svg { width: 28px; height: 28px; }
+.np-play:disabled { opacity: 0.3; cursor: default; }
+.np-msg { margin: 0 0 0.4rem; text-align: center; font-size: 0.88rem; color: var(--red); }
+.np-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: auto; }
+.np-chip {
+  min-height: 44px; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 1rem; cursor: pointer;
+  border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); color: var(--ink-2); font-size: 0.88rem;
+}
+.np-chip svg { width: 17px; height: 17px; }
+.np-chip.on, .np-chip[aria-pressed="true"] { border-color: var(--ochre-deep); background: var(--ochre-2); color: var(--ochre-deep); }
+.np-sleep-menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .np[open] { animation: none; }
+  .np.closing { transition: none; }
+}
 .comment-preview-meta {
   display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline;
   padding-bottom: 0.35rem; margin-bottom: 0.45rem; border-bottom: 1px solid var(--rule); white-space: normal;
@@ -904,7 +959,8 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .ring img { max-width: 84px; max-height: 78px; }
   .ring .ph { width: 64px; height: 64px; }
   /* The bar: the session strip across the top (tap or drag along it), then the
-     bird's plate, the place, the clock, Play and the sleep timer. The strip
+     bird's plate, the place, the clock, Play and the sleep timer. A tap on the
+     place or the clock opens Now Playing (js/nowplaying.js). The strip
      stands in for the hour's progress line and the previous/next buttons; the
      volume is on the phone's buttons. */
   .player-now, .player-level, .player-vol, .player-nav, .player-track { display: none; }
@@ -927,6 +983,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .player-sleep-wrap { order: 2; }
   .player .player-sleep-label { display: none; } /* the moon alone, ochre while a timer runs; its menu says how long */
   .player-sleep { min-width: 44px; height: 44px; }
+  .player-art, .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
   .player .player-sleep.on { padding: 0; }
   /* fewer words on a small screen: weather is in the session notes, credits on About */
   .detail-weather, .site-species .credit { display: none; }
