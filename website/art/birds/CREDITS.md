@@ -67,6 +67,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 
 | File | Species | Plate | Original scan |
 |---|---|---|---|
+| acanthiza-chrysorrhoa.webp | Yellow-rumped Thornbill (*Acanthiza chrysorrhoa*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Acanthiza chrysorrhoea" (Yellow-tailed Acanthiza) | [link](https://archive.org/details/birdsaustralia3goul/page/n139/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | acanthiza-lineata.webp | Striated Thornbill (*Acanthiza lineata*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Acanthiza lineata" | [link](https://archive.org/details/birdsaustralia3goul/page/n135/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | acanthiza-reguloides.webp | Buff-rumped Thornbill (*Acanthiza reguloides*) | John Gould, The Birds of Australia, vol. 3 (1848), plate "Acanthiza reguloides" | [link](https://archive.org/details/birdsaustralia3goul/page/n137/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | ailuroedus-crassirostris.webp | Green Catbird (*Ailuroedus crassirostris*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Ptilonorhynchus Smithii" (Cat Bird) | [link](https://archive.org/details/birdsaustralia4goula/page/n37/mode/1up) (State Library of New South Wales colourist's copy, digitised by the Biodiversity Heritage Library; public domain) |
@@ -75,6 +76,7 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 | colluricincla-megarhyncha.webp | Little Shrikethrush (*Colluricincla megarhyncha*) | John Gould, The Birds of Australia, vol. 2 (1848), plate "Colluricincla parvula" (Little Colluricincla) | [link](https://archive.org/details/birdsaustralia2goul/page/n183/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain. Gould's Little Colluricincla is the northern form (parvula); he did not figure the eastern form (rufogaster) found in NSW) |
 | columba-leucomela.webp | White-headed Pigeon (*Columba leucomela*) | John Gould, The Birds of Australia, vol. 5 (1848), plate "Carpophaga leucomela" | [link](https://archive.org/details/birdsaustralia5goul/page/n131/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | cormobates-leucophaea.webp | White-throated Treecreeper (*Cormobates leucophaea*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Climacteris picumnus" | [link](https://archive.org/details/birdsaustralia4goula/page/n213/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
+| daphoenositta-chrysoptera.webp | Varied Sittella (*Daphoenositta chrysoptera*) | John Gould, The Birds of Australia, vol. 4 (1848), plate "Sittella chrysoptera" (Orange-winged Sittella) | [link](https://archive.org/details/birdsaustralia4goula/page/n219/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | dicaeum-hirundinaceum.webp | Mistletoebird (*Dicaeum hirundinaceum*) | John Gould, The Birds of Australia, vol. 2 (1848), plate "Dicaeum hirundinaceum" (Swallow Dicaeum) | [link](https://archive.org/details/birdsaustralia2goul/page/n87/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | dicrurus-bracteatus.webp | Spangled Drongo (*Dicrurus bracteatus*) | John Gould, The Birds of Australia, vol. 2 (1848), plate "Dicrurus bracteatus" (Spangled Drongo) | [link](https://archive.org/details/birdsaustralia2goul/page/n193/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
 | eopsaltria-capito.webp | Pale-yellow Robin (*Eopsaltria capito*) | John Gould, The Birds of Australia, Supplement (1869), plate "Eopsaltria Capito" (Large-headed Robin) | [link](https://archive.org/details/birdsaustraliasuppgoula/page/n45/mode/1up) (State Library of New South Wales copy, digitised by the Biodiversity Heritage Library; public domain) |
@@ -95,6 +97,3 @@ How each was cut is recorded in `scripts/bird_plates.json`.
 ## Still without a plate
 
 - Forest Raven (*Corvus tasmanicus*)
-- Pheasant Coucal (*Centropus phasianinus*)
-- Varied Sittella (*Daphoenositta chrysoptera*)
-- Yellow-rumped Thornbill (*Acanthiza chrysorrhoa*)
