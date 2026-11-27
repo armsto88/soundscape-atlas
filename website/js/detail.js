@@ -23,6 +23,7 @@ const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v1
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const ICON_BACK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4h4"/></svg>';
 const ICON_AHEAD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4h-4"/></svg>';
+const ICON_COMMENT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>';
 const BIRD_KIND = { calling: "Calling now", heard: "Last heard", hour: "Most heard this hour" };
 const CONFIDENT = 0.9;
 const KHZ_TOP = 12;
@@ -135,8 +136,9 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   } }, "Comment at time");
   // Wide screens: one row, the help by the title and Comment and Save before
   // Play. Phones: the arrows and title; while this hour plays, the bird of the
-  // moment; Play across (between −15 and +30 s and by the sleep timer while
-  // this hour plays); then a row of actions.
+  // moment with Comment and Save as icons beside it, and Pause between −15 and
+  // +30 s by the sleep timer; otherwise Play across, the two icons beside it.
+  // (The help is in "How to read this page" at the end of the tab.)
   let actions = null;
   let listen = null; // phones: the parts shown while this hour is the one playing
   if (isPhone()) {
@@ -156,8 +158,12 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
       shown: null,
     };
     listen.ring = el("span", { class: "detail-bird-ring", "aria-hidden": "true" }, listen.img);
-    listen.bird = el("p", { class: "detail-bird", hidden: true }, listen.ring, el("span", { class: "detail-bird-text" }, listen.kind, listen.name));
-    actions = el("div", { class: "detail-actions" }, help.button, comment, save.el);
+    listen.bird = el("div", { class: "detail-bird", hidden: true }, listen.ring, el("p", { class: "detail-bird-text" }, listen.kind, listen.name));
+    comment.innerHTML = ICON_COMMENT;
+    comment.classList.add("icon-action");
+    comment.setAttribute("aria-label", "Comment at this moment");
+    comment.title = "Comment at this moment";
+    listen.tools = el("div", { class: "detail-icons" }, comment, save.el);
   } else {
     head.classList.add("wide");
     head.append(prevBtn,
@@ -301,7 +307,8 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     renderLanes();
   }
   function subText(nSpecies) {
-    const sun = seg.period === "dawn" && seg.sunrise ? `sunrise ${seg.sunrise}` : seg.period === "dusk" && seg.sunset ? `sunset ${seg.sunset}` : "";
+    // phones: no sun times here (the chart above marks them), so the line fits between the arrows
+    const sun = isPhone() ? "" : seg.period === "dawn" && seg.sunrise ? `sunrise ${seg.sunrise}` : seg.period === "dusk" && seg.sunset ? `sunset ${seg.sunset}` : "";
     return [humanize(seg.period), sun, seg.detections_url ? plural(nSpecies, "species", "species") : ""].filter(Boolean).join(" · ");
   }
 
@@ -309,13 +316,13 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     if (!seg) return;
     const mine = player.segment === seg;
     const playing = mine && player.isPlaying;
+    if (listen) renderListen(mine);
     if (playBtn.dataset.playing !== String(playing)) {
       playBtn.dataset.playing = String(playing);
       playBtn.replaceChildren(el("span", { class: "btn-icon", html: playing ? ICON_PAUSE : ICON_PLAY }), playing ? "Pause" : "Play");
     }
     playBtn.disabled = !seg.public_url;
     playhead.hidden = !mine;
-    if (listen) renderListen(mine);
     // the lanes of the species calling right now take on a little ochre
     const now = new Set(mine ? player.calling.map((d) => d.common_name) : []);
     for (const b of lanesLeft.children) b.classList.toggle("calling", now.has(b.dataset.name));
@@ -338,6 +345,9 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     listen.ahead.hidden = !mine;
     listen.sleep.el.hidden = !mine;
     transport.classList.toggle("playing-here", mine);
+    // Comment and Save: beside the bird while it plays, else beside Play
+    const home = bird ? listen.bird : transport;
+    if (listen.tools.parentElement !== home) home.append(listen.tools);
     if (!bird) return;
     const key = `${bird.kind}|${bird.name}`;
     if (listen.shown === key) return;

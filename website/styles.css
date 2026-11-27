@@ -510,7 +510,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 }
 .detail-bird-ring.calling { border-color: var(--ochre); transition-duration: 0.2s; }
 .detail-bird-ring img { width: 80%; height: 80%; object-fit: contain; }
-.detail-bird-text { display: grid; min-width: 0; }
+.detail-bird-text { flex: 1; display: grid; min-width: 0; margin: 0; }
 .detail-bird-kind { font-size: 0.8rem; color: var(--ink-3); }
 .detail-bird-kind.calling { color: var(--ochre-deep); font-style: italic; }
 .detail-bird-name { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 500; line-height: 1.2; }
@@ -1014,8 +1014,33 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .player-sleep { min-width: 44px; height: 44px; }
   .player-art, .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
   .player .player-sleep.on { padding: 0; }
-  /* fewer words on a small screen: weather is in the session notes, credits on About */
+  /* fewer words on a small screen: no weather line in the hour, and the plate credits are on About (the page) */
   .detail-weather, .site-species .credit { display: none; }
+  /* The place page: the place line (the way back), the name, then three tabs
+     (site.js createTabs). Save and Comment are icons; the ⓘ buttons give way
+     to "How to read this page" at the end of Listen. */
+  .back-eyebrow {
+    display: inline-flex; align-items: center; min-height: 32px; color: var(--green); text-decoration: none;
+    font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .site-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; margin: 1.1rem 0 0.9rem; padding: 3px; border-radius: 10px; background: var(--paper-2); }
+  .site-tab { min-height: 40px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); font: 500 0.9rem var(--font-sans); cursor: pointer; }
+  .site-tab[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 16%, transparent); }
+  .page.site .info-btn { display: none; }
+  .site-panel > .site-species, .site-panel > .site-about { margin-top: 0; }
+  .site-species > h2, .site-about > h2 { display: none; } /* the tab names them */
+  .tile-share { display: none; } /* the ring shows the share */
+  .session-head { flex-wrap: nowrap; }
+  .session-head .recording-save, .detail-icons .recording-save, .detail-icons .icon-action {
+    width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; justify-content: center;
+  }
+  .session-head .recording-save > span:not(.bookmark-icon), .detail-icons .recording-save > span:not(.bookmark-icon) { display: none; }
+  .session-head .bookmark-icon, .detail-icons .bookmark-icon { width: 0.72rem; height: 0.92rem; }
+  .detail-icons { display: flex; gap: 0.35rem; flex: none; }
+  .icon-action svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+  .howto { margin: 1.2rem 0 0.4rem; font-size: 0.9rem; color: var(--ink-2); }
+  .howto summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--green); font-weight: 500; }
+  .howto p { margin: 0 0 0.6rem; }
   .player-clock { font-size: 0.95rem; }
   /* nothing has played yet: no player bar, and its space goes to the page */
   body:has(.player[data-state="idle"]) { --player-h: 0px; }

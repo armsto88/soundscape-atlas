@@ -38,7 +38,7 @@ function tile(sp, total, opts, enlarge) {
   const body = [
     ring,
     el("b", {}, sp.name, sp.checked ? el("i", { class: "tick", role: "img", "aria-label": "checked by ear" }, " ✓") : null),
-    el("span", {}, `${pctText} of ${sp.frog ? "frog " : ""}calls`),
+    el("span", { class: "tile-share" }, `${pctText} of ${sp.frog ? "frog " : ""}calls`), // phones: the ring says it
   ];
   const target = opts.onPick && opts.find ? opts.find(sp) : null;
   // Phones: one press on a plate opens it large, with what can be done with the
@@ -68,8 +68,10 @@ function tile(sp, total, opts, enlarge) {
 function grid(list, opts, enlarge) {
   const total = list.reduce((n, s) => n + s.calls, 0);
   const makeTile = (s) => tile(s, total, opts, enlarge);
-  const ul = el("ul", { class: "tiles" }, list.slice(0, SHOW_FIRST).map(makeTile));
-  if (list.length <= SHOW_FIRST) return [ul];
+  // phones: every plate at once, under its own tab (Heard here)
+  const first = isPhone() ? list.length : SHOW_FIRST;
+  const ul = el("ul", { class: "tiles" }, list.slice(0, first).map(makeTile));
+  if (list.length <= first) return [ul];
   const rest = list.slice(SHOW_FIRST);
   const btn = el("button", { class: "btn", type: "button", onclick: () => {
     ul.append(...rest.map(makeTile));

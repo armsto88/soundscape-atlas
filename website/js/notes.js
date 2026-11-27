@@ -16,7 +16,6 @@
 import { el, fmtClock, plural, info, HOUR, MINUTE, isPhone } from "./util.js";
 import { loadDetections, segmentAt, chorusPeak, ACTIVITY_BIN_SEC } from "./data.js";
 import { loadWeather, sessionWeather } from "./weather.js";
-import { hasSupport, supportText } from "./support.js";
 
 const SURE = 0.7;
 const BIN = ACTIVITY_BIN_SEC * 1000;
@@ -30,7 +29,7 @@ export function renderNotes(session, { onPlay }) {
     if (started) return;
     started = true;
     const birds = session.hasDetections ? sessionNotes(session).catch(() => null) : Promise.resolve(null);
-    Promise.all([birds, loadWeather(session)]).then(([notes]) => fill(root, notes, sessionWeather(session), onPlay, session.site));
+    Promise.all([birds, loadWeather(session)]).then(([notes]) => fill(root, notes, sessionWeather(session), onPlay));
   };
   if ("IntersectionObserver" in window) {
     const watch = new IntersectionObserver((entries) => {
@@ -128,7 +127,7 @@ async function sessionNotes(session) {
   return notes;
 }
 
-function fill(root, notes, weather, onPlay, site) {
+function fill(root, notes, weather, onPlay) {
   const lines = [...(weather ? [{ label: "Weather", items: [{ text: weather }] }] : []), ...(notes ? notes.lines : [])];
   if (!lines.length) return;
   const birds = Boolean(notes && notes.lines.length);
@@ -144,10 +143,6 @@ function fill(root, notes, weather, onPlay, site) {
         : el("span", {}, item.text),
     ])),
   ]);
-  // A way to give something back, for a listener moved by what they heard.
-  // Phones only: there the place's own "Care for this place" is at the end of the
-  // page; wide screens show it once, in the header, not again under every session.
-  if (hasSupport(site) && isPhone()) rows.push([el("dt", {}, "Care for this place"), el("dd", {}, supportText(site))]);
   const help = info("the session notes",
     birds ? el("p", {}, "Written automatically from the BirdNET detections that are checked by ear or at least 70% sure. ",
       "First bird of the morning: the earliest call around dawn from a species not also heard deep in the night. ",
@@ -162,17 +157,17 @@ function fill(root, notes, weather, onPlay, site) {
     root.append(title, help.panel, el("dl", { class: "notes-list" }, rows));
     return;
   }
-  // Phones: the playable moments as a row of buttons to swipe through; the
-  // rest (weather, most heard, frogs, care for the place) folded under them.
+  // Phones: only the playable moments, as a row of buttons to swipe through.
+  // The weather is in the hour, the most heard under Heard here, care for the
+  // place under About; how the moments are found, in "How to read this page".
   const chips = lines.flatMap((line) => line.items.filter((item) => item.seg).map((item) =>
     el("button", { class: "moment", type: "button", onclick: () => onPlay(item.seg, item.at) },
       el("small", {}, line.label),
       el("span", {}, item.timeInText ? el("b", {}, item.text) : [item.text ? `${item.text} ` : "", el("b", {}, fmtClock(item.moment))], " ▶"))));
-  const rest = rows.filter((_, i) => i >= lines.length || !lines[i].items.some((item) => item.seg));
-  const restLabels = rest.map(([dt]) => dt.textContent);
-  root.append(title, help.panel,
-    chips.length ? el("div", { class: "moments", role: "group", "aria-label": "Moments to play" }, chips) : null,
-    rest.length ? el("details", { class: "notes-more" },
-      el("summary", {}, restLabels.join(" · ")),
-      el("dl", { class: "notes-list" }, rest)) : null);
+  if (!chips.length) {
+    root.hidden = true;
+    return;
+  }
+  root.append(el("h4", { class: "notes-title" }, "Moments"),
+    el("div", { class: "moments", role: "group", "aria-label": "Moments to play" }, chips));
 }

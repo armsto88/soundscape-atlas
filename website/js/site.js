@@ -5,6 +5,10 @@
 // A species can be picked (the search in the header, a plate, or ?species= from
 // the atlas): each chart then gets a lane marking when it called, sessions
 // without it fade back, and the hour in detail opens on its lane.
+//
+// Phones: the name, then three tabs, one shown at a time: Listen (the sessions,
+// the hour, its moments and comments), Heard here (the plates) and About (the
+// description, care for the place, the map).
 
 import { el, plural, humanize, fmtSpan, fmtDuration, fmtClock, fmtDay, fmtInt, hideTip, info, isPhone } from "./util.js";
 import { createSessionChart, sessionSummary } from "./sessionchart.js";
@@ -50,13 +54,17 @@ export function render(main, model, params, ctx) {
     return {};
   }
   const player = ctx.player;
+  const phone = isPhone();
   let picked = (params.species && model.speciesByKey.get(params.species)) || null; // the species followed through the sessions
 
   // ---- header ----------------------------------------------------------------
   const facts = [humanize(site.habitat), humanize(site.biome), site.elevation_m ? `${site.elevation_m} m above sea level` : ""].filter(Boolean);
   const insetEl = el("div", { class: "inset-map", "aria-hidden": "true" });
   const backHref = () => `#/?focus=${encodeURIComponent(site.id)}${picked ? `&species=${encodeURIComponent(picked.key)}` : ""}`;
-  const backLink = el("a", { href: backHref() }, "← Atlas");
+  // phones: the way back is the place line above the name
+  const backLink = phone
+    ? el("a", { class: "back-eyebrow", href: backHref(), "aria-label": "Back to the atlas" }, `‹ ${[site.locality, site.area || site.state].filter(Boolean).join(" · ")}`)
+    : el("a", { href: backHref() }, "← Atlas");
   const heardHere = [...site.heard.values()];
   const find = heardHere.length ? createSpeciesSearch({
     id: "site-find",
@@ -91,6 +99,8 @@ export function render(main, model, params, ctx) {
     el("small", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`))) : null;
   const showListen = () => {
     if (!listen) return;
+    // phones: gone while this place plays (the bar and the hour have Pause)
+    listen.hidden = phone && Boolean(player.segment) && player.segment.site === site && player.isPlaying;
     const here = atQuick();
     const playing = here && player.isPlaying;
     const icon = playing ? ICON_PAUSE : ICON_PLAY;
@@ -98,20 +108,18 @@ export function render(main, model, params, ctx) {
     listen.setAttribute("aria-label", playing ? "Pause" : here ? `Carry on: ${listenLabel}` : `Listen: ${listenLabel}`);
   };
   const counts = el("p", { class: "muted site-counts" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
-    (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"));
+    (phone ? " recorded" : site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"));
   const about = [
     site.description ? el("p", { class: "lede" }, site.description) : null,
     supportBlock(site),
     site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
     counts,
   ];
-  // Phones: the name, one line of facts and Play; sessions next; the description,
-  // counts and map at the end under "About this place". Plates pick species there.
-  const phone = isPhone();
+  // Phones: the place line (the way back), the name, one line of facts and
+  // Play; the tabs below. Plates pick species under Heard here.
   const head = phone
     ? el("header", { class: "site-head" }, el("div", {},
-      el("p", { class: "back" }, backLink),
-      el("p", { class: "eyebrow" }, [site.locality, site.area || site.state].filter(Boolean).join(" · ")),
+      backLink,
       el("h1", {}, site.site_name),
       el("p", { class: "facts" }, [humanize(site.habitat), site.elevation_m ? `${fmtInt(site.elevation_m)} m` : "",
         site.species.length ? plural(site.species.length, "species", "species") : ""].filter(Boolean).join(" · ")),
@@ -186,8 +194,7 @@ export function render(main, model, params, ctx) {
     el("p", {}, "Each chart is one recording session, from its first to its last second. Night is shaded, with sunset and sunrise marked, and the curve shows how many BirdNET detections there are in every five minutes. Hatched stretches were recorded but are not published."),
     el("p", {}, "Click anywhere on a chart to listen from that moment. The hour you're in opens below the chart: drag its highlighted window, or use the arrows, to move through the session. Under the hour, the session notes pick out moments worth hearing."));
   const sessionsEl = el("section", { class: "sessions" },
-    el("h2", {}, "Sessions", help.button),
-    help.panel);
+    phone ? null : [el("h2", {}, "Sessions", help.button), help.panel]); // phones: the Listen tab says it
   for (const session of site.sessions) {
     const chart = createSessionChart(session, {
       maxRate: site.maxRate,
@@ -227,6 +234,7 @@ export function render(main, model, params, ctx) {
     picked: () => picked,
     onPick: (sp) => {
       clearTimeout(initialReveal);
+      if (tabs) tabs.show("listen"); // phones: the sessions are under Listen
       if (picked !== sp) setPicked(sp);
       const current = active?.session;
       const match = current?.heard.has(sp) ? current : site.heard.get(sp).sessions[0].session;
@@ -241,7 +249,29 @@ export function render(main, model, params, ctx) {
       });
     },
   });
-  main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl, aboutEl));
+  // phones: the charts explained once, at the end of Listen, instead of ⓘ buttons
+  const howTo = phone ? el("details", { class: "howto" }, el("summary", {}, "How to read this page"),
+    el("p", {}, "Each chart is one recording session, from its first to its last second. Night is shaded, with sunset and sunrise marked, and the curve shows how many BirdNET detections there are in every five minutes. Hatched stretches were recorded but are not published. Tap anywhere on a chart to listen from that moment."),
+    el("p", {}, "Under the chart is the hour you are in: its spectrogram (time runs left to right, pitch rises from 0 to 12 kHz, louder is darker) and a lane for each species with its calls. Swipe sideways or use the arrows to move through the hours, and tap a mark to hear that call."),
+    el("p", {}, "The moments are picked from the detections checked by ear or at least 70% sure: the first bird of the morning, the dawn and evening choruses at their fullest, voices in the night, and the quietest stretch. ▶ plays from just before each one."),
+    el("p", {}, "Species are named automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology) and may contain errors.")) : null;
+  let tabs = null; // phones: Listen, Heard here, About
+  if (phone) {
+    tabs = createTabs([
+      { key: "listen", label: "Listen", panel: [lensBar, sessionsEl, howTo] },
+      speciesEl ? { key: "species", label: "Heard here", panel: [speciesEl] } : null,
+      { key: "about", label: "About", panel: [aboutEl] },
+    ].filter(Boolean), {
+      id: site.id,
+      onShow: (key) => {
+        ctx.state.siteTab = { id: site.id, tab: key };
+        if (key === "about") requestAnimationFrame(() => inset.resize()); // the map was drawn while hidden
+      },
+    });
+    main.append(el("article", { class: "page site" }, head, tabs.bar, tabs.panels));
+  } else {
+    main.append(el("article", { class: "page site" }, head, lensBar, sessionsEl, speciesEl, aboutEl));
+  }
 
   // ---- the species picked ------------------------------------------------------------
   function renderLensBar() {
@@ -356,6 +386,11 @@ export function render(main, model, params, ctx) {
     initialReveal = setTimeout(() => blocks.get(start.session).article.scrollIntoView({ block: "start" }), 150);
   }
   if (!active) ctx.suggest(placeSuggestion(site)); // the idle bar's Play: this place's best moment
+  if (tabs) {
+    // an hour or a species in the address is under Listen; otherwise the tab last open here
+    const last = ctx.state.siteTab && ctx.state.siteTab.id === site.id ? ctx.state.siteTab.tab : null;
+    tabs.show(params.at || params.species || !last ? "listen" : last);
+  }
   onState();
 
   return {
@@ -369,4 +404,52 @@ export function render(main, model, params, ctx) {
       hideTip();
     },
   };
+}
+
+// Phones: a row of tabs over panels, one panel shown at a time.
+// items: [{ key, label, panel: [elements] }]
+function createTabs(items, { id, onShow }) {
+  const uid = id.replace(/[^A-Za-z0-9]/g, "");
+  const buttons = new Map();
+  const panels = new Map();
+  for (const item of items) {
+    const panel = el("div", { class: "site-panel", role: "tabpanel", id: `panel-${uid}-${item.key}`, "aria-labelledby": `tab-${uid}-${item.key}`, hidden: true }, item.panel);
+    const button = el("button", {
+      class: "site-tab", type: "button", role: "tab", id: `tab-${uid}-${item.key}`,
+      "aria-controls": panel.id, "aria-selected": "false", tabindex: "-1",
+      onclick: () => api.show(item.key, { scroll: true }),
+    }, item.label);
+    buttons.set(item.key, button);
+    panels.set(item.key, panel);
+  }
+  const bar = el("div", { class: "site-tabs", role: "tablist" }, [...buttons.values()]);
+  // arrow keys move between the tabs
+  bar.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const keys = [...buttons.keys()];
+    const i = keys.findIndex((k) => buttons.get(k) === document.activeElement);
+    if (i < 0) return;
+    const next = keys[(i + (event.key === "ArrowRight" ? 1 : keys.length - 1)) % keys.length];
+    api.show(next);
+    buttons.get(next).focus();
+  });
+  let current = null;
+  const api = {
+    bar,
+    panels: [...panels.values()],
+    get current() { return current; },
+    show(key, { scroll = false } = {}) {
+      if (!panels.has(key)) key = items[0].key;
+      current = key;
+      for (const [k, button] of buttons) {
+        button.setAttribute("aria-selected", String(k === key));
+        button.tabIndex = k === key ? 0 : -1;
+        panels.get(k).hidden = k !== key;
+      }
+      // a tab pressed further down the page: start the new one at its top
+      if (scroll && bar.getBoundingClientRect().top < 0) bar.scrollIntoView({ block: "start" });
+      onShow(key);
+    },
+  };
+  return api;
 }

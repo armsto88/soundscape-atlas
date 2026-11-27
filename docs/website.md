@@ -137,20 +137,32 @@ in `js/util.js` matches the CSS, and the page is drawn again when it changes):
   Boxes over the map are rounded and the list covers it whole: Chrome treats an
   opaque, square box over the map's WebGL canvas as covering it and skips the
   canvas under a vertically mirrored copy of the box (a blank strip on the map).
-- **Place page**, built differently (`js/site.js`): back link, locality and
-  area, the name, one line of facts (habitat, height, species), the Play
-  button; then the sessions, titled in few words ("22–23 Aug 2024 · 19 h 12
-  min · winter"); then Heard here; and at the end "About this place" with the
-  description, counts and inset map. No species search: the plates do that.
-- **Session notes** (`js/notes.js`): the playable moments as a row of
-  buttons to swipe through; weather, most heard and frogs folded under them.
-- **Hour view**: no weather line (it is in the notes); swipe the header, or
-  the spectrogram when not zoomed, sideways for the next or previous hour.
-  Each species lane carries its own name across the top (no name column), on
-  a paper backing the playhead passes behind.
-- **Plates**: three to a row and no Enlarge buttons. A press opens the plate
-  large with its scientific name and calls here, and "Follow it in the
-  sessions" and "Where else it was heard". The credits line is on About.
+- **Place page**, built differently (`js/site.js`): the place line ("‹ Dunoon ·
+  Northern Rivers", the way back to the atlas), the name, one line of facts
+  (habitat, height, species) and the Play button, which hides while the place
+  plays (the bar and the hour have Pause). Then three tabs (`createTabs`), one
+  shown at a time: **Listen** (the sessions, each titled in few words, "22–23
+  Aug 2024 · 19 h 12 min · winter", with its hour, moments and comments, and
+  "How to read this page" at the end in place of ⓘ buttons), **Heard here**
+  (every plate) and **About** (the description, care for the place, sessions
+  and hours, the inset map, resized when the tab opens). The page opens on
+  Listen, or on the tab last open at this place while the page stays open; an
+  hour or a species in the address opens Listen, and so does following a
+  species from its plate. No species search: the plates do that. (Until 27 Nov
+  2026 it was one long page, about six screens while playing.)
+- **Session notes** (`js/notes.js`): only the playable moments, as a row of
+  buttons to swipe through, titled "Moments".
+- **Hour view**: no weather line and no sun times (the chart marks them);
+  swipe the header, or the spectrogram when not zoomed, sideways for the next
+  or previous hour. While its hour plays it shows the bird of the moment with
+  Comment and Save as icons beside it, and Pause between −15 and +30 s by the
+  sleep timer; otherwise Play, with the two icons beside it. Each species lane
+  carries its own name across the top (no name column), on a paper backing the
+  playhead passes behind.
+- **Plates**: three to a row, every one at once, no "% of calls" line (the ring
+  shows the share) and no Enlarge buttons. A press opens the plate large with
+  its scientific name and calls here, and "Follow it in the sessions" and
+  "Where else it was heard". The credits line is on About.
 - The map's credits start folded and the scale bar is hidden. Text fields are
   16 px, or iOS zooms into them.
 
