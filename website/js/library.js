@@ -1,6 +1,6 @@
 import { el, fmtClock, fmtDay, fmtSpan } from "./util.js";
 import { createBotCheck } from "./botcheck.js";
-import { themeControl } from "./theme.js";
+import { themeControl, currentTheme } from "./theme.js";
 import { installSection } from "./install.js";
 
 let accountRequest;
@@ -18,13 +18,41 @@ export async function requestApi(path, { method = "GET", body } = {}) {
   throw Object.assign(new Error(data?.error || "The account service is unavailable."), { status: response.status });
 }
 
+// The top bar (wide screens): Sign in, or once signed in the listener's name,
+// opening Administration (admins) and Sign out.
 function showAccountStatus(user) {
-  const badge = document.getElementById("account-status");
-  if (!badge) return;
-  badge.textContent = user ? `Signed in as ${user.name}` : "Signed out";
-  document.getElementById("account-sign-in").hidden = Boolean(user);
-  document.getElementById("account-admin").hidden = !user?.is_admin;
-  document.getElementById("account-sign-out").hidden = !user;
+  const signIn = document.getElementById("account-sign-in");
+  const menu = document.getElementById("account-menu");
+  if (!signIn || !menu) return;
+  signIn.hidden = Boolean(user);
+  menu.hidden = !user;
+  if (!user) {
+    menu.open = false;
+    return;
+  }
+  document.getElementById("account-name").textContent = user.name;
+  menu.querySelector(".account-initial").textContent = (String(user.name).trim()[0] || "?").toUpperCase();
+  menu.querySelector("summary").setAttribute("aria-label", `Account: ${user.name}`);
+  document.getElementById("account-status").textContent = `Signed in as ${user.name}`;
+  document.getElementById("account-admin").hidden = !user.is_admin;
+}
+
+// a small menu in the top bar: closes on a link, a click elsewhere, Escape, or a new page
+function wireMenu(menu) {
+  const summary = menu.querySelector("summary");
+  menu.addEventListener("click", (event) => {
+    if (event.target.closest("a")) menu.open = false;
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && menu.open) {
+      menu.open = false;
+      summary.focus();
+    }
+  });
+  window.addEventListener("hashchange", () => { menu.open = false; });
 }
 
 function resetAccount(user) {
@@ -56,34 +84,39 @@ async function signOut() {
 export function mountAccountMenu(onSignOut) {
   const menu = document.getElementById("account-menu");
   if (!menu) return;
-  const summary = menu.querySelector("summary");
+  const signIn = document.getElementById("account-sign-in");
   const button = document.getElementById("account-sign-out");
   const error = document.getElementById("account-menu-error");
-  menu.querySelector(".account-panel").append(el("div", { class: "account-theme" }, el("span", { class: "muted" }, "Appearance"), themeControl()));
-  currentUser().catch(() => {
-    document.getElementById("account-status").textContent = "Account status unavailable";
-    document.getElementById("account-sign-in").hidden = false;
-  });
-  menu.addEventListener("click", (event) => {
-    if (event.target.closest("a")) menu.open = false;
-  });
-  document.addEventListener("click", (event) => {
-    if (!menu.contains(event.target)) menu.open = false;
-  });
-  menu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && menu.open) {
-      menu.open = false;
-      summary.focus();
-    }
-  });
-  window.addEventListener("hashchange", () => { menu.open = false; });
+  wireMenu(menu);
+
+  // Appearance: the icon shows the choice, its menu changes it
+  const themeMenu = document.getElementById("theme-menu");
+  if (themeMenu) {
+    wireMenu(themeMenu);
+    themeMenu.querySelector(".top-panel").append(themeControl());
+    const summary = themeMenu.querySelector("summary");
+    const name = () => {
+      const label = `Appearance: ${{ auto: "Auto", light: "Light", dark: "Dark" }[currentTheme()]}`;
+      summary.title = label;
+      summary.setAttribute("aria-label", label);
+    };
+    window.addEventListener("themechange", name);
+    name();
+  }
+
+  // Sign in comes back to the recording it was pressed on
+  const signInHref = () => { signIn.href = libraryHref(); };
+  signInHref();
+  window.addEventListener("hashchange", signInHref);
+  currentUser().catch(() => showAccountStatus(null));
+
   button.addEventListener("click", async () => {
     button.disabled = true;
     error.textContent = "";
     try {
       await signOut();
       menu.open = false;
-      summary.focus();
+      signIn.focus();
       onSignOut();
     } catch (err) {
       error.textContent = err.message;
@@ -198,12 +231,15 @@ export function renderLibrary(main, model, params) {
   const back = params.from?.startsWith("#/site/") ? el("a", { href: params.from }, "← Back to recording") : null;
   const status = el("p", { class: "account-error", role: "status" });
   const content = el("div", {}, el("p", { class: "muted" }, "Loading your library…"));
-  // on phones the tab bar has no About or account menu: both live here
+  // On phones the tab bar has no About or account menu: both live here. Wide
+  // screens have them in the top bar, so only the Home Screen part shows there
+  // (tablets), and on a computer nothing (styles.css, .library-phone).
   const more = el("section", { class: "library-more" },
     installSection(),
-    el("h2", {}, "Appearance"),
-    themeControl(),
-    el("p", { class: "library-about" }, el("a", { href: "#/about" }, "About Soundscape Atlas"), " · recordings, plates, credits"));
+    el("div", { class: "library-phone" },
+      el("h2", {}, "Appearance"),
+      themeControl(),
+      el("p", { class: "library-about" }, el("a", { href: "#/about" }, "About Soundscape Atlas"), " · recordings, plates, credits")));
   const root = el("article", { class: "page prose library" }, back ? el("p", { class: "back" }, back) : null,
     el("h1", {}, "My library"), status, content, more);
   main.append(root);

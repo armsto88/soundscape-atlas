@@ -151,9 +151,10 @@ export async function showInstall() {
   dialog.showModal();
 }
 
-// ---- Library: the way in that is always there -----------------------------------
+// ---- Library: the way in that is always there (phones and tablets) ---------------
 
 export function installSection() {
+  if (platform().kind === "desktop") return null; // no Home Screen on a computer
   const body = el("div", {});
   const section = el("section", { class: "install-section" }, el("h2", {}, "On your Home Screen"), body);
   const paint = () => {

@@ -18,6 +18,7 @@ import { sessionComments } from "./comments.js";
 import { supportBlock } from "./support.js";
 import { createMap, tokens } from "./map.js";
 import { Marker } from "../vendor/maplibre-gl.mjs";
+import { placeSuggestion, hourSuggestion } from "./player.js";
 
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
@@ -92,12 +93,13 @@ export function render(main, model, params, ctx) {
     listenIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
     listen.setAttribute("aria-label", playing ? "Pause" : here ? "Carry on listening" : `Listen: ${listenLabel}`);
   };
+  const counts = el("p", { class: "muted site-counts" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
+    (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"));
   const about = [
     site.description ? el("p", { class: "lede" }, site.description) : null,
     supportBlock(site),
     site.public_location_precision !== "exact" ? el("p", { class: "note" }, "The map shows an approximate location to protect the site.") : null,
-    el("p", { class: "muted" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
-      (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified")),
+    counts,
   ];
   // Phones: the name, one line of facts and Play; sessions next; the description,
   // counts and map at the end under "About this place". Plates pick species there.
@@ -110,6 +112,8 @@ export function render(main, model, params, ctx) {
       el("p", { class: "facts" }, [humanize(site.habitat), site.elevation_m ? `${fmtInt(site.elevation_m)} m` : "",
         site.species.length ? plural(site.species.length, "species", "species") : ""].filter(Boolean).join(" · ")),
       listen))
+    // Wide screens: what the place is on the left; the map, the counts and the
+    // species search beside it, so the first session comes up sooner.
     : el("header", { class: "site-head" },
       el("div", {},
         el("p", { class: "back" }, backLink),
@@ -117,9 +121,11 @@ export function render(main, model, params, ctx) {
         el("h1", {}, site.site_name),
         el("p", { class: "facts" }, facts.join(" · ")),
         listen,
-        about,
-        find ? el("div", { class: "site-find" }, find.el) : null),
-      insetEl);
+        about.slice(0, -1)),
+      el("div", { class: "site-aside" },
+        insetEl,
+        counts,
+        find ? el("div", { class: "site-find" }, find.el) : null));
   const aboutEl = phone ? el("section", { class: "site-about" }, el("h2", {}, "About this place"), about, insetEl) : null;
   const lensBar = el("div", { class: "site-lens", hidden: true });
 
@@ -164,6 +170,7 @@ export function render(main, model, params, ctx) {
       detail.show(seg);
       for (const [session, b] of blocks) b.chart.setSelected(session === seg.session ? seg : null);
       ctx.replace(address());
+      ctx.suggest(hourSuggestion(seg) || placeSuggestion(site)); // the idle bar's Play: the hour on screen
     }
     if (play) player.load(seg, { autoplay: true, at });
     else if (followPlayback && player.segment && player.segment.session === seg.session && player.segment !== seg && (player.isPlaying || player.wanted)) {
@@ -335,6 +342,7 @@ export function render(main, model, params, ctx) {
     // after the inset map and fonts have settled, so the jump lands where it should
     initialReveal = setTimeout(() => blocks.get(start.session).article.scrollIntoView({ block: "start" }), 150);
   }
+  if (!active) ctx.suggest(placeSuggestion(site)); // the idle bar's Play: this place's best moment
   onState();
 
   return {

@@ -5,7 +5,7 @@
 
 import { el, PHONE_MEDIA } from "./util.js";
 import { loadModel } from "./data.js";
-import { player } from "./player.js";
+import { player, placeSuggestion } from "./player.js";
 import { mountNowPlaying } from "./nowplaying.js";
 import { offerInstall } from "./install.js";
 import { startAnalytics, trackPage } from "./analytics.js";
@@ -16,10 +16,15 @@ import * as site from "./site.js";
 import { renderSpeciesIndex } from "./speciesindex.js";
 import { onThemeChange } from "./theme.js";
 
-const state = { model: null, atlasView: null, atlasOpen: null, atlasSelected: null, current: null };
+const state = { model: null, atlasView: null, atlasOpen: null, atlasSelected: null, current: null, featured: null };
 const ctx = {
   player,
   state,
+  // what the idle player bar offers: a screen's own choice, or (null) the
+  // featured place's best moment, picked once a visit
+  suggest(suggestion) {
+    player.suggest(suggestion || state.featured);
+  },
   navigate(hash) {
     if (location.hash !== hash) location.hash = hash;
   },
@@ -62,6 +67,7 @@ function render() {
     else link.removeAttribute("aria-current");
   }
   if (!state.model) return;
+  ctx.suggest(null); // each screen starts from the featured place, and may offer its own
 
   let title = "Soundscape Atlas";
   let path = "/";
@@ -139,6 +145,9 @@ async function boot() {
     const seg = state.model.segmentsById.get(legacy);
     history.replaceState(null, "", `${location.pathname}#/site/${encodeURIComponent(seg.site.id)}?at=${encodeURIComponent(legacy)}`);
   }
+  // a place to start listening, until something has played: a different one each visit
+  const places = state.model.publishedSites.filter((s) => placeSuggestion(s));
+  state.featured = places.length ? placeSuggestion(places[Math.floor(Math.random() * places.length)]) : null;
   render();
 }
 

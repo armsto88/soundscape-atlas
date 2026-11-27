@@ -28,27 +28,27 @@
     <meta name="apple-mobile-web-app-title" content="Soundscape" />
     <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="vendor/maplibre-gl.css" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=12" />
     <!-- Refresh modules that browsers may still have cached from earlier releases. -->
     <script type="importmap">
       {
         "imports": {
           "./js/admin.js": "./js/admin.js?v=4",
-          "./js/atlas.js": "./js/atlas.js?v=4",
+          "./js/atlas.js": "./js/atlas.js?v=6",
           "./js/comments.js": "./js/comments.js?v=5",
           "./js/data.js": "./js/data.js?v=2",
-          "./js/detail.js": "./js/detail.js?v=6",
-          "./js/install.js": "./js/install.js?v=1",
-          "./js/library.js": "./js/library.js?v=6",
+          "./js/detail.js": "./js/detail.js?v=7",
+          "./js/install.js": "./js/install.js?v=2",
+          "./js/library.js": "./js/library.js?v=7",
           "./js/map.js": "./js/map.js?v=2",
-          "./js/notes.js": "./js/notes.js?v=2",
-          "./js/species.js": "./js/species.js?v=2",
+          "./js/notes.js": "./js/notes.js?v=3",
+          "./js/species.js": "./js/species.js?v=3",
           "./js/nowplaying.js": "./js/nowplaying.js?v=2",
-          "./js/speciesindex.js": "./js/speciesindex.js?v=1",
+          "./js/speciesindex.js": "./js/speciesindex.js?v=2",
           "./js/theme.js": "./js/theme.js?v=1",
-          "./js/player.js": "./js/player.js?v=6",
+          "./js/player.js": "./js/player.js?v=8",
           "./js/sessionchart.js": "./js/sessionchart.js?v=5",
-          "./js/site.js": "./js/site.js?v=6",
+          "./js/site.js": "./js/site.js?v=8",
           "./js/util.js": "./js/util.js?v=7"
         }
       }
@@ -62,18 +62,29 @@
         <a href="#/species" data-route="species">Species</a>
         <a href="#/about" data-route="about">About</a>
         <a href="#/library" data-route="library">Library</a>
-        <details id="account-menu" class="account-menu">
-          <summary aria-label="Account menu"><span class="menu-icon" aria-hidden="true"></span></summary>
-          <div class="account-panel">
-            <p id="account-status" role="status">Checking sign-in…</p>
-            <a id="account-sign-in" href="#/library" hidden>Sign in</a>
+      </nav>
+      <div class="topbar-tools">
+        <!-- light, dark or the computer's own setting; the icon shows which (styles.css) -->
+        <details id="theme-menu" class="top-menu">
+          <summary class="top-icon" aria-label="Appearance" title="Appearance">
+            <svg class="theme-icon auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><path d="M12 4.5a7.5 7.5 0 0 1 0 15z" class="fill"/></svg>
+            <svg class="theme-icon light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+            <svg class="theme-icon dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg>
+          </summary>
+          <div class="top-panel" id="theme-panel"><p class="top-panel-label">Appearance</p></div>
+        </details>
+        <!-- signed out: Sign in; signed in: the name, with Sign out under it (library.js) -->
+        <a id="account-sign-in" class="btn top-sign-in" href="#/library">Sign in</a>
+        <details id="account-menu" class="top-menu" hidden>
+          <summary class="top-account"><span class="account-initial" aria-hidden="true"></span><span id="account-name"></span></summary>
+          <div class="top-panel">
+            <p id="account-status" role="status"></p>
             <a id="account-admin" href="#/admin" hidden>Administration</a>
-            <button id="account-sign-out" class="btn" type="button" hidden>Sign out</button>
-            <a class="account-about" href="#/about">About</a>
+            <button id="account-sign-out" class="btn" type="button">Sign out</button>
             <p id="account-menu-error" class="account-error" role="status"></p>
           </div>
         </details>
-      </nav>
+      </div>
     </header>
     <main id="main"></main>
     <div id="player"></div>
@@ -84,6 +95,6 @@
       <a href="#/library" data-tab="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10v17l-5-3.5-5 3.5z"/></svg><span>Library</span></a>
     </nav>
     <script src="vendor/pmtiles.js"></script>
-    <script type="module" src="js/app.js?v=7"></script>
+    <script type="module" src="js/app.js?v=8"></script>
   </body>
 </html>

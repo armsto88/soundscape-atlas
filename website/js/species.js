@@ -6,6 +6,7 @@
 import { el, plural, info, isPhone } from "./util.js";
 
 const SHOW_FIRST = 12;
+const ICON_ENLARGE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg>';
 const PLACEHOLDER = `<svg viewBox="0 0 100 100" class="placeholder" aria-hidden="true">
   <line x1="16" y1="84" x2="86" y2="84" />
   <g class="ph-fill">
@@ -56,10 +57,12 @@ function tile(sp, total, opts, enlarge) {
     "aria-current": String(opts.picked() === target),
     onclick: () => opts.onPick(target),
   }, body) : el("div", { class: "tile-info" }, body);
+  // with a mouse, a magnifier on the plate that shows on hover or focus; on a
+  // touch screen, the word under it (styles.css)
   return el("li", { class: "tile" }, pick, sp.image ? el("button", {
     class: "plate-enlarge btn", type: "button", "aria-haspopup": "dialog",
-    "aria-label": `Enlarge illustration of ${sp.name}`, onclick: () => enlarge(sp),
-  }, "Enlarge") : null);
+    "aria-label": `Enlarge illustration of ${sp.name}`, title: "Enlarge", onclick: () => enlarge(sp),
+  }, el("span", { class: "plate-enlarge-icon", html: ICON_ENLARGE }), el("span", { class: "plate-enlarge-text" }, "Enlarge")) : null);
 }
 
 function grid(list, opts, enlarge) {

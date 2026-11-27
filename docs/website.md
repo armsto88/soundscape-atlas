@@ -12,11 +12,22 @@ the R2 bucket.
 
 - **Atlas** (`#/`): the map, with named areas at low zoom and labelled places
   when zoomed in, and the places as an accordion (country › state › area ›
-  place). At first every level with only one entry is open too, so the
-  places show straight away. Opening a section flies the map there; closing
-  it zooms back out a level. The map leaves room on the right for the place
-  names, which sit to the right of the dots. Clicking a place shows a small card with a play button and "Open
-  site". The play button plays the place's hour without leaving the map, the
+  place). While everything published is in one country, state and area, that
+  chain is a single heading instead ("Northern Rivers", "New South Wales,
+  Australia · 3 places · 82 h"; pressing it shows them all on the map), and
+  the accordion returns as soon as a level has two entries. Otherwise every
+  level with only one entry is open at first, so the places show straight
+  away. Opening a section flies the map there; closing it zooms back out a
+  level. Each place row shows its habitat, sessions and hours, and a ▶ that
+  plays its best moment without opening anything. The map leaves room on the
+  right for the place names, which sit to the right of the dots; a name that
+  would cover another place's dot moves above or below it, or to the left
+  (an invisible icon layer over the dots, `places-keepout`). Clicking a place
+  shows its card with a play button and "Open place": on wide screens in the
+  sidebar, in place of the list (with its most heard birds and frog as small
+  plates, each opening the place on that species; "← All places", or "←" and
+  the species when one is searched for, or Escape, brings the list back); on
+  phones over the map, above the sheet. The play button plays the place's hour without leaving the map, the
   same for every visit: an hour marked `featured` in segments.csv (from its
   start); otherwise the session of the liveliest dawn hour (most detections),
   from half an hour before its dawn chorus is at its fullest (the same moment
@@ -45,14 +56,18 @@ the R2 bucket.
 - **Place** (`#/site/<site_id>?at=<segment_id>`): under the name, a Play
   button for the place's best moment (the same one its atlas card plays, from
   `quickListen` in `js/data.js`), so the first screen on a phone can be
-  listened to; then description and inset map, then one chart per recording
+  listened to; then description and inset map (wide screens: the map, the
+  counts and "Find a species heard here" in the right-hand column, so the
+  first session is on the first screen), then one chart per recording
   session. Each chart spans the session from its
   first to its last second, with the start and end labelled, night shaded,
   sunset and sunrise marked, unpublished hours hatched, and an activity curve
   of detections per five minutes. Click anywhere to listen from that moment.
   The hour you are in opens right below the chart (the two work as one): the
   spectrogram strip and one lane per species, with the species list, zoom, a
-  confident-only filter and the recording notes under "More". Drag the
+  confident-only filter and the recording notes under "More". On wide screens
+  its controls are one row (the arrows, the title with its help, Comment at
+  time, Save hour, Play); phones put Play across under the title. Drag the
   highlighted window or use the arrows to move through the session; during
   playback the window follows. `&t=<seconds>` after `?at=` also cues the
   player at that second of the hour, paused (browsers only start sound on a
@@ -64,7 +79,8 @@ the R2 bucket.
   when the session scrolls into view.
   Below the sessions, "Heard here": an even grid of plates, each with a ring
   for its share of the calls, birds first, then frogs. Enlarge opens the
-  illustration in a dialog.
+  illustration in a dialog: with a mouse, a magnifier on the plate that shows
+  on hover or focus; on a touch screen, a button under it.
 
   A species can be followed through the sessions (`&species=`): picked with
   "Find a species heard here" in the header, by pressing its plate, or
@@ -83,15 +99,22 @@ the R2 bucket.
   in tooltips, so it works by touch too. Floating labels show the chart time,
   call details and comment previews.
 - **Species** (`#/species`, `js/speciesindex.js`): every bird and frog heard
-  so far, most calls first, with a field that narrows the list as you type.
-  Each opens on the atlas with the places it was heard at (`#/?species=`), as
+  so far, most calls first, with a field that narrows the list as you type:
+  on phones a list, on wide screens a grid of plates with All · Birds · Frogs
+  beside the field. Each opens on the atlas with the places it was heard at (`#/?species=`), as
   if picked in the atlas search; species on a sensitive list count sessions.
 - **About** (`#/about`).
 - **Library** (`#/library`): create an account or sign in with a username and
   password. The library opens saved sessions and hours at their recording and
-  lets the listener remove favourites. Under it, **Appearance** (Auto, Light,
-  Dark; also in the account menu on wide screens) and a link to About, which
-  the phone's tab bar has no room for.
+  lets the listener remove favourites. On phones, under it, **Appearance**
+  (Auto, Light, Dark) and a link to About, which the tab bar has no room for;
+  wide screens have both in the top bar, so they are left out there.
+
+**Top bar** (wide screens): Atlas, Species, About, Library, then Appearance
+(an icon showing Auto, Light or Dark, opening the three choices) and **Sign
+in**, which goes to Library and comes back to the recording it was pressed
+on. Signed in, Sign in becomes the listener's name, opening Administration
+(admins) and Sign out (`mountAccountMenu()` in `js/library.js`).
 
 **Phones** (up to 860 px wide, designed for the 375 px iPhone SE; `isPhone()`
 in `js/util.js` matches the CSS, and the page is drawn again when it changes):
@@ -135,12 +158,17 @@ timeline allow no text selection or long-press menu.
 
 **Care for this place**: if a place has a local conservation group in
 sites.csv (`support_name`, `support_url`, `support_note`), its place page
-shows it under the description, the session notes end with it, and the atlas
-card (desktop) links to it. The link goes to the group's own donation page in
+shows it under the description (on phones, at the end of the page, and each
+session's notes end with it too), and the atlas card (desktop) links to it. The link goes to the group's own donation page in
 a new tab; the site never handles money and adds no tracking (`js/support.js`).
 
 The player bar at the bottom keeps playing while you move around, and moves on
-to the next published hour of the session by itself. Old `#/hour/<segment_id>`
+to the next published hour of the session by itself. Before anything has
+played, its Play (or Space) is never dead on wide screens: it offers the hour
+open on a place page, else that place's best moment, else the place picked on
+the atlas, else a featured place picked at random for the visit
+(`player.suggest()`, `placeSuggestion()`, `hourSuggestion()`; phones hide the
+idle bar as before). Old `#/hour/<segment_id>`
 links, and `?segment=<id>` links from the previous site, open the place at
 that hour.
 
@@ -268,7 +296,8 @@ clock opens a full-screen view: the plate of the bird calling now (ochre ring),
 else the hour's plate (as on the lock screen), the place and hour, the
 session's chart to tap or scrub (the same chart as on the place page), ±15/30 s,
 previous/next hour, and a **sleep timer** (15, 30 or 60 minutes, or the end of
-the hour). The timer fades the sound over its last 8 seconds where the browser
+the hour; on wide screens it is the moon in the player bar, showing the minutes
+left while it runs). The timer fades the sound over its last 8 seconds where the browser
 lets a page set the volume (iOS does not) and then pauses; pausing by hand
 cancels it. The view closes with the chevron, a swipe down, Escape or any page
 change. It adds no history entry for Back: hours moving on rewrite the address
@@ -286,7 +315,8 @@ Inviting visitors (`js/install.js`): no browser on iPhone lets a page add itself
 (Safari has neither `beforeinstallprompt` nor `navigator.install`), so phones get
 a small card once, after a minute of listening or 20 seconds into a later visit
 (never in the Home Screen app; "×" keeps it away for 30 days), and Library has
-"On your Home Screen" always. Its button opens, by browser:
+"On your Home Screen" always on phones and tablets (not on desktop browsers,
+where there is no Home Screen). Its button opens, by browser:
 Android Chrome/Edge/Samsung, the browser's own install prompt
 (`beforeinstallprompt`, which Chrome fires without a service worker); iPhone and
 iPad, the steps through Share › Add to Home Screen (worded for either tab

@@ -8,12 +8,14 @@
 // ear, or heard with high confidence, keep a lane even if they called once.
 // Lanes are ordered by call count.
 
-import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, hideTipSoon, clamp, info } from "./util.js";
+import { el, pct, fmtClock, fmtTime, fmtInt, plural, humanize, showTip, hideTip, hideTipSoon, clamp, info, isPhone } from "./util.js";
 import { loadDetections } from "./data.js";
 import { createSaveControl } from "./library.js";
 import { loadWeather, hourWeather } from "./weather.js";
 
 const MAX_LANES = 8;
+const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
 const CONFIDENT = 0.9;
 const KHZ_TOP = 12;
 export const BIRDNET_CREDIT = "Species identified automatically by BirdNET+ V3.0 (Cornell Lab of Ornithology and Chemnitz University of Technology). May contain errors.";
@@ -42,7 +44,7 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     if (player.segment === seg) player.toggle();
     else player.load(seg, { autoplay: true });
   } });
-  const head = el("div", { class: "detail-head" }, prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), playBtn, nextBtn);
+  const head = el("div", { class: "detail-head" }); // filled once the help and the actions exist (below)
 
   // ---- timeline ----------------------------------------------------------------
   // (touch: a sideways swipe on the header, or on the spectrogram when not
@@ -117,7 +119,19 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     const at = player.segment === seg ? (player.pendingSeek ?? player.currentTime) : 0;
     onCommentTime(seg, at);
   } }, "Comment at time");
-  const actions = el("div", { class: "detail-actions" }, help.button, comment, save.el);
+  // Wide screens: one row, the help by the title and Comment and Save before
+  // Play. Phones: the arrows and title, then Play across, then a row of actions.
+  let actions = null;
+  if (isPhone()) {
+    head.append(prevBtn, el("div", { class: "detail-heading" }, title, sub, weatherLine), playBtn, nextBtn);
+    actions = el("div", { class: "detail-actions" }, help.button, comment, save.el);
+  } else {
+    head.classList.add("wide");
+    head.append(prevBtn,
+      el("div", { class: "detail-heading" }, el("div", { class: "detail-title-row" }, title, help.button), sub, weatherLine),
+      el("div", { class: "detail-tools" }, comment, save.el),
+      playBtn, nextBtn);
+  }
   const root = el("div", { class: "detail" }, head, actions, help.panel, tl, lanesNote, more);
 
   function setZoom(z) {
@@ -257,7 +271,11 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   function onState() {
     if (!seg) return;
     const mine = player.segment === seg;
-    playBtn.textContent = mine && player.isPlaying ? "Pause" : "Play";
+    const playing = mine && player.isPlaying;
+    if (playBtn.dataset.playing !== String(playing)) {
+      playBtn.dataset.playing = String(playing);
+      playBtn.replaceChildren(el("span", { class: "btn-icon", html: playing ? ICON_PAUSE : ICON_PLAY }), playing ? "Pause" : "Play");
+    }
     playBtn.disabled = !seg.public_url;
     playhead.hidden = !mine;
     // the lanes of the species calling right now take on a little ochre

@@ -144,8 +144,10 @@ function fill(root, notes, weather, onPlay, site) {
         : el("span", {}, item.text),
     ])),
   ]);
-  // a way to give something back, for a listener moved by what they heard
-  if (hasSupport(site)) rows.push([el("dt", {}, "Care for this place"), el("dd", {}, supportText(site))]);
+  // A way to give something back, for a listener moved by what they heard.
+  // Phones only: there the place's own "Care for this place" is at the end of the
+  // page; wide screens show it once, in the header, not again under every session.
+  if (hasSupport(site) && isPhone()) rows.push([el("dt", {}, "Care for this place"), el("dd", {}, supportText(site))]);
   const help = info("the session notes",
     birds ? el("p", {}, "Written automatically from the BirdNET detections that are checked by ear or at least 70% sure. ",
       "First bird of the morning: the earliest call around dawn from a species not also heard deep in the night. ",
