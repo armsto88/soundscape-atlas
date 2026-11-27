@@ -69,11 +69,38 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.
 const ICON_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h2.5v14H5zm14 0v14L8.5 12z"/></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></svg>';
 const ICON_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 5H19v14h-2.5zM5 5l10.5 7L5 19z"/></svg>';
+const SPEAKER = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/>';
+const ICON_VOL = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>`;
+const ICON_VOL_LOW = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9a4 4 0 0 1 0 6"/></svg>`;
+const ICON_MUTED = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>`;
+
+// the listener's volume, kept in this browser
+const readStore = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const writeStore = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // a private window: the volume lasts until the page closes
+  }
+};
 
 class Player extends EventTarget {
   constructor() {
     super();
     this.listening = createListeningTracker();
+    // Volume: the listener's slider (wide screens; phones use their own buttons,
+    // and iOS ignores a page's volume), times the sleep timer's fade
+    const stored = Number(readStore("volume"));
+    this.userVolume = readStore("volume") !== null && Number.isFinite(stored) ? clamp(stored, 0, 1) : 1;
+    this.muted = readStore("muted") === "1";
+    this.fade = 1;
+    this.graph = null;
     this.audio = this.createAudio();
     this.segment = null;
     this.error = "";
@@ -123,6 +150,11 @@ class Player extends EventTarget {
     const a = document.createElement("audio");
     a.preload = "metadata";
     a.hidden = true;
+    try {
+      a.volume = clamp(this.effectiveVolume(), 0, 1); // a fresh element (each hour) keeps the listener's volume
+    } catch {
+      // read-only here
+    }
     const emit = () => this.emitState();
     for (const name of ["play", "pause", "playing", "waiting", "timeupdate", "durationchange", "ended", "emptied"]) {
       a.addEventListener(name, emit);
@@ -329,12 +361,16 @@ class Player extends EventTarget {
       const source = ctx.createMediaElementSource(this.audio);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
+      // the meter reads the recording itself; the listener's volume comes after it
+      const gain = ctx.createGain();
       source.connect(analyser);
-      analyser.connect(ctx.destination);
-      this.graph = { ctx, analyser, samples: new Float32Array(analyser.fftSize) };
+      analyser.connect(gain);
+      gain.connect(ctx.destination);
+      this.graph = { ctx, analyser, gain, samples: new Float32Array(analyser.fftSize) };
     } catch {
       this.graph = null;
     }
+    this.applyVolume();
     if (this.dom) this.dom.level.hidden = !this.graph;
   }
   startMeter() {
@@ -389,13 +425,52 @@ class Player extends EventTarget {
     }
     this.setVolume(left < FADE_SEC ? left / FADE_SEC : 1);
   }
-  // iOS keeps the volume with the listener, and ignores this
+  // the sleep timer's fade (0..1); iOS keeps the volume with the listener, and ignores this
   setVolume(v) {
+    this.fade = clamp(v, 0, 1);
+    this.applyVolume();
+  }
+  // the slider is 0..1; squared, so its middle sounds like the middle
+  effectiveVolume() {
+    return this.muted ? 0 : this.userVolume ** 2 * this.fade;
+  }
+  applyVolume() {
+    const v = this.effectiveVolume();
+    if (this.graph) this.graph.gain.gain.setTargetAtTime(v, this.graph.ctx.currentTime, 0.02);
+    const element = this.graph ? 1 : v; // with Web Audio the gain node does it
     try {
-      if (Math.abs(this.audio.volume - v) > 0.01) this.audio.volume = clamp(v, 0, 1);
+      if (Math.abs(this.audio.volume - element) > 0.001) this.audio.volume = clamp(element, 0, 1);
     } catch {
       // read-only here
     }
+  }
+  setUserVolume(v) {
+    this.userVolume = clamp(v, 0, 1);
+    if (this.userVolume > 0) this.muted = false; // moving the slider up unmutes
+    writeStore("volume", String(Math.round(this.userVolume * 100) / 100));
+    writeStore("muted", this.muted ? "1" : "0");
+    this.applyVolume();
+    this.renderVolume();
+  }
+  toggleMute() {
+    this.muted = !this.muted;
+    if (!this.muted && this.userVolume === 0) this.userVolume = 0.5; // unmuting a slider at zero
+    writeStore("muted", this.muted ? "1" : "0");
+    writeStore("volume", String(this.userVolume));
+    this.applyVolume();
+    this.renderVolume();
+  }
+  renderVolume() {
+    const d = this.dom;
+    if (!d || !d.volume) return;
+    const shown = this.muted ? 0 : this.userVolume;
+    if (Math.abs(Number(d.volume.value) - shown) > 0.001) d.volume.value = String(shown);
+    d.volume.setAttribute("aria-valuetext", `${Math.round(shown * 100)}%`);
+    const icon = shown === 0 ? ICON_MUTED : shown < 0.5 ? ICON_VOL_LOW : ICON_VOL;
+    if (d.mute.innerHTML !== icon) d.mute.innerHTML = icon;
+    const label = this.muted ? "Unmute" : "Mute";
+    d.mute.setAttribute("aria-label", label);
+    d.mute.title = label;
   }
 
   // ---- the lock screen and Control Center ------------------------------------
@@ -520,6 +595,13 @@ class Player extends EventTarget {
         d.sleep.focus();
       }
     });
+    // the volume (wide screens with a mouse): mute, and a slider
+    d.mute = el("button", { class: "player-mute", type: "button", onclick: () => this.toggleMute() });
+    d.volume = el("input", {
+      class: "player-volume", type: "range", min: "0", max: "1", step: "0.01", "aria-label": "Volume", title: "Volume",
+      oninput: (event) => this.setUserVolume(Number(event.target.value)),
+    });
+    d.vol = el("div", { class: "player-vol" }, d.mute, d.volume);
     d.msg = el("div", { class: "player-msg", hidden: true });
     d.retry = el("button", { class: "linklike", type: "button", onclick: () => this.retry() }, "Try again");
     d.progress = el("div", { class: "player-progress" });
@@ -539,10 +621,11 @@ class Player extends EventTarget {
     }, d.progress);
     d.bar = el("div", { class: "player", "data-state": "idle" },
       d.track,
-      el("div", { class: "player-row" }, d.play, d.title, d.now, d.msg, d.time, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
+      el("div", { class: "player-row" }, d.play, d.title, d.now, d.msg, d.time, d.vol, d.sleepWrap, el("div", { class: "player-nav" }, d.prev, d.next)));
     container.append(this.audio, d.bar);
     this.container = container;
     this.dom = d;
+    this.renderVolume();
     this.renderBar();
   }
 

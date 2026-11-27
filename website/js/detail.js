@@ -88,7 +88,9 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   const help = info("the hour view",
     el("p", {}, "The strip at the top is a spectrogram of the hour: time runs from left to right, pitch rises from 0 to 12 kHz, and louder sound is darker."),
     el("p", {}, "Below it, each lane is one species, and each mark a call or a run of calls found by BirdNET. Stronger marks are surer; green, full-height marks were checked by ear (✓). Click a mark to hear it, or anywhere else to listen from there."),
-    el("p", {}, "Lanes run from most to fewest calls. When many species called, some fold into “+ N more species”. More has every species, zoom, a filter and notes on the recording."));
+    el("p", {}, isPhone()
+      ? "Lanes run from most to fewest calls. When many species called, some fold into “+ N more species”. More has every species, zoom, a filter and notes on the recording."
+      : "Lanes run from most to fewest calls. When many species called, some fold into “+ N more species”. Zoom is above the spectrogram; More has every species, a filter and notes on the recording."));
 
   inner.addEventListener("click", (event) => {
     if (!seg || event.target.closest(".mark")) return;
@@ -97,15 +99,19 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
   });
 
   // ---- more ----------------------------------------------------------------------
-  const zoomBtns = [1, 2, 4, 8].map((z) => el("button", { class: `seg-btn${z === 1 ? " active" : ""}`, type: "button", onclick: () => setZoom(z) }, `${z}×`));
+  const zoomBtns = [1, 2, 4, 8].map((z) => el("button", { class: `seg-btn${z === 1 ? " active" : ""}`, type: "button", "aria-pressed": String(z === 1), onclick: () => setZoom(z) }, `${z}×`));
+  const zoomGroup = el("div", { class: "seg-group", role: "group", "aria-label": "Zoom" }, zoomBtns);
+  // Wide screens: zoom sits right above the spectrogram. Phones: in More (a swipe there turns the hour).
+  const wide = !isPhone();
+  const zoomBar = wide ? el("div", { class: "detail-zoom" }, el("span", { class: "muted" }, "Zoom"), zoomGroup) : null;
   const confidentOnly = el("input", { type: "checkbox", onchange: () => renderLanes() });
   const speciesList = el("ul", { class: "species" });
   const notes = el("dl", { class: "notes" });
   const more = el("details", { class: "more" },
-    el("summary", {}, "More: all species, zoom, filter, recording notes"),
+    el("summary", {}, wide ? "More: all species, filter, recording notes" : "More: all species, zoom, filter, recording notes"),
     el("div", { class: "more-body" },
       el("div", { class: "more-controls" },
-        el("div", { class: "seg-group", role: "group", "aria-label": "Zoom" }, zoomBtns),
+        wide ? null : zoomGroup,
         el("label", { class: "check" }, confidentOnly, ` Only confident detections (${Math.round(CONFIDENT * 100)}% or checked by ear)`),
         el("span", { class: "legend muted" }, el("i", { class: "swatch" }), " BirdNET  ", el("i", { class: "swatch checked" }), " checked by ear")),
       el("div", { class: "more-cols" },
@@ -132,7 +138,7 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
       el("div", { class: "detail-tools" }, comment, save.el),
       playBtn, nextBtn);
   }
-  const root = el("div", { class: "detail" }, head, actions, help.panel, tl, lanesNote, more);
+  const root = el("div", { class: "detail" }, head, actions, help.panel, zoomBar, tl, lanesNote, more);
 
   function setZoom(z) {
     const r = scroll.getBoundingClientRect();
@@ -140,7 +146,10 @@ export function createDetail(ctx, { onSelect, onCommentTime, focusName = () => n
     zoom = z;
     tl.classList.toggle("zoomed", z > 1); // zoomed, the spectrogram scrolls sideways instead of swiping hours
     inner.style.width = `${z * 100}%`;
-    zoomBtns.forEach((b, i) => b.classList.toggle("active", [1, 2, 4, 8][i] === z));
+    zoomBtns.forEach((b, i) => {
+      b.classList.toggle("active", [1, 2, 4, 8][i] === z);
+      b.setAttribute("aria-pressed", String([1, 2, 4, 8][i] === z));
+    });
     scroll.scrollLeft = centre * inner.getBoundingClientRect().width - r.width / 2;
   }
 

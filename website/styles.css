@@ -563,6 +563,9 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 .lanes-note { margin: 0.5rem 0 0; font-size: 0.88rem; }
 
 .more { margin-top: 0.8rem; border-top: 1px solid var(--rule); padding-top: 0.5rem; }
+/* wide screens: zoom right above the spectrogram, at its right edge */
+.detail-zoom { display: flex; justify-content: flex-end; align-items: center; gap: 0.55rem; margin: 0.2rem 0 0.45rem; font-size: 0.85rem; }
+.detail-zoom .seg-btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
 .more summary { cursor: pointer; color: var(--ink-2); font-size: 0.9rem; padding: 0.2rem 0; }
 @media (hover: hover) { .more summary:hover { color: var(--ink); } }
 .more-body { padding: 0.6rem 0 0.2rem; }
@@ -756,6 +759,14 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
 .linklike { background: none; border: 0; padding: 0; color: var(--green); text-decoration: underline; cursor: pointer; }
 .player-nav { display: flex; gap: 0.2rem; }
 .player[data-state="idle"] .player-nav { visibility: hidden; } /* no hour yet: nothing to step through */
+/* the volume (wide screens with a mouse; phones and tablets use their own buttons, and iOS ignores a page's volume) */
+.player-vol { display: flex; align-items: center; gap: 0.1rem; }
+.player[data-state="idle"] .player-vol { display: none; }
+.player-mute { width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: var(--ink-2); }
+.player-mute svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+@media (hover: hover) { .player-mute:hover { background: var(--paper-3); color: var(--ink); } }
+.player-volume { width: 84px; margin: 0 0.3rem 0 0; accent-color: var(--ink); cursor: pointer; }
+@media (pointer: coarse) { .player-vol { display: none; } }
 /* the sleep timer (wide screens): a moon, the minutes left beside it while it runs */
 .player-sleep-wrap { position: relative; }
 .player[data-state="idle"] .player-sleep-wrap { display: none; }
@@ -922,7 +933,7 @@ button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.
   .ring { width: 104px; height: 104px; }
   .ring img { max-width: 84px; max-height: 78px; }
   .ring .ph { width: 64px; height: 64px; }
-  .player-now, .player-level, .player-sleep-wrap { display: none; } /* phones: the sleep timer is in Now Playing */
+  .player-now, .player-level, .player-sleep-wrap, .player-vol { display: none; } /* phones: the sleep timer is in Now Playing, the volume on the phone's buttons */
   .player-title, .player-time { cursor: pointer; } /* a tap opens Now Playing */
   /* fewer words on a small screen: weather is in the session notes, credits on About */
   .detail-weather, .site-species .credit { display: none; }
