@@ -273,7 +273,9 @@ class Player extends EventTarget {
     const { audio, segment } = this;
     audio.play().catch((err) => {
       if (audio === this.audio && segment === this.segment && audio.paused) this.listening.finish();
-      if (err && err.name === "NotAllowedError") {
+      if (err && err.name === "AbortError") {
+        // interrupted by a pause or another hour before it started: not a failure
+      } else if (err && err.name === "NotAllowedError") {
         this.error = "Press play to start listening.";
       } else if (!this.audio.error) {
         this.error = "Playback could not start.";

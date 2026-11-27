@@ -83,7 +83,14 @@ export function createSessionChart(session, { maxRate, onSeek, onSelect }) {
   for (const t of session.sunsets) if (t > session.start && t < session.end) suns.append(el("span", { class: "sc-sun", style: { left: pct(x(t), 1) } }, `☾ sunset ${fmtClock(t)}`));
   for (const t of session.sunrises) if (t > session.start && t < session.end) suns.append(el("span", { class: "sc-sun", style: { left: pct(x(t), 1) } }, `☀ sunrise ${fmtClock(t)}`));
   const ticks = el("div", { class: "sc-ticks" },
-    el("span", { class: "sc-end start" }, el("b", {}, "▶ start"), ` ${fmtClock(session.start)}`),
+    // "▶ start" plays the session from its first published second
+    el("button", {
+      class: "sc-end start", type: "button", "aria-label": `Play from the start, ${fmtClock(session.start)}`,
+      onclick: () => {
+        const first = session.segments.find((s) => s.public_url) || session.segments[0];
+        if (first) onSeek(first, Math.max(0, (session.start - first.start) / 1000));
+      },
+    }, el("b", {}, "▶ start"), ` ${fmtClock(session.start)}`),
     el("span", { class: "sc-end end" }, `${fmtClock(session.end)} `, el("b", {}, "end ■")));
   const step = span > 10 * HOUR ? 3 * HOUR : span > 4 * HOUR ? HOUR : HOUR / 2;
   for (let t = Math.ceil(session.start / step) * step; t < session.end; t += step) {

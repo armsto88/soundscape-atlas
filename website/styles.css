@@ -448,6 +448,11 @@ small { font-size: 0.8em; }
 .sc-end { position: absolute; top: 0.2rem; color: var(--ink); white-space: nowrap; }
 .sc-end b { font-weight: 600; }
 .sc-end.start { left: 0; }
+/* "▶ start" is a button: no box and in line with "end", but a finger-sized target
+   (an invisible ::after around it), and a hover underline */
+button.sc-end.start { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; cursor: pointer; }
+button.sc-end.start::after { content: ""; position: absolute; inset: -0.7rem -0.8rem -0.7rem -0.3rem; }
+@media (hover: hover) { button.sc-end.start:hover { text-decoration: underline; text-underline-offset: 3px; } }
 .sc-end.end { right: 0; }
 
 /* ---- session notes: marginalia under the chart, each moment playable ---- */

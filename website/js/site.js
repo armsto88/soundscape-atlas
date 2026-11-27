@@ -77,10 +77,13 @@ export function render(main, model, params, ctx) {
   const quick = quickListen(site);
   const listenIcon = el("span", { class: "site-listen-icon", html: ICON_PLAY });
   const listenLabel = quick ? (quick.kind === "dawn" ? "Dawn chorus" : humanize(quick.seg.period) || "Listen") : "";
+  // It does what it says: from anywhere else, even elsewhere in this place, it goes
+  // to that moment; only while that moment is what's playing does it pause or carry on.
+  const atQuick = () => Boolean(quick) && player.segment === quick.seg && player.moment >= quick.moment - 60_000;
   const listen = quick ? el("button", {
     class: "site-listen", type: "button",
     onclick: () => {
-      if (player.segment && player.segment.site === site) player.toggle(); // this place is loaded: pause, or carry on
+      if (atQuick()) player.toggle();
       else select(quick.seg, { play: true, at: quick.at, reveal: false });
     },
   }, listenIcon, el("span", { class: "site-listen-text" },
@@ -88,10 +91,11 @@ export function render(main, model, params, ctx) {
     el("small", {}, `${fmtDay(quick.moment, { weekday: false })}, from ${fmtClock(quick.moment)}`))) : null;
   const showListen = () => {
     if (!listen) return;
-    const here = player.segment && player.segment.site === site;
+    const here = atQuick();
     const playing = here && player.isPlaying;
-    listenIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
-    listen.setAttribute("aria-label", playing ? "Pause" : here ? "Carry on listening" : `Listen: ${listenLabel}`);
+    const icon = playing ? ICON_PAUSE : ICON_PLAY;
+    if (listenIcon.innerHTML !== icon) listenIcon.innerHTML = icon; // this runs on every tick of the player
+    listen.setAttribute("aria-label", playing ? "Pause" : here ? `Carry on: ${listenLabel}` : `Listen: ${listenLabel}`);
   };
   const counts = el("p", { class: "muted site-counts" }, `${plural(site.sessions.length, "session")} · ${plural(site.hours, "hour")}` +
     (site.species.length ? ` · ${plural(site.species.length, "species", "species")} heard so far` : " · species not yet identified"));
