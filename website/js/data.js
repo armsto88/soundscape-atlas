@@ -419,11 +419,12 @@ export function chorusPeak(session, which) {
 // What the atlas's play button plays at a place, always the same for a place:
 // - an hour marked featured in segments.csv, from its start;
 // - otherwise the session of the liveliest dawn hour (most detections), from
-//   half an hour before its dawn chorus is at its fullest, so the listener hears
-//   the chorus build (half an hour before sunrise if it never reaches a chorus);
+//   DAWN_LEAD before its sunrise, so every "Dawn chorus" starts the same way;
 // - otherwise the liveliest hour, from its busiest five minutes;
-// - otherwise the latest session, from half an hour before sunrise (or its start).
+// - otherwise the latest session, from DAWN_LEAD before sunrise (or its start).
+// (The session notes' "Dawn chorus at its fullest" is chorusPeak, a different moment.)
 // Returns { seg, at (seconds into seg), moment (ms), kind } or null.
+const DAWN_LEAD = 10 * MINUTE; // "Dawn chorus" starts this long before sunrise (Tom, 27 Nov 2026)
 export function quickListen(site) {
   const hours = site.segments.filter((s) => s.public_url);
   if (!hours.length) return null;
@@ -438,9 +439,8 @@ export function quickListen(site) {
   const dawns = hours.filter((s) => s.period === "dawn" && s.detection_count > 0);
   if (dawns.length) {
     const seg = liveliest(dawns);
-    const peak = chorusPeak(seg.session, "dawn");
     const sunrise = seg.session.sunrises.find((t) => t > seg.start - HOUR && t < seg.end + HOUR);
-    const t = peak ? peak.t - 30 * MINUTE : sunrise ? sunrise - 30 * MINUTE : seg.start;
+    const t = sunrise ? sunrise - DAWN_LEAD : seg.start;
     return { ...startFrom(seg.session, t), kind: "dawn" };
   }
   const busy = hours.filter((s) => s.detection_count > 0);
@@ -450,7 +450,7 @@ export function quickListen(site) {
   }
   const session = site.sessions.find((s) => s.segments.some((x) => x.public_url));
   const sunrise = session.sunrises.find((t) => t >= session.start && t <= session.end);
-  return { ...startFrom(session, sunrise ? sunrise - 30 * MINUTE : session.start), kind: sunrise ? "dawn" : "start" };
+  return { ...startFrom(session, sunrise ? sunrise - DAWN_LEAD : session.start), kind: sunrise ? "dawn" : "start" };
 }
 
 // the published hour holding moment t (or the next one after it), and where in it to start
