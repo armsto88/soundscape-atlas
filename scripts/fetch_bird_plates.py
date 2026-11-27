@@ -138,9 +138,19 @@ def main() -> int:
         "| File | Species | Plate by | Original scan |",
         "|---|---|---|---|",
     ]
+    rows = {}
     for key, sp, meta in found:
         source = SOURCE_NAMES.get(meta.get("source", ""), meta.get("source", ""))
-        lines.append(f"| {key}.webp | {sp['name']} (*{sp['scientific']}*) | {source} | [link]({meta.get('url', '')}) |")
+        rows[f"{key}.webp"] = f"| {key}.webp | {sp['name']} (*{sp['scientific']}*) | {source} | [link]({meta.get('url', '')}) |"
+    # a plate stays in the folder when its bird is no longer shown (a session held back or
+    # unpublished): keep its earlier credit while the file is there
+    own_files = {f"{key}.webp" for key, _, _ in own}
+    if (out_dir / "CREDITS.md").exists():
+        for line in (out_dir / "CREDITS.md").read_text(encoding="utf-8").split("## Cut for this site")[0].splitlines():
+            match = re.match(r"\| ([a-z0-9-]+\.webp) \|", line)
+            if match and match.group(1) not in rows and match.group(1) not in own_files and (out_dir / match.group(1)).exists():
+                rows[match.group(1)] = line
+    lines += [rows[name] for name in sorted(rows)]
     if own:
         lines += [
             "",
