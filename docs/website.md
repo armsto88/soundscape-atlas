@@ -339,6 +339,14 @@ screens the bar's title opens the place page at the hour playing; pressed on
 that place's page, it scrolls the playing session into view instead (the
 player's `reveal` event).
 
+A press on any Play (a place's Dawn chorus, a card, a list's ▶, a moment, a
+tap on a chart or a call, the bar) brings the sound up over a second instead
+of all at once (`FADE_IN_MS` in `js/player.js`), starting when the audio
+actually sounds (its "playing" or "seeked" event), not when the button is
+pressed, so a slow start doesn't use the fade up silently. An hour that runs on
+into the next doesn't fade. iPhones and iPads leave the volume with the
+listener, so there it starts at full volume, as before.
+
 The **sleep timer** (15, 30 or 60 minutes, or the end of the hour) is the moon
 in the player bar on wide screens, showing the minutes left beside it while it
 runs. Phones have it in the hour in detail (`createSleepControl` in

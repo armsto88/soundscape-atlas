@@ -66,6 +66,12 @@ export function hourSuggestion(seg) {
 // the sleep timer's choices: minutes, or "hour" to stop when this hour ends
 export const SLEEP_CHOICES = [15, 30, 60, "hour"];
 const FADE_SEC = 8; // the sound fades over the last seconds (where the browser lets a page set the volume)
+// A press on Play (or on a moment, a chart, a call) brings the sound up over a
+// second instead of all at once, from when it actually starts. Hours that follow
+// on by themselves don't fade. Where the browser lets a page set the volume:
+// iPhones and iPads leave it with the listener (a plain <audio> there, see above).
+const FADE_IN_MS = 1000;
+const FADE_IN_GIVE_UP_MS = 15000; // a start no event announced: come up anyway, rather than play silent
 
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
@@ -179,11 +185,15 @@ class Player extends EventTarget {
     super();
     this.listening = createListeningTracker();
     // Volume: the listener's slider (wide screens; phones use their own buttons,
-    // and iOS ignores a page's volume), times the sleep timer's fade
+    // and iOS ignores a page's volume), times the sleep timer's fade, times the fade-in
     const stored = Number(readStore("volume"));
     this.userVolume = readStore("volume") !== null && Number.isFinite(stored) ? clamp(stored, 0, 2) : 1;
     this.muted = readStore("muted") === "1";
     this.fade = 1;
+    this.rampIn = 1;        // the fade-in after a press on Play (0..1)
+    this.fadeInPending = false;
+    this.fadeInTimer = 0;
+    this.fadeInWait = 0;
     this.graph = null;
     this.audio = this.createAudio();
     this.segment = null;
@@ -269,7 +279,7 @@ class Player extends EventTarget {
         return;
       }
       const next = this.next();
-      if (next) this.load(next, { autoplay: true });
+      if (next) this.load(next, { autoplay: true, fadeIn: false }); // one hour runs on into the next
       else this.listening.finish();
     });
     a.addEventListener("playing", () => {
@@ -283,6 +293,10 @@ class Player extends EventTarget {
     });
     a.addEventListener("seeked", () => {
       if (a === this.audio && !a.paused && !a.ended && a.readyState >= a.HAVE_FUTURE_DATA) this.listening.resume();
+    });
+    // the fade-in starts with the sound: on "playing", or after a jump within a playing hour
+    for (const name of ["playing", "seeked"]) a.addEventListener(name, () => {
+      if (a === this.audio && this.fadeInPending && !a.paused && !a.seeking) this.startFadeIn();
     });
     a.addEventListener("pause", () => {
       if (a === this.audio && a.paused && !a.ended) this.listening.finish();
@@ -364,11 +378,11 @@ class Player extends EventTarget {
   }
 
   // Load an hour, optionally starting `at` a number of seconds into it.
-  load(segment, { autoplay = false, at = null } = {}) {
+  load(segment, { autoplay = false, at = null, fadeIn = true } = {}) {
     if (!segment) return;
     if (this.segment === segment) {
       if (at !== null) this.seek(at);
-      if (autoplay) this.play();
+      if (autoplay) this.play({ fadeIn });
       return;
     }
     this.listening.interrupt();
@@ -397,14 +411,16 @@ class Player extends EventTarget {
     }
     this.dispatchEvent(new CustomEvent("change", { detail: segment }));
     this.setMediaMetadata();
-    if (autoplay && segment.public_url) this.play();
+    if (autoplay && segment.public_url) this.play({ fadeIn });
     this.emitState();
   }
 
-  play() {
+  play({ fadeIn = true } = {}) {
     if (!this.segment || !this.segment.public_url) return;
     this.wanted = true;
     this.error = "";
+    if (fadeIn) this.holdFadeIn();
+    else this.cancelFadeIn();
     this.ensureGraph();
     if (this.graph && this.graph.ctx.state === "suspended") this.graph.ctx.resume().catch(() => {});
     const { audio, segment } = this;
@@ -424,6 +440,7 @@ class Player extends EventTarget {
     this.wanted = false;
     this.listening.finish();
     this.audio.pause();
+    this.cancelFadeIn();
     if (this.sleep) this.setSleep(null); // a timer outlives no pause: it would fire on the next play
   }
   toggle() {
@@ -546,22 +563,75 @@ class Player extends EventTarget {
     }
     this.setVolume(left < FADE_SEC ? left / FADE_SEC : 1);
   }
+  // ---- the fade-in ------------------------------------------------------------
+  // Silent until the sound starts (holdFadeIn), then up over FADE_IN_MS on a
+  // squared curve, which sounds even to the ear. A timer, not animation frames,
+  // so it also finishes in a background tab.
+
+  holdFadeIn() {
+    this.cancelFadeIn();
+    this.rampIn = 0;
+    this.fadeInPending = true;
+    this.applyVolume();
+    // the "playing" and "seeked" events usually start it; this catches a start
+    // they missed, and waits for as long as the audio is still loading
+    const t0 = performance.now();
+    const sounding = () => {
+      const a = this.audio;
+      return !a.paused && !a.seeking && a.readyState >= a.HAVE_FUTURE_DATA;
+    };
+    this.fadeInWait = setInterval(() => {
+      if (sounding() || performance.now() - t0 > FADE_IN_GIVE_UP_MS) this.startFadeIn();
+    }, 250);
+    if (sounding()) this.startFadeIn(); // already playing, with nothing to load
+  }
+  startFadeIn() {
+    if (!this.fadeInPending) return;
+    this.fadeInPending = false;
+    clearInterval(this.fadeInWait);
+    clearInterval(this.fadeInTimer);
+    const t0 = performance.now();
+    this.fadeInTimer = setInterval(() => {
+      const p = Math.min(1, (performance.now() - t0) / FADE_IN_MS);
+      this.rampIn = p * p;
+      this.applyVolume();
+      if (p >= 1) {
+        clearInterval(this.fadeInTimer);
+        this.fadeInTimer = 0;
+      }
+    }, 30);
+  }
+  cancelFadeIn() {
+    clearInterval(this.fadeInWait);
+    clearInterval(this.fadeInTimer);
+    this.fadeInTimer = 0;
+    this.fadeInPending = false;
+    if (this.rampIn !== 1) {
+      this.rampIn = 1;
+      this.applyVolume();
+    }
+  }
+
   // the sleep timer's fade (0..1); iOS keeps the volume with the listener, and ignores this
   setVolume(v) {
     this.fade = clamp(v, 0, 1);
     this.applyVolume();
   }
   // the slider (0..2, see BOOST_DB) as a gain, times the sleep timer's fade
-  effectiveVolume() {
+  baseVolume() {
     if (this.muted) return 0;
     const s = this.userVolume;
     return (s <= 1 ? s ** 2 : 10 ** (((s - 1) * BOOST_DB) / 20)) * this.fade;
+  }
+  // ... times the fade-in
+  effectiveVolume() {
+    return this.baseVolume() * this.rampIn;
   }
   applyVolume() {
     const v = this.effectiveVolume();
     if (this.graph) {
       const { ctx, gain, dry, wet } = this.graph;
-      const boosting = v > 1;
+      const boosting = this.baseVolume() > 1; // by the listener's setting, so the fade-in doesn't switch paths halfway
       gain.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
       dry.gain.setTargetAtTime(boosting ? 0 : 1, ctx.currentTime, 0.02);
       wet.gain.setTargetAtTime(boosting ? 1 : 0, ctx.currentTime, 0.02);
